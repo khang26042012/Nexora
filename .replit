@@ -1,6 +1,9 @@
 modules = ["nodejs-24"]
 
 [[artifacts]]
+id = "artifacts/portfolio"
+
+[[artifacts]]
 id = "artifacts/api-server"
 
 [[artifacts]]
