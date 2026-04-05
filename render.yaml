@@ -7,6 +7,10 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: BASE_PATH
+        value: /
+      - key: PORT
+        value: 3000
     routes:
       - type: rewrite
         source: /*
