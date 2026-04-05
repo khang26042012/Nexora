@@ -1,4 +1,5 @@
 import { Navigation } from "@/components/navigation";
+import { ThreeScene } from "@/components/ThreeScene";
 import {
   motion,
   useScroll,
@@ -6,12 +7,12 @@ import {
   useMotionValue,
   useSpring,
   AnimatePresence,
+  useInView,
 } from "framer-motion";
 import {
   ArrowRight,
   Github,
   Mail,
-  BrainCircuit,
   ExternalLink,
   Cpu,
   Network,
@@ -20,132 +21,57 @@ import {
   Trophy,
   Sparkles,
   Leaf,
+  Code2,
+  Wifi,
+  Brain,
+  CloudCog,
+  MessageSquare,
+  GraduationCap,
+  Star,
+  ChevronDown,
 } from "lucide-react";
-import { Link } from "wouter";
 import { useRef, useEffect, useState, useCallback } from "react";
 import avatarImg from "@assets/IMG_20251219_183126_1775387730987.jpg";
 
-const PARTICLES = Array.from({ length: 28 }, (_, i) => ({
-  id: i,
-  x: Math.random() * 100,
-  y: Math.random() * 100,
-  size: Math.random() * 2 + 1,
-  duration: Math.random() * 10 + 12,
-  delay: Math.random() * 6,
-}));
-
-const GRID_LINES = Array.from({ length: 8 }, (_, i) => i);
-
-function FloatingParticles() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {PARTICLES.map((p) => (
-        <motion.div
-          key={p.id}
-          className="absolute rounded-full bg-black/20 dark:bg-white/20"
-          style={{ left: `${p.x}%`, top: `${p.y}%`, width: p.size, height: p.size }}
-          animate={{ y: [0, -40, 0], x: [0, Math.random() * 20 - 10, 0], opacity: [0, 0.6, 0], scale: [0.5, 1.2, 0.5] }}
-          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: "easeInOut" }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function GridBackground() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.04] dark:opacity-[0.06]">
-      {GRID_LINES.map((i) => (
-        <motion.div
-          key={`h-${i}`}
-          className="absolute left-0 right-0 h-px bg-black dark:bg-white"
-          style={{ top: `${(i + 1) * (100 / (GRID_LINES.length + 1))}%` }}
-          initial={{ scaleX: 0, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 1 }}
-          transition={{ duration: 1.2, delay: i * 0.1, ease: "easeOut" }}
-        />
-      ))}
-      {GRID_LINES.map((i) => (
-        <motion.div
-          key={`v-${i}`}
-          className="absolute top-0 bottom-0 w-px bg-black dark:bg-white"
-          style={{ left: `${(i + 1) * (100 / (GRID_LINES.length + 1))}%` }}
-          initial={{ scaleY: 0, opacity: 0 }}
-          animate={{ scaleY: 1, opacity: 1 }}
-          transition={{ duration: 1.2, delay: i * 0.1 + 0.05, ease: "easeOut" }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function CursorGlow() {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const springX = useSpring(x, { stiffness: 60, damping: 20 });
-  const springY = useSpring(y, { stiffness: 60, damping: 20 });
+  const x = useMotionValue(-400);
+  const y = useMotionValue(-400);
+  const springX = useSpring(x, { stiffness: 80, damping: 25 });
+  const springY = useSpring(y, { stiffness: 80, damping: 25 });
+  const [visible, setVisible] = useState(false);
+
   useEffect(() => {
-    const move = (e: MouseEvent) => { x.set(e.clientX - 200); y.set(e.clientY - 200); };
+    const move = (e: MouseEvent) => {
+      x.set(e.clientX - 250);
+      y.set(e.clientY - 250);
+      setVisible(true);
+    };
     window.addEventListener("mousemove", move);
     return () => window.removeEventListener("mousemove", move);
   }, [x, y]);
+
+  if (!visible) return null;
   return (
     <motion.div
-      className="pointer-events-none fixed z-0 w-[400px] h-[400px] rounded-full opacity-[0.06] dark:opacity-[0.08]"
-      style={{ left: springX, top: springY, background: "radial-gradient(circle, rgba(255,255,255,1) 0%, transparent 70%)" }}
+      className="pointer-events-none fixed z-0 w-[500px] h-[500px] rounded-full"
+      style={{
+        left: springX,
+        top: springY,
+        background:
+          "radial-gradient(circle, rgba(100,120,255,0.06) 0%, rgba(150,100,255,0.03) 40%, transparent 70%)",
+      }}
     />
-  );
-}
-
-function AvatarOrb() {
-  return (
-    <div className="relative flex items-center justify-center">
-      <motion.div
-        className="absolute w-44 h-44 rounded-full border border-black/10 dark:border-white/10"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-      >
-        {[0, 90, 180, 270].map((deg) => (
-          <div
-            key={deg}
-            className="absolute w-2 h-2 rounded-full bg-black/30 dark:bg-white/30"
-            style={{ top: "50%", left: "50%", transform: `rotate(${deg}deg) translateX(86px) translateY(-50%)` }}
-          />
-        ))}
-      </motion.div>
-      <motion.div
-        className="absolute w-36 h-36 rounded-full border border-black/15 dark:border-white/15"
-        animate={{ scale: [1, 1.06, 1], opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute w-32 h-32 rounded-full bg-black/5 dark:bg-white/10"
-        animate={{ scale: [1, 1.15, 1], opacity: [0.3, 0.7, 0.3] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-      />
-      <motion.div
-        initial={{ scale: 0.7, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        whileHover={{ scale: 1.04 }}
-        className="relative z-10 w-28 h-28 rounded-full overflow-hidden border-2 border-black/20 dark:border-white/20 shadow-2xl"
-      >
-        <img src={avatarImg} alt="Phan Trọng Khang" className="w-full h-full object-cover" />
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0"
-          whileHover={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        />
-      </motion.div>
-    </div>
   );
 }
 
 function GlitchText({ text }: { text: string }) {
   const [glitch, setGlitch] = useState(false);
   useEffect(() => {
-    const interval = setInterval(() => { setGlitch(true); setTimeout(() => setGlitch(false), 200); }, 5000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => {
+      setGlitch(true);
+      setTimeout(() => setGlitch(false), 220);
+    }, 6000);
+    return () => clearInterval(id);
   }, []);
   return (
     <span className="relative inline-block">
@@ -153,8 +79,24 @@ function GlitchText({ text }: { text: string }) {
       <AnimatePresence>
         {glitch && (
           <>
-            <motion.span className="absolute inset-0 text-black/30 dark:text-white/30" initial={{ x: 0, opacity: 0 }} animate={{ x: [-3, 3, -1, 0], opacity: [0, 0.8, 0.4, 0] }} transition={{ duration: 0.2 }} style={{ clipPath: "inset(20% 0 60% 0)" }}>{text}</motion.span>
-            <motion.span className="absolute inset-0 text-black/20 dark:text-white/20" initial={{ x: 0, opacity: 0 }} animate={{ x: [3, -3, 1, 0], opacity: [0, 0.6, 0.3, 0] }} transition={{ duration: 0.2 }} style={{ clipPath: "inset(60% 0 20% 0)" }}>{text}</motion.span>
+            <motion.span
+              className="absolute inset-0 text-violet-400/50 dark:text-violet-300/40"
+              initial={{ x: 0, opacity: 0 }}
+              animate={{ x: [-4, 4, -2, 0], opacity: [0, 0.9, 0.5, 0] }}
+              transition={{ duration: 0.22 }}
+              style={{ clipPath: "inset(15% 0 55% 0)" }}
+            >
+              {text}
+            </motion.span>
+            <motion.span
+              className="absolute inset-0 text-cyan-400/40 dark:text-cyan-300/30"
+              initial={{ x: 0, opacity: 0 }}
+              animate={{ x: [4, -4, 2, 0], opacity: [0, 0.7, 0.3, 0] }}
+              transition={{ duration: 0.22 }}
+              style={{ clipPath: "inset(55% 0 15% 0)" }}
+            >
+              {text}
+            </motion.span>
           </>
         )}
       </AnimatePresence>
@@ -163,345 +105,993 @@ function GlitchText({ text }: { text: string }) {
 }
 
 function TypewriterTitle() {
+  const titles = ["AI Architect", "Prompt Master", "IoT Developer", "AI Builder"];
+  const [titleIdx, setTitleIdx] = useState(0);
   const [displayed, setDisplayed] = useState("");
-  const full = "AI Architect";
-  const [done, setDone] = useState(false);
+  const [phase, setPhase] = useState<"typing" | "waiting" | "deleting">("typing");
+
   useEffect(() => {
-    let i = 0;
-    const timer = setInterval(() => {
-      if (i < full.length) { setDisplayed(full.slice(0, i + 1)); i++; }
-      else { setDone(true); clearInterval(timer); }
-    }, 80);
-    return () => clearInterval(timer);
-  }, []);
+    const full = titles[titleIdx];
+    let timer: ReturnType<typeof setTimeout>;
+
+    if (phase === "typing") {
+      if (displayed.length < full.length) {
+        timer = setTimeout(() => setDisplayed(full.slice(0, displayed.length + 1)), 75);
+      } else {
+        timer = setTimeout(() => setPhase("waiting"), 2200);
+      }
+    } else if (phase === "waiting") {
+      timer = setTimeout(() => setPhase("deleting"), 300);
+    } else {
+      if (displayed.length > 0) {
+        timer = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 40);
+      } else {
+        setTitleIdx((i) => (i + 1) % titles.length);
+        setPhase("typing");
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [displayed, phase, titleIdx]);
+
   return (
-    <span>
+    <span className="font-mono">
       {displayed}
-      {!done && (
-        <motion.span animate={{ opacity: [1, 0] }} transition={{ duration: 0.5, repeat: Infinity }} className="inline-block w-0.5 h-6 bg-current ml-0.5 align-middle" />
-      )}
+      <motion.span
+        animate={{ opacity: [1, 0] }}
+        transition={{ duration: 0.55, repeat: Infinity }}
+        className="inline-block w-[2px] h-5 md:h-7 bg-violet-400 ml-0.5 align-middle"
+      />
     </span>
   );
 }
 
-function ProjectCard({ project, i }: { project: { id: string; title: string; desc: string; tag: string; icon: React.ElementType; href: string }; i: number }) {
+function AvatarOrb() {
+  return (
+    <div className="relative flex items-center justify-center select-none">
+      {[160, 128, 108].map((size, i) => (
+        <motion.div
+          key={size}
+          className="absolute rounded-full border border-white/10"
+          style={{ width: size, height: size }}
+          animate={{
+            scale: [1, 1 + 0.04 * (i + 1), 1],
+            opacity: [0.3 + i * 0.1, 0.7 - i * 0.05, 0.3 + i * 0.1],
+          }}
+          transition={{
+            duration: 3 + i,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: i * 0.6,
+          }}
+        />
+      ))}
+
+      <motion.div
+        className="absolute w-44 h-44 rounded-full"
+        style={{
+          border: "1px solid rgba(130,100,255,0.25)",
+        }}
+        animate={{ rotate: 360 }}
+        transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
+      >
+        {[0, 90, 180, 270].map((deg) => (
+          <div
+            key={deg}
+            className="absolute w-1.5 h-1.5 rounded-full bg-violet-400/60"
+            style={{
+              top: "50%",
+              left: "50%",
+              transform: `rotate(${deg}deg) translateX(86px) translateY(-50%)`,
+            }}
+          />
+        ))}
+      </motion.div>
+
+      <motion.div
+        className="absolute w-36 h-36 rounded-full"
+        style={{ border: "1px dashed rgba(100,180,255,0.15)" }}
+        animate={{ rotate: -360 }}
+        transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
+      />
+
+      <motion.div
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+        whileHover={{ scale: 1.05 }}
+        className="relative z-10 w-28 h-28 rounded-full overflow-hidden shadow-2xl"
+        style={{ border: "2px solid rgba(130,100,255,0.4)" }}
+      >
+        <img
+          src={avatarImg}
+          alt="Phan Trọng Khang"
+          className="w-full h-full object-cover"
+        />
+        <motion.div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(130,100,255,0.15) 0%, transparent 60%)",
+          }}
+          whileHover={{ opacity: 1 }}
+          initial={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+        />
+      </motion.div>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-mono tracking-[0.25em] uppercase text-white/30 mb-3 flex items-center gap-2">
+      <span className="inline-block w-4 h-px bg-violet-500/60" />
+      {children}
+    </p>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true });
+  return (
+    <div ref={ref}>
+      <motion.h2
+        initial={{ opacity: 0, y: 24 }}
+        animate={inView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        className="text-4xl md:text-5xl font-bold tracking-tight mb-4"
+      >
+        {children}
+      </motion.h2>
+      <motion.div
+        initial={{ scaleX: 0 }}
+        animate={inView ? { scaleX: 1 } : {}}
+        transition={{ duration: 0.6, delay: 0.2 }}
+        className="w-14 h-0.5 rounded-full origin-left"
+        style={{ background: "linear-gradient(90deg, #7c6fff, #a78bfa)" }}
+      />
+    </div>
+  );
+}
+
+const skillsData = [
+  { label: "Prompt Engineering", pct: 95, icon: Brain, color: "#a78bfa" },
+  { label: "Trí Tuệ Nhân Tạo", pct: 88, icon: Sparkles, color: "#818cf8" },
+  { label: "IoT / ESP32", pct: 80, icon: Wifi, color: "#38bdf8" },
+  { label: "Python", pct: 75, icon: Code2, color: "#34d399" },
+  { label: "Chatbot AI", pct: 82, icon: MessageSquare, color: "#fb923c" },
+  { label: "Lưu Trữ Đám Mây", pct: 70, icon: CloudCog, color: "#f472b6" },
+];
+
+function SkillBar({
+  label,
+  pct,
+  icon: Icon,
+  color,
+  delay,
+}: {
+  label: string;
+  pct: number;
+  icon: React.ElementType;
+  color: string;
+  delay: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, x: -20 }}
+      animate={inView ? { opacity: 1, x: 0 } : {}}
+      transition={{ duration: 0.6, delay }}
+      className="space-y-2"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4" style={{ color }} />
+          <span className="text-sm font-medium text-white/80">{label}</span>
+        </div>
+        <motion.span
+          className="text-xs font-mono"
+          style={{ color }}
+          initial={{ opacity: 0 }}
+          animate={inView ? { opacity: 1 } : {}}
+          transition={{ delay: delay + 0.4 }}
+        >
+          {pct}%
+        </motion.span>
+      </div>
+      <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ background: `linear-gradient(90deg, ${color}80, ${color})` }}
+          initial={{ width: 0 }}
+          animate={inView ? { width: `${pct}%` } : {}}
+          transition={{ duration: 1.1, delay: delay + 0.2, ease: [0.16, 1, 0.3, 1] }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+const timelineData = [
+  {
+    year: "2025",
+    title: "AI Architect & Full-Stack Builder",
+    desc: "Phát triển NexoraGarden, Nexorax, NexoraNode — các sản phẩm AI thực chiến từ ý tưởng đến triển khai.",
+    icon: Brain,
+    color: "#a78bfa",
+  },
+  {
+    year: "2024",
+    title: "Giải Nhất Tin Học Cấp Trường",
+    desc: "Đạt giải cao nhất cuộc thi tin học tại THCS Vĩnh Hòa. Bước đà quan trọng vào thế giới lập trình.",
+    icon: Trophy,
+    color: "#fbbf24",
+  },
+  {
+    year: "2023",
+    title: "Khám Phá IoT & Python",
+    desc: "Bắt đầu nghiên cứu ESP32, cảm biến môi trường và tự học Python để xây dựng các dự án thực tế.",
+    icon: Wifi,
+    color: "#38bdf8",
+  },
+  {
+    year: "2022",
+    title: "Khởi Đầu Hành Trình Công Nghệ",
+    desc: "Lần đầu tiếp xúc với lập trình và nhận ra đam mê với việc tạo ra phần mềm từ ý tưởng.",
+    icon: GraduationCap,
+    color: "#34d399",
+  },
+];
+
+function TimelineItem({
+  item,
+  i,
+}: {
+  item: (typeof timelineData)[0];
+  i: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const Icon = item.icon;
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, x: i % 2 === 0 ? -40 : 40 }}
+      animate={inView ? { opacity: 1, x: 0 } : {}}
+      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="flex gap-4 md:gap-6 items-start"
+    >
+      <div className="flex flex-col items-center flex-shrink-0">
+        <motion.div
+          className="w-10 h-10 rounded-full flex items-center justify-center z-10"
+          style={{
+            background: `${item.color}18`,
+            border: `1px solid ${item.color}40`,
+          }}
+          whileHover={{ scale: 1.15 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Icon className="w-4 h-4" style={{ color: item.color }} />
+        </motion.div>
+        {i < timelineData.length - 1 && (
+          <motion.div
+            className="w-px flex-1 min-h-[40px] mt-2"
+            style={{ background: `linear-gradient(180deg, ${item.color}30, transparent)` }}
+            initial={{ scaleY: 0 }}
+            animate={inView ? { scaleY: 1 } : {}}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          />
+        )}
+      </div>
+      <div className="pb-8">
+        <span
+          className="text-xs font-mono tracking-widest mb-1 block"
+          style={{ color: item.color }}
+        >
+          {item.year}
+        </span>
+        <h3 className="text-base md:text-lg font-bold text-white/90 mb-1">{item.title}</h3>
+        <p className="text-sm text-white/50 leading-relaxed">{item.desc}</p>
+      </div>
+    </motion.div>
+  );
+}
+
+function ProjectCard({
+  project,
+  i,
+}: {
+  project: {
+    id: string;
+    title: string;
+    desc: string;
+    tag: string;
+    icon: React.ElementType;
+    href: string;
+    tech: string[];
+    status: string;
+    color: string;
+  };
+  i: number;
+}) {
   const Icon = project.icon;
   const [hovered, setHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);
-  const springRotX = useSpring(rotateX, { stiffness: 150, damping: 20 });
-  const springRotY = useSpring(rotateY, { stiffness: 150, damping: 20 });
-  const onMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const card = cardRef.current;
-    if (!card) return;
-    const rect = card.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    rotateX.set(((e.clientY - cy) / (rect.height / 2)) * -8);
-    rotateY.set(((e.clientX - cx) / (rect.width / 2)) * 8);
+  const springRotX = useSpring(rotateX, { stiffness: 180, damping: 22 });
+  const springRotY = useSpring(rotateY, { stiffness: 180, damping: 22 });
+
+  const onMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const card = cardRef.current;
+      if (!card) return;
+      const rect = card.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      rotateX.set(((e.clientY - cy) / (rect.height / 2)) * -8);
+      rotateY.set(((e.clientX - cx) / (rect.width / 2)) * 8);
+    },
+    [rotateX, rotateY]
+  );
+
+  const onMouseLeave = useCallback(() => {
+    rotateX.set(0);
+    rotateY.set(0);
+    setHovered(false);
   }, [rotateX, rotateY]);
-  const onMouseLeave = useCallback(() => { rotateX.set(0); rotateY.set(0); setHovered(false); }, [rotateX, rotateY]);
 
   return (
     <motion.div
-      key={project.id}
-      initial={{ opacity: 0, y: 40, scale: 0.95 }}
+      initial={{ opacity: 0, y: 40, scale: 0.94 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.6, delay: i * 0.15, ease: [0.16, 1, 0.3, 1] }}
-      style={{ rotateX: springRotX, rotateY: springRotY, perspective: 800 }}
+      transition={{ duration: 0.65, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
+      style={{ rotateX: springRotX, rotateY: springRotY, perspective: 900 }}
       ref={cardRef}
       onMouseMove={onMouseMove}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={onMouseLeave}
-      className="group glass-card rounded-2xl p-6 relative overflow-hidden cursor-pointer"
+      className="relative rounded-2xl overflow-hidden cursor-pointer group"
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        border: `1px solid ${hovered ? project.color + "30" : "rgba(255,255,255,0.07)"}`,
+        transition: "border-color 0.3s",
+      }}
     >
-      <motion.div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" animate={{ opacity: hovered ? 1 : 0 }} transition={{ duration: 0.3 }} />
-      <motion.div className="absolute inset-0 rounded-2xl border border-black/20 dark:border-white/20" animate={{ opacity: hovered ? 1 : 0.3 }} transition={{ duration: 0.3 }} />
+      <motion.div
+        className="absolute inset-0"
+        animate={{ opacity: hovered ? 1 : 0 }}
+        transition={{ duration: 0.3 }}
+        style={{
+          background: `radial-gradient(ellipse at top left, ${project.color}0a, transparent 70%)`,
+        }}
+      />
 
-      <div className="absolute top-6 right-6 z-10">
-        <motion.span animate={hovered ? { scale: 1.05 } : { scale: 1 }} transition={{ duration: 0.2 }} className="px-3 py-1 text-xs font-mono rounded-full border border-black/20 dark:border-white/20 bg-black/5 dark:bg-white/5">
-          {project.tag}
-        </motion.span>
+      <div className="p-6 relative z-10">
+        <div className="flex items-start justify-between mb-5">
+          <motion.div
+            animate={hovered ? { scale: 1.12, rotate: 8 } : { scale: 1, rotate: 0 }}
+            transition={{ duration: 0.35, ease: "backOut" }}
+            className="w-11 h-11 rounded-xl flex items-center justify-center"
+            style={{ background: `${project.color}18`, border: `1px solid ${project.color}30` }}
+          >
+            <Icon className="w-5 h-5" style={{ color: project.color }} />
+          </motion.div>
+          <div className="flex items-center gap-2">
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ background: project.status === "Live" ? "#34d399" : "#fbbf24" }}
+            />
+            <span className="text-xs font-mono text-white/35">{project.status}</span>
+          </div>
+        </div>
+
+        <motion.h3
+          animate={hovered ? { x: 4 } : { x: 0 }}
+          transition={{ duration: 0.25 }}
+          className="text-xl font-bold text-white/90 mb-2"
+        >
+          {project.title}
+        </motion.h3>
+        <p className="text-sm text-white/50 mb-5 leading-relaxed">{project.desc}</p>
+
+        <div className="flex flex-wrap gap-1.5 mb-5">
+          {project.tech.map((t) => (
+            <span
+              key={t}
+              className="px-2 py-0.5 text-xs rounded font-mono"
+              style={{
+                background: `${project.color}12`,
+                color: `${project.color}cc`,
+                border: `1px solid ${project.color}20`,
+              }}
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+
+        <motion.a
+          href={project.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          animate={{ opacity: hovered ? 1 : 0.4, x: hovered ? 0 : -6 }}
+          transition={{ duration: 0.25 }}
+          className="text-sm font-medium flex items-center gap-2"
+          style={{ color: project.color }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          Xem dự án <ExternalLink className="w-3.5 h-3.5" />
+        </motion.a>
       </div>
 
       <motion.div
-        animate={hovered ? { scale: 1.1, rotate: 10 } : { scale: 1, rotate: 0 }}
-        transition={{ duration: 0.4, ease: "backOut" }}
-        className="w-12 h-12 rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center mb-6 z-10 relative"
-      >
-        <Icon className="w-6 h-6 opacity-60" />
-      </motion.div>
-
-      <motion.h3 animate={hovered ? { x: 6 } : { x: 0 }} transition={{ duration: 0.3 }} className="text-xl font-bold mb-2 z-10 relative">
-        {project.title}
-      </motion.h3>
-      <p className="text-black/60 dark:text-white/60 text-sm mb-10 z-10 relative">{project.desc}</p>
-
-      <motion.div animate={{ opacity: hovered ? 1 : 0.4, x: hovered ? 0 : -8 }} transition={{ duration: 0.3 }} className="absolute bottom-6 left-6 z-10">
-        <a href={project.href} target="_blank" rel="noopener noreferrer" className="text-sm font-medium flex items-center gap-2">
-          Xem dự án <ExternalLink className="w-4 h-4" />
-        </a>
-      </motion.div>
+        className="absolute bottom-0 left-0 right-0 h-px"
+        animate={{ opacity: hovered ? 1 : 0 }}
+        style={{ background: `linear-gradient(90deg, transparent, ${project.color}50, transparent)` }}
+      />
     </motion.div>
   );
 }
 
-const statsData = [
-  { label: "Dự Án AI", value: "3+" },
-  { label: "Năm Học Tập", value: "2+" },
-  { label: "Công Nghệ", value: "10+" },
-];
-
-function AnimatedStat({ value, label, delay }: { value: string; label: string; delay: number }) {
+function StatCounter({
+  value,
+  label,
+  delay,
+  color,
+}: {
+  value: string;
+  label: string;
+  delay: number;
+  color: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true });
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
-      className="text-center"
+      className="text-center group"
     >
-      <motion.div className="text-4xl md:text-5xl font-bold font-mono mb-1" initial={{ scale: 0.5 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: delay + 0.1, type: "spring", stiffness: 200 }}>
+      <motion.div
+        className="text-4xl md:text-5xl font-bold font-mono mb-1 tabular-nums"
+        style={{ color }}
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={inView ? { scale: 1, opacity: 1 } : {}}
+        transition={{ duration: 0.5, delay: delay + 0.1, type: "spring", stiffness: 200 }}
+      >
         {value}
       </motion.div>
-      <div className="text-sm text-black/50 dark:text-white/50 font-mono">{label}</div>
+      <div className="text-xs text-white/40 font-mono tracking-wider uppercase">{label}</div>
     </motion.div>
   );
 }
 
-const skills = [
-  "Trí Tuệ Nhân Tạo",
-  "IoT / ESP32",
-  "Prompt Engineering",
-  "Python",
-  "Nông Nghiệp Thông Minh",
-  "Chatbot AI",
-  "Lưu Trữ Đám Mây",
-  "Phát Triển Phần Mềm",
-];
-
 const contactItems = [
-  { href: "mailto:trongkhabgphan@gmail.com", icon: Mail, label: "Email", sub: "trongkhabgphan@gmail.com", external: false, delay: 0 },
-  { href: "https://www.facebook.com/share/1CX6on9uGs/", icon: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
-  ), label: "Facebook", sub: "Phan Trọng Khang", external: true, delay: 0.08 },
-  { href: "https://t.me/+84352234521", icon: (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}><path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 6.676a2.25 2.25 0 0 0 .126 4.238l3.813 1.205 1.837 5.494a.75.75 0 0 0 1.264.281l2.353-2.317 4.223 3.126a2.25 2.25 0 0 0 3.516-1.411l2.624-15.376a2.25 2.25 0 0 0-2.234-2.131zm-1.8 3.07-1.943 11.378-4.101-3.035a.75.75 0 0 0-.932.066l-1.4 1.379-.436-1.305 6.885-7.396a.75.75 0 0 0-.968-1.148L8.118 13.95l-2.92-.923 14.2-5.75.007 1.225z"/></svg>
-  ), label: "Telegram", sub: "+84 352 234 521", external: true, delay: 0.16 },
-  { href: "https://github.com/khang26042012", icon: Github, label: "GitHub", sub: "@khang26042012", external: true, delay: 0.24 },
-  { href: "tel:0352234521", icon: Phone, label: "Điện Thoại", sub: "0352 234 521", external: false, delay: 0.32 },
+  {
+    href: "mailto:trongkhabgphan@gmail.com",
+    icon: Mail,
+    label: "Email",
+    sub: "trongkhabgphan@gmail.com",
+    external: false,
+    delay: 0,
+    color: "#818cf8",
+  },
+  {
+    href: "https://www.facebook.com/share/1CX6on9uGs/",
+    icon: (props: React.SVGProps<SVGSVGElement>) => (
+      <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+      </svg>
+    ),
+    label: "Facebook",
+    sub: "Phan Trọng Khang",
+    external: true,
+    delay: 0.07,
+    color: "#60a5fa",
+  },
+  {
+    href: "https://t.me/+84352234521",
+    icon: (props: React.SVGProps<SVGSVGElement>) => (
+      <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+        <path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 6.676a2.25 2.25 0 0 0 .126 4.238l3.813 1.205 1.837 5.494a.75.75 0 0 0 1.264.281l2.353-2.317 4.223 3.126a2.25 2.25 0 0 0 3.516-1.411l2.624-15.376a2.25 2.25 0 0 0-2.234-2.131zm-1.8 3.07-1.943 11.378-4.101-3.035a.75.75 0 0 0-.932.066l-1.4 1.379-.436-1.305 6.885-7.396a.75.75 0 0 0-.968-1.148L8.118 13.95l-2.92-.923 14.2-5.75.007 1.225z" />
+      </svg>
+    ),
+    label: "Telegram",
+    sub: "+84 352 234 521",
+    external: true,
+    delay: 0.14,
+    color: "#38bdf8",
+  },
+  {
+    href: "https://github.com/khang26042012",
+    icon: Github,
+    label: "GitHub",
+    sub: "@khang26042012",
+    external: true,
+    delay: 0.21,
+    color: "#a78bfa",
+  },
+  {
+    href: "tel:0352234521",
+    icon: Phone,
+    label: "Điện Thoại",
+    sub: "0352 234 521",
+    external: false,
+    delay: 0.28,
+    color: "#34d399",
+  },
 ];
 
 export function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end end"] });
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0]);
-  const heroY = useTransform(scrollYProgress, [0, 0.18], [0, 80]);
-  const heroScale = useTransform(scrollYProgress, [0, 0.18], [1, 0.96]);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"],
+  });
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
+  const heroY = useTransform(scrollYProgress, [0, 0.15], [0, 80]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.15], [1, 0.95]);
 
   const projects = [
-    { id: "1", title: "NexoraGarden", desc: "Hệ thống trồng cây Công Nghệ Cao — sử dụng ESP32, cảm biến môi trường và giao tiếp thời gian thực để tối ưu hóa chăm sóc cây trồng.", tag: "IoT · AI", icon: Leaf, href: "https://github.com/khang26042012" },
-    { id: "2", title: "NexoraNode", desc: "Hệ thống lưu trữ code đa năng — tổ chức, quản lý và chia sẻ mã nguồn một cách thông minh và hiệu quả.", tag: "Cloud · Dev", icon: Network, href: "https://github.com/khang26042012" },
-    { id: "3", title: "Nexorax", desc: "Chatbot AI đa mô hình — tích hợp nhiều mô hình ngôn ngữ lớn để cung cấp trải nghiệm hội thoại thông minh nhất.", tag: "AI · Chatbot", icon: Cpu, href: "https://github.com/khang26042012" },
+    {
+      id: "1",
+      title: "NexoraGarden",
+      desc: "Hệ thống nông nghiệp thông minh — ESP32, cảm biến môi trường, giao tiếp thời gian thực tối ưu hóa chăm sóc cây trồng tự động.",
+      tag: "IoT · AI",
+      icon: Leaf,
+      href: "https://github.com/khang26042012",
+      tech: ["ESP32", "Python", "MQTT", "AI"],
+      status: "Active",
+      color: "#34d399",
+    },
+    {
+      id: "2",
+      title: "NexoraNode",
+      desc: "Nền tảng lưu trữ và quản lý mã nguồn đa năng — tổ chức, chia sẻ code thông minh với giao diện tối giản.",
+      tag: "Cloud · Dev",
+      icon: Network,
+      href: "https://github.com/khang26042012",
+      tech: ["Node.js", "Cloud", "API", "Storage"],
+      status: "Beta",
+      color: "#818cf8",
+    },
+    {
+      id: "3",
+      title: "Nexorax",
+      desc: "Chatbot AI đa mô hình — tích hợp GPT, Gemini, Claude để cung cấp trải nghiệm hội thoại thông minh nhất.",
+      tag: "AI · Chatbot",
+      icon: Cpu,
+      href: "https://github.com/khang26042012",
+      tech: ["GPT-4", "Gemini", "Claude", "Python"],
+      status: "Live",
+      color: "#a78bfa",
+    },
   ];
 
   return (
-    <div ref={containerRef} className="min-h-screen noise-bg selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+    <div
+      ref={containerRef}
+      className="min-h-screen selection:bg-violet-500/30 selection:text-white"
+      style={{ background: "#050508" }}
+    >
       <CursorGlow />
       <Navigation />
 
       {/* ── HERO ── */}
-      <section id="trang-chu" className="relative min-h-screen flex items-center justify-center pt-20 px-6 overflow-hidden">
-        <GridBackground />
-        <FloatingParticles />
-        <motion.div className="absolute inset-0 pointer-events-none" animate={{ opacity: [0.5, 0.9, 0.5] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} style={{ background: "radial-gradient(ellipse 60% 40% at 50% 40%, rgba(0,0,0,0.04) 0%, transparent 70%)" }} />
+      <section
+        id="trang-chu"
+        className="relative min-h-screen flex items-center justify-center pt-20 px-4 sm:px-6 overflow-hidden"
+      >
+        <ThreeScene className="absolute inset-0 z-0" />
 
-        <motion.div style={{ opacity: heroOpacity, y: heroY, scale: heroScale }} className="relative z-10 max-w-4xl mx-auto flex flex-col items-center text-center gap-8">
-          <motion.div initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
+        <motion.div
+          className="absolute inset-0 pointer-events-none z-0"
+          animate={{ opacity: [0.4, 0.7, 0.4] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          style={{
+            background:
+              "radial-gradient(ellipse 55% 45% at 50% 50%, rgba(100,80,255,0.08) 0%, transparent 70%)",
+          }}
+        />
+
+        <motion.div
+          style={{ opacity: heroOpacity, y: heroY, scale: heroScale }}
+          className="relative z-10 max-w-4xl mx-auto flex flex-col items-center text-center gap-7 sm:gap-9"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          >
             <AvatarOrb />
           </motion.div>
 
           <div className="space-y-3">
-            <motion.h1 initial={{ y: 30, opacity: 0, filter: "blur(8px)" }} animate={{ y: 0, opacity: 1, filter: "blur(0px)" }} transition={{ duration: 0.7, delay: 0.25, ease: [0.16, 1, 0.3, 1] }} className="text-5xl md:text-7xl font-bold tracking-tight">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-mono tracking-wider"
+              style={{
+                background: "rgba(130,100,255,0.1)",
+                border: "1px solid rgba(130,100,255,0.25)",
+                color: "#a78bfa",
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+              THCS Vĩnh Hòa · 2025
+            </motion.div>
+
+            <motion.h1
+              initial={{ y: 32, opacity: 0, filter: "blur(10px)" }}
+              animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+              transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight text-white"
+            >
               <GlitchText text="Phan Trọng Khang" />
             </motion.h1>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.55 }} className="flex items-center justify-center gap-3 text-xl md:text-2xl font-mono text-black/55 dark:text-white/55">
-              <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
-                <Zap className="w-5 h-5" />
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="flex items-center justify-center gap-2 text-lg md:text-2xl text-white/45"
+            >
+              <motion.div
+                animate={{ rotate: [0, 12, -12, 0] }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Zap className="w-5 h-5 text-violet-400" />
               </motion.div>
               <TypewriterTitle />
             </motion.div>
           </div>
 
-          <motion.p initial={{ y: 20, opacity: 0, filter: "blur(4px)" }} animate={{ y: 0, opacity: 1, filter: "blur(0px)" }} transition={{ duration: 0.7, delay: 0.4 }} className="max-w-2xl text-lg md:text-xl text-black/65 dark:text-white/65 leading-relaxed">
-            Người điều khiển và sản xuất phần mềm bằng AI · Prompt Master · THCS Vĩnh Hòa
+          <motion.p
+            initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
+            animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+            transition={{ duration: 0.7, delay: 0.45 }}
+            className="max-w-xl text-base md:text-lg text-white/45 leading-relaxed"
+          >
+            Người điều khiển và sản xuất phần mềm bằng AI · Prompt Master · Kiến tạo tương lai từ hôm nay
           </motion.p>
 
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.6 }} className="flex flex-col sm:flex-row gap-4 pt-2">
-            <motion.a href="#du-an" whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.97 }} className="px-8 py-4 rounded-full bg-black text-white dark:bg-white dark:text-black font-semibold flex items-center justify-center gap-2 shadow-lg">
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.65 }}
+            className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto"
+          >
+            <motion.a
+              href="#du-an"
+              onClick={(e) => {
+                e.preventDefault();
+                document.querySelector("#du-an")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              className="px-8 py-4 rounded-full font-semibold flex items-center justify-center gap-2 text-sm md:text-base"
+              style={{
+                background: "linear-gradient(135deg, #7c6fff, #a78bfa)",
+                color: "white",
+                boxShadow: "0 0 30px rgba(124,111,255,0.3)",
+              }}
+            >
               Xem Dự Án
               <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
                 <ArrowRight className="w-4 h-4" />
               </motion.span>
             </motion.a>
-            <motion.a href="#lien-he" whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.97 }} className="px-8 py-4 rounded-full glass-card font-semibold flex items-center justify-center">
+            <motion.a
+              href="#lien-he"
+              onClick={(e) => {
+                e.preventDefault();
+                document.querySelector("#lien-he")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              className="px-8 py-4 rounded-full font-semibold flex items-center justify-center text-white/70 text-sm md:text-base"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            >
               Liên Hệ
             </motion.a>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }} className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-            <motion.div animate={{ y: [0, 10, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} className="w-5 h-8 rounded-full border border-black/20 dark:border-white/20 flex items-start justify-center pt-1.5">
-              <div className="w-1 h-2 rounded-full bg-black/40 dark:bg-white/40" />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.8 }}
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+          >
+            <motion.div
+              animate={{ y: [0, 8, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <ChevronDown className="w-5 h-5 text-white/20" />
             </motion.div>
-            <span className="text-xs font-mono text-black/30 dark:text-white/30 tracking-widest uppercase">Cuộn</span>
           </motion.div>
         </motion.div>
       </section>
 
       {/* ── STATS ── */}
-      <section className="py-20 px-6 border-y border-black/5 dark:border-white/5">
+      <section className="py-16 md:py-20 px-4 sm:px-6 relative overflow-hidden">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(180deg, transparent, rgba(100,80,255,0.04) 50%, transparent)",
+            borderTop: "1px solid rgba(255,255,255,0.04)",
+            borderBottom: "1px solid rgba(255,255,255,0.04)",
+          }}
+        />
         <div className="max-w-3xl mx-auto">
-          <div className="grid grid-cols-3 gap-8">
-            {statsData.map((s, i) => (
-              <AnimatedStat key={s.label} value={s.value} label={s.label} delay={i * 0.12} />
-            ))}
+          <div className="grid grid-cols-3 gap-6 md:gap-12">
+            <StatCounter value="3+" label="Dự Án AI" delay={0} color="#a78bfa" />
+            <StatCounter value="2+" label="Năm Học Tập" delay={0.12} color="#60a5fa" />
+            <StatCounter value="10+" label="Công Nghệ" delay={0.24} color="#34d399" />
           </div>
         </div>
       </section>
 
       {/* ── ABOUT ── */}
-      <section id="gioi-thieu" className="py-32 px-6">
-        <div className="max-w-5xl mx-auto">
-          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="mb-16">
-            <p className="text-xs font-mono tracking-widest uppercase text-black/40 dark:text-white/40 mb-3">Về tôi</p>
-            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Giới Thiệu</h2>
-            <motion.div initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2 }} className="w-16 h-1 bg-black dark:bg-white rounded-full origin-left" />
+      <section id="gioi-thieu" className="py-24 md:py-32 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="mb-14 md:mb-20"
+          >
+            <SectionLabel>Về tôi</SectionLabel>
+            <SectionHeading>Giới Thiệu</SectionHeading>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-12 items-start">
-            {/* Bio */}
-            <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="space-y-5">
-              <p className="text-black/70 dark:text-white/70 leading-relaxed">
-                Tôi là một người đam mê công nghệ, đặc biệt quan tâm đến lĩnh vực IoT và trí tuệ nhân tạo. Hiện tại, tôi đang phát triển dự án NexoraGarden — một hệ thống nông nghiệp thông minh sử dụng ESP32, cảm biến môi trường và nền tảng giao tiếp thời gian thực nhằm tối ưu hóa việc chăm sóc cây trồng.
-              </p>
-              <p className="text-black/70 dark:text-white/70 leading-relaxed">
-                Tôi có xu hướng tự học, thích khám phá và cải tiến hệ thống để đạt hiệu quả cao hơn. Trong quá trình làm việc, tôi tập trung vào việc giải quyết vấn đề thực tế, tối ưu hóa hiệu suất và nâng cao trải nghiệm người dùng.
-              </p>
-              <p className="text-black/70 dark:text-white/70 leading-relaxed">
-                Mục tiêu của tôi là phát triển các giải pháp công nghệ có tính ứng dụng cao, đặc biệt trong lĩnh vực nông nghiệp thông minh, góp phần nâng cao năng suất và giảm thiểu công sức cho con người.
-              </p>
+          <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-start">
+            <div className="space-y-5">
+              {[
+                "Tôi là một người đam mê công nghệ, đặc biệt quan tâm đến lĩnh vực IoT và trí tuệ nhân tạo. Hiện tại, tôi đang phát triển NexoraGarden — hệ thống nông nghiệp thông minh sử dụng ESP32, cảm biến môi trường và nền tảng AI thời gian thực.",
+                "Tôi có xu hướng tự học, thích khám phá và xây dựng các hệ thống từ đầu. Trong quá trình làm việc, tôi tập trung vào giải quyết vấn đề thực tế và tối ưu hóa trải nghiệm người dùng.",
+                "Mục tiêu của tôi là phát triển các giải pháp AI có tính ứng dụng cao — đặc biệt trong nông nghiệp thông minh và tự động hóa phần mềm.",
+              ].map((text, i) => (
+                <motion.p
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: i * 0.1 }}
+                  className="text-white/55 leading-relaxed text-sm md:text-base"
+                >
+                  {text}
+                </motion.p>
+              ))}
 
-              {/* Award badge */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.3 }}
+                transition={{ duration: 0.5, delay: 0.35 }}
                 whileHover={{ scale: 1.02 }}
-                className="glass-card rounded-xl p-4 flex items-center gap-3 mt-6"
+                className="mt-6 p-4 rounded-xl flex items-center gap-3"
+                style={{
+                  background: "rgba(251,191,36,0.06)",
+                  border: "1px solid rgba(251,191,36,0.18)",
+                }}
               >
-                <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
-                  <Trophy className="w-6 h-6 text-black/60 dark:text-white/60" />
+                <motion.div
+                  animate={{ rotate: [0, 12, -12, 0] }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                >
+                  <Trophy className="w-5 h-5 text-amber-400" />
                 </motion.div>
                 <div>
-                  <p className="font-semibold text-sm">Giải Nhất — Tin Học Cấp Trường</p>
-                  <p className="text-xs text-black/50 dark:text-white/50 font-mono mt-0.5">THCS Vĩnh Hòa</p>
+                  <p className="font-semibold text-sm text-white/85">
+                    Giải Nhất — Tin Học Cấp Trường
+                  </p>
+                  <p className="text-xs text-white/40 font-mono mt-0.5">THCS Vĩnh Hòa</p>
                 </div>
+                <Star className="w-4 h-4 text-amber-400/60 ml-auto" />
               </motion.div>
-            </motion.div>
 
-            {/* Skills */}
-            <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7, delay: 0.15 }}>
-              <p className="text-sm font-mono text-black/40 dark:text-white/40 mb-6 tracking-wider uppercase">Kỹ năng & Công nghệ</p>
-              <div className="flex flex-wrap gap-3">
-                {skills.map((skill, i) => (
-                  <motion.span
-                    key={skill}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.4, delay: i * 0.07 }}
-                    whileHover={{ scale: 1.06, y: -2 }}
-                    className="px-4 py-2 rounded-full glass-card text-sm font-medium border border-black/10 dark:border-white/10 cursor-default"
-                  >
-                    {skill}
-                  </motion.span>
-                ))}
-              </div>
-
-              {/* Prompt Master badge */}
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.5 }}
-                className="mt-8 glass-card rounded-xl p-4 flex items-center gap-3"
+                transition={{ duration: 0.5, delay: 0.45 }}
+                className="p-4 rounded-xl flex items-center gap-3"
+                style={{
+                  background: "rgba(167,139,250,0.06)",
+                  border: "1px solid rgba(167,139,250,0.18)",
+                }}
               >
-                <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
-                  <Sparkles className="w-6 h-6 text-black/60 dark:text-white/60" />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2.5, repeat: Infinity }}
+                >
+                  <Sparkles className="w-5 h-5 text-violet-400" />
                 </motion.div>
                 <div>
-                  <p className="font-semibold text-sm">Prompt Master</p>
-                  <p className="text-xs text-black/50 dark:text-white/50 font-mono mt-0.5">Điều khiển & sản xuất phần mềm bằng AI</p>
+                  <p className="font-semibold text-sm text-white/85">Prompt Master</p>
+                  <p className="text-xs text-white/40 font-mono mt-0.5">
+                    Điều khiển & sản xuất phần mềm bằng AI
+                  </p>
                 </div>
               </motion.div>
-            </motion.div>
+            </div>
+
+            <div className="space-y-6">
+              <p className="text-xs font-mono text-white/30 tracking-wider uppercase mb-6">
+                Kỹ năng & Công nghệ
+              </p>
+              {skillsData.map((skill, i) => (
+                <SkillBar key={skill.label} {...skill} delay={i * 0.08} />
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── PROJECTS ── */}
-      <section id="du-an" className="py-32 px-6 border-t border-black/5 dark:border-white/5">
-        <div className="max-w-6xl mx-auto">
-          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="mb-16">
-            <p className="text-xs font-mono tracking-widest uppercase text-black/40 dark:text-white/40 mb-3">Công trình</p>
-            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Dự Án</h2>
-            <motion.div initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2 }} className="w-16 h-1 bg-black dark:bg-white rounded-full origin-left" />
+      {/* ── TIMELINE ── */}
+      <section
+        className="py-24 md:py-32 px-4 sm:px-6 relative"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+      >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 50% at 50% 30%, rgba(80,60,255,0.04) 0%, transparent 70%)",
+          }}
+        />
+        <div className="max-w-3xl mx-auto relative z-10">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="mb-14 md:mb-20"
+          >
+            <SectionLabel>Hành trình</SectionLabel>
+            <SectionHeading>Lịch Sử</SectionHeading>
           </motion.div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project, i) => (
-              <ProjectCard key={project.id} project={project} i={i} />
+
+          <div className="space-y-0">
+            {timelineData.map((item, i) => (
+              <TimelineItem key={item.year} item={item} i={i} />
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── CONTACT ── */}
-      <section id="lien-he" className="py-32 px-6 border-t border-black/5 dark:border-white/5 relative overflow-hidden">
-        <motion.div className="absolute -right-40 top-0 w-96 h-96 rounded-full bg-black/2 dark:bg-white/3 blur-3xl pointer-events-none" animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} />
-        <div className="max-w-4xl mx-auto relative z-10">
-          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="mb-16">
-            <p className="text-xs font-mono tracking-widest uppercase text-black/40 dark:text-white/40 mb-3">Kết nối</p>
-            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Liên Hệ</h2>
-            <motion.div initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2 }} className="w-16 h-1 bg-black dark:bg-white rounded-full origin-left" />
+      {/* ── PROJECTS ── */}
+      <section
+        id="du-an"
+        className="py-24 md:py-32 px-4 sm:px-6"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+      >
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="mb-14 md:mb-20"
+          >
+            <SectionLabel>Công trình</SectionLabel>
+            <SectionHeading>Dự Án</SectionHeading>
           </motion.div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+            {projects.map((project, i) => (
+              <ProjectCard key={project.id} project={project} i={i} />
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mt-10 text-center"
+          >
+            <a
+              href="https://github.com/khang26042012"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-white/35 hover:text-white/70 transition-colors font-mono"
+            >
+              <Github className="w-4 h-4" />
+              Xem thêm trên GitHub
+            </a>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── CONTACT ── */}
+      <section
+        id="lien-he"
+        className="py-24 md:py-32 px-4 sm:px-6 relative overflow-hidden"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+      >
+        <motion.div
+          className="absolute -right-60 top-0 w-[500px] h-[500px] rounded-full pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, rgba(100,80,255,0.06) 0%, transparent 70%)",
+          }}
+          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.8, 0.5] }}
+          transition={{ duration: 8, repeat: Infinity }}
+        />
+        <div className="max-w-4xl mx-auto relative z-10">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="mb-14 md:mb-20"
+          >
+            <SectionLabel>Kết nối</SectionLabel>
+            <SectionHeading>Liên Hệ</SectionHeading>
+          </motion.div>
+
+          <div className="grid sm:grid-cols-2 gap-3 md:gap-4">
             {contactItems.map((item) => (
               <motion.a
                 key={item.label}
                 href={item.href}
                 target={item.external ? "_blank" : undefined}
                 rel={item.external ? "noopener noreferrer" : undefined}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: item.delay, ease: [0.16, 1, 0.3, 1] }}
                 whileHover={{ y: -4, scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="glass-card p-5 rounded-2xl flex items-center gap-4 group border border-black/5 dark:border-white/5 hover:border-black/15 dark:hover:border-white/15 transition-colors"
+                className="p-4 md:p-5 rounded-2xl flex items-center gap-4 group transition-colors"
+                style={{
+                  background: `${item.color}08`,
+                  border: `1px solid ${item.color}18`,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = `${item.color}35`;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = `${item.color}18`;
+                }}
               >
-                <motion.div whileHover={{ rotate: 15, scale: 1.1 }} transition={{ duration: 0.3 }} className="w-11 h-11 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center flex-shrink-0">
-                  <item.icon className="w-5 h-5" />
+                <motion.div
+                  whileHover={{ rotate: 15, scale: 1.12 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: `${item.color}15`, border: `1px solid ${item.color}25` }}
+                >
+                  <item.icon className="w-4 h-4 md:w-5 md:h-5" style={{ color: item.color }} />
                 </motion.div>
                 <div className="min-w-0">
-                  <h3 className="font-bold text-sm">{item.label}</h3>
-                  <p className="text-xs text-black/55 dark:text-white/55 truncate mt-0.5">{item.sub}</p>
+                  <h3 className="font-bold text-sm text-white/80">{item.label}</h3>
+                  <p
+                    className="text-xs truncate mt-0.5"
+                    style={{ color: `${item.color}80` }}
+                  >
+                    {item.sub}
+                  </p>
                 </div>
-                <motion.div className="ml-auto flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" animate={{}}>
-                  <ArrowRight className="w-4 h-4" />
+                <motion.div
+                  className="ml-auto flex-shrink-0"
+                  initial={{ opacity: 0, x: -6 }}
+                  whileHover={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ArrowRight className="w-4 h-4" style={{ color: item.color }} />
                 </motion.div>
               </motion.a>
             ))}
@@ -510,11 +1100,29 @@ export function Home() {
       </section>
 
       {/* ── FOOTER ── */}
-      <motion.footer initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="py-10 text-center border-t border-black/5 dark:border-white/5">
-        <motion.p animate={{ opacity: [0.4, 0.7, 0.4] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className="text-sm font-mono text-black/40 dark:text-white/40 tracking-widest">
-          THCS VĨNH HÒA &nbsp;·&nbsp; KIẾN TẠO TƯƠNG LAI &nbsp;·&nbsp; 2025
-        </motion.p>
-      </motion.footer>
+      <footer
+        className="py-10 md:py-12 text-center px-4"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+      >
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="space-y-2"
+        >
+          <motion.p
+            animate={{ opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 5, repeat: Infinity }}
+            className="text-xs font-mono text-white/30 tracking-[0.25em] uppercase"
+          >
+            THCS Vĩnh Hòa &nbsp;·&nbsp; Kiến Tạo Tương Lai &nbsp;·&nbsp; 2025
+          </motion.p>
+          <p className="text-xs text-white/15 font-mono">
+            Built with React · Three.js · Framer Motion
+          </p>
+        </motion.div>
+      </footer>
     </div>
   );
 }

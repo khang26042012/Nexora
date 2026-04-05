@@ -45,55 +45,55 @@
 }
 
 :root {
-  --background: 0 0% 98%;
-  --foreground: 0 0% 4%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 4%;
-  --card-border: 0 0% 90%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 4%;
-  --popover-border: 0 0% 90%;
-  --primary: 0 0% 9%;
+  --background: 222 13% 5%;
+  --foreground: 0 0% 95%;
+  --card: 222 13% 7%;
+  --card-foreground: 0 0% 95%;
+  --card-border: 240 10% 12%;
+  --popover: 222 13% 7%;
+  --popover-foreground: 0 0% 95%;
+  --popover-border: 240 10% 12%;
+  --primary: 255 80% 70%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 84% 60%;
+  --secondary: 240 10% 12%;
+  --secondary-foreground: 0 0% 90%;
+  --muted: 240 10% 10%;
+  --muted-foreground: 0 0% 50%;
+  --accent: 255 60% 55%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62% 50%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
-  --ring: 0 0% 4%;
-  --radius: 0.5rem;
-  --app-font-sans: 'Inter', sans-serif;
+  --border: 240 10% 12%;
+  --input: 240 10% 12%;
+  --ring: 255 80% 70%;
+  --radius: 0.75rem;
+  --app-font-sans: 'Inter', system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
+  --app-font-mono: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
 }
 
 .dark {
-  --background: 0 0% 4%;
-  --foreground: 0 0% 98%;
-  --card: 0 0% 4%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 0 0% 15%;
-  --popover: 0 0% 4%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 0 0% 15%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 0 0% 9%;
-  --secondary: 0 0% 15%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 15%;
-  --muted-foreground: 0 0% 64%;
-  --accent: 0 0% 15%;
+  --background: 222 13% 5%;
+  --foreground: 0 0% 95%;
+  --card: 222 13% 7%;
+  --card-foreground: 0 0% 95%;
+  --card-border: 240 10% 12%;
+  --popover: 222 13% 7%;
+  --popover-foreground: 0 0% 95%;
+  --popover-border: 240 10% 12%;
+  --primary: 255 80% 70%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 10% 12%;
+  --secondary-foreground: 0 0% 90%;
+  --muted: 240 10% 10%;
+  --muted-foreground: 0 0% 50%;
+  --accent: 255 60% 55%;
   --accent-foreground: 0 0% 98%;
   --destructive: 0 62% 30%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 15%;
-  --input: 0 0% 15%;
-  --ring: 0 0% 83%;
+  --border: 240 10% 12%;
+  --input: 240 10% 12%;
+  --ring: 255 80% 70%;
 }
 
 @layer base {
@@ -123,5 +123,13 @@
 }
 
 .glass-card {
-  @apply bg-white/5 dark:bg-black/40 backdrop-blur-md border border-white/10 dark:border-white/5 shadow-lg;
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 4px 32px rgba(0,0,0,0.3);
 }
+
+@keyframes float0 { 0%, 100% { transform: translateY(0px) translateX(0px); } 50% { transform: translateY(-30px) translateX(10px); } }
+@keyframes float1 { 0%, 100% { transform: translateY(0px) translateX(0px); } 50% { transform: translateY(-20px) translateX(-15px); } }
+@keyframes float2 { 0%, 100% { transform: translateY(0px) translateX(0px); } 33% { transform: translateY(-25px) translateX(8px); } 66% { transform: translateY(10px) translateX(-5px); } }
+@keyframes float3 { 0%, 100% { transform: translateY(0px) scale(1); } 50% { transform: translateY(-35px) scale(1.3); } }
