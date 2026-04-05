@@ -450,17 +450,19 @@ function ProjectCard({
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.65, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
-      style={{ rotateX: springRotX, rotateY: springRotY, perspective: 900 }}
+      style={{
+        rotateX: springRotX,
+        rotateY: springRotY,
+        perspective: 900,
+        background: "rgba(255,255,255,0.03)",
+        border: `1px solid ${hovered ? project.color + "30" : "rgba(255,255,255,0.07)"}`,
+        transition: "border-color 0.3s",
+      }}
       ref={cardRef}
       onMouseMove={onMouseMove}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={onMouseLeave}
       className="relative rounded-2xl overflow-hidden cursor-pointer group"
-      style={{
-        background: "rgba(255,255,255,0.03)",
-        border: `1px solid ${hovered ? project.color + "30" : "rgba(255,255,255,0.07)"}`,
-        transition: "border-color 0.3s",
-      }}
     >
       <motion.div
         className="absolute inset-0"
