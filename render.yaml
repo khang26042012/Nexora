@@ -2,15 +2,11 @@ services:
   - type: web
     name: nexorax-portfolio
     runtime: static
-    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @workspace/portfolio run build
+    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && BASE_PATH=/ PORT=3000 pnpm --filter @workspace/portfolio run build
     staticPublishPath: artifacts/portfolio/dist/public
     envVars:
       - key: NODE_VERSION
         value: 20
-      - key: BASE_PATH
-        value: /
-      - key: PORT
-        value: 3000
     routes:
       - type: rewrite
         source: /*
