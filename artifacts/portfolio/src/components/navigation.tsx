@@ -44,7 +44,7 @@ export function Navigation() {
         </button>
         <img
           src="/logo.png"
-          alt="Nexorax logo"
+          alt="Vietnam Ball logo"
           className="pointer-events-none"
           style={{ width: 36, height: 36, objectFit: "contain", borderRadius: "50%" }}
         />
