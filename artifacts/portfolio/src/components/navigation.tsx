@@ -33,7 +33,7 @@ export function Navigation() {
   return (
     <>
       <motion.header
-        className="fixed top-0 left-0 right-0 z-40 p-5 flex items-center pointer-events-none transition-all duration-300"
+        className="fixed top-0 left-0 right-0 z-40 p-5 flex items-center gap-3 pointer-events-none transition-all duration-300"
         style={{ background: scrolled ? "rgba(2,0,8,0.75)" : "transparent", backdropFilter: scrolled ? "blur(16px)" : "none", borderBottom: scrolled ? "1px solid rgba(130,80,255,0.12)" : "1px solid transparent" }}>
         <button
           onClick={() => setIsOpen(true)}
@@ -42,6 +42,12 @@ export function Navigation() {
           aria-label="Mở menu">
           <Menu className="w-5 h-5 text-white/70" />
         </button>
+        <img
+          src="/logo.png"
+          alt="Nexorax logo"
+          className="pointer-events-none"
+          style={{ width: 36, height: 36, objectFit: "contain", borderRadius: "50%" }}
+        />
       </motion.header>
 
       <AnimatePresence>
