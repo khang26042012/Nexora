@@ -60,7 +60,7 @@ Sau khi DNS được xác minh, truy cập:
 
 ## Thời Gian Chờ (DNS Propagation)
 
-DNS thường mất từ **15 phút đến 48 giờ** để cập nhật toàn cầu, tùy theo TTL và nhà mạng.
+DNS thường mất từ **24 đến 48 giờ** để cập nhật toàn cầu, tùy theo TTL và nhà mạng.
 
 Bạn có thể kiểm tra DNS đã cập nhật chưa tại: [https://dnschecker.org](https://dnschecker.org) — nhập `nexorax.cloud` và xem kết quả từ nhiều server khác nhau.
 
