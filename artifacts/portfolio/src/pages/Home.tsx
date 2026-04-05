@@ -215,10 +215,14 @@ function SkillBar({ label, pct, icon: Icon, color, delay }: { label: string; pct
 
 /* ─── Timeline ─── */
 const timelineData = [
-  { year: "2025", title: "AI Architect & Full-Stack Builder", desc: "Phát triển NexoraGarden, Nexorax, NexoraNode — sản phẩm AI thực chiến từ ý tưởng đến triển khai.", icon: Brain,         color: "#a78bfa" },
-  { year: "2024", title: "Giải Nhất Tin Học Cấp Trường",    desc: "Đạt giải cao nhất cuộc thi tin học tại THCS Vĩnh Hòa. Bước đà quan trọng vào thế giới lập trình.", icon: Trophy,        color: "#fbbf24" },
-  { year: "2023", title: "Khám Phá IoT & Python",           desc: "Bắt đầu nghiên cứu ESP32, cảm biến môi trường và tự học Python để xây dựng các dự án thực tế.",     icon: Wifi,          color: "#38bdf8" },
-  { year: "2022", title: "Khởi Đầu Hành Trình Công Nghệ",  desc: "Lần đầu tiếp xúc với lập trình và nhận ra đam mê với việc tạo ra phần mềm từ ý tưởng.",              icon: GraduationCap, color: "#34d399" },
+  { year: "2026",       title: "NexoraNode & NexoraGarden",             desc: "Hoàn thiện 2 dự án lớn: NexoraNode — nền tảng quản lý mã nguồn, và NexoraGarden — hệ thống nông nghiệp thông minh IoT.",  icon: Network,       color: "#34d399" },
+  { year: "2025",       title: "Nexorax — Web Chatbot Đa Model AI",     desc: "Ra mắt project đầu tiên: Nexorax, web chatbot tích hợp nhiều model AI (GPT, Gemini, Claude) trong một nền tảng duy nhất.", icon: Brain,         color: "#a78bfa" },
+  { year: "2024",       title: "Bắt Đầu Làm Các Project Thực Tế",      desc: "Áp dụng kiến thức lập trình vào thực tiễn, xây dựng những dự án đầu tay và tích lũy kinh nghiệm thực chiến.",             icon: Code2,         color: "#818cf8" },
+  { year: "2023",       title: "Bước Vào Lĩnh Vực Lập Trình",          desc: "Chính thức học lập trình, làm quen với Python, JavaScript và bắt đầu xây dựng nền tảng kỹ thuật vững chắc.",               icon: Wifi,          color: "#38bdf8" },
+  { year: "T5/2022",    title: "Giải Khuyến Khích Tin Học Cấp Tỉnh",   desc: "Đạt giải khuyến khích cuộc thi tin học cấp tỉnh — bước đệm quan trọng khẳng định năng lực vượt ra ngoài trường.",          icon: Sparkles,      color: "#fb923c" },
+  { year: "T3/2022",    title: "Giải Nhất Tin Học Cấp Trường Tiểu Học",desc: "Đạt giải nhất cuộc thi tin học cấp trường Tiểu học — dấu mốc đầu tiên ghi nhận tài năng công nghệ.",                     icon: Trophy,        color: "#fbbf24" },
+  { year: "2021",       title: "Tự Học Trên Internet",                  desc: "Chủ động tìm tòi, học hỏi qua các nguồn tài nguyên trực tuyến, mở rộng kiến thức công nghệ mỗi ngày.",                       icon: GraduationCap, color: "#60a5fa" },
+  { year: "2020",       title: "Bắt Đầu Với Tin Học",                  desc: "Lần đầu tiếp xúc với lĩnh vực tin học, khám phá thế giới máy tính và nhen nhóm ngọn lửa đam mê công nghệ.",                  icon: Zap,           color: "#34d399" },
 ];
 
 function TimelineItem({ item, i }: { item: (typeof timelineData)[0]; i: number }) {
