@@ -17,6 +17,7 @@ export function Navigation() {
 
   const navLinks = [
     { name: "Trang chủ", href: "#trang-chu" },
+    { name: "Giới Thiệu", href: "#gioi-thieu" },
     { name: "Dự án", href: "#du-an" },
     { name: "Liên hệ", href: "#lien-he" },
   ];
