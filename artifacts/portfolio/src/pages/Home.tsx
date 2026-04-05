@@ -398,7 +398,7 @@ export function Home() {
               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-mono tracking-wider"
               style={{ background: "rgba(100,60,255,0.12)", border: "1px solid rgba(130,80,255,0.28)", color: "#a78bfa" }}>
               <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-              THCS Vĩnh Hòa · 2025
+              THCS Vĩnh Hòa · 2026
             </motion.div>
 
             <motion.h1 initial={{ y: 32, opacity: 0, filter: "blur(10px)" }} animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
@@ -563,7 +563,7 @@ export function Home() {
       {/* ── FOOTER ── */}
       <footer className="py-8 px-6 text-center" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <p className="text-xs font-mono text-white/25 tracking-widest">
-          © 2025 PHAN TRỌNG KHANG · AI ARCHITECT · BUILT WITH PASSION
+          © 2026 PHAN TRỌNG KHANG · AI ARCHITECT · BUILT WITH PASSION
         </p>
         <div className="flex items-center justify-center gap-2 mt-2">
           <div className="w-1 h-1 rounded-full bg-violet-500/40" />

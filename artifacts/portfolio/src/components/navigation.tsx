@@ -56,7 +56,7 @@ export function Navigation() {
               initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 26, stiffness: 220 }}
               className="fixed top-0 left-0 bottom-0 w-80 max-w-[80vw] z-50 flex flex-col"
-              style={{ background: "rgba(8,4,20,0.98)", borderRight: "1px solid rgba(130,80,255,0.15)" }}>
+              style={{ background: "#000000", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
 
               <div className="p-5 flex items-center justify-between"
                 style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
@@ -89,7 +89,7 @@ export function Navigation() {
 
               <div className="p-6" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                 <p className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.2)" }}>
-                  © 2025 Phan Trọng Khang
+                  © 2026 Phan Trọng Khang
                 </p>
                 <div className="flex items-center gap-1.5 mt-2">
                   {["#a78bfa","#38bdf8","#34d399"].map(c => (
