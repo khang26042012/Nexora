@@ -375,7 +375,7 @@ function SpaceDivider() {
 ═══════════════════════════════════════════════════════ */
 export function Home() {
   return (
-    <div className="min-h-screen selection:bg-violet-500/30" style={{ background: "#020008", color: "white" }}>
+    <div className="min-h-screen selection:bg-violet-500/30" style={{ background: "#020008", color: "white", overflowX: "hidden", width: "100%", maxWidth: "100vw" }}>
       <CursorGlow />
       <Navigation />
 

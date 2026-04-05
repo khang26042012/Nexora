@@ -376,7 +376,7 @@ export function ThreeScene({ className }: { className?: string }) {
   return (
     <div
       className={className}
-      style={{ cursor: "grab" }}
+      style={{ cursor: "grab", overflow: "hidden", maxWidth: "100%", touchAction: "pan-y" }}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
