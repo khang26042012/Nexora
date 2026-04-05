@@ -44,80 +44,66 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ─── LIGHT MODE (default) ─── */
+/* ─── Always deep-space dark ─── */
 :root {
-  --background: 240 20% 98%;
-  --foreground: 240 10% 8%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 8%;
-  --card-border: 240 8% 90%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 8%;
-  --popover-border: 240 8% 90%;
-  --primary: 255 70% 55%;
+  --background: 264 100% 2%;
+  --foreground: 210 20% 96%;
+  --card: 264 50% 5%;
+  --card-foreground: 210 20% 96%;
+  --card-border: 264 30% 10%;
+  --popover: 264 50% 5%;
+  --popover-foreground: 210 20% 96%;
+  --popover-border: 264 30% 10%;
+  --primary: 265 80% 65%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 8% 94%;
-  --secondary-foreground: 240 10% 15%;
-  --muted: 240 8% 94%;
-  --muted-foreground: 240 5% 45%;
-  --accent: 255 55% 60%;
+  --secondary: 264 30% 10%;
+  --secondary-foreground: 210 20% 90%;
+  --muted: 264 30% 8%;
+  --muted-foreground: 210 10% 50%;
+  --accent: 265 70% 60%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 84% 60%;
+  --destructive: 0 62% 40%;
   --destructive-foreground: 0 0% 100%;
-  --border: 240 8% 88%;
-  --input: 240 8% 88%;
-  --ring: 255 70% 55%;
+  --border: 264 30% 10%;
+  --input: 264 30% 10%;
+  --ring: 265 80% 65%;
   --radius: 0.75rem;
   --app-font-sans: 'Inter', system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
 }
 
-/* ─── DARK MODE ─── */
 .dark {
-  --background: 222 22% 5%;
+  --background: 264 100% 2%;
   --foreground: 210 20% 96%;
-  --card: 222 20% 7%;
+  --card: 264 50% 5%;
   --card-foreground: 210 20% 96%;
-  --card-border: 222 15% 14%;
-  --popover: 222 20% 7%;
+  --card-border: 264 30% 10%;
+  --popover: 264 50% 5%;
   --popover-foreground: 210 20% 96%;
-  --popover-border: 222 15% 14%;
-  --primary: 255 75% 68%;
+  --popover-border: 264 30% 10%;
+  --primary: 265 80% 65%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 222 15% 14%;
+  --secondary: 264 30% 10%;
   --secondary-foreground: 210 20% 90%;
-  --muted: 222 15% 12%;
-  --muted-foreground: 210 10% 55%;
-  --accent: 255 60% 60%;
+  --muted: 264 30% 8%;
+  --muted-foreground: 210 10% 50%;
+  --accent: 265 70% 60%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 62% 35%;
+  --destructive: 0 62% 40%;
   --destructive-foreground: 0 0% 100%;
-  --border: 222 15% 14%;
-  --input: 222 15% 14%;
-  --ring: 255 75% 68%;
+  --border: 264 30% 10%;
+  --input: 264 30% 10%;
+  --ring: 265 80% 65%;
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-sans antialiased; }
+  body { @apply bg-background text-foreground font-sans antialiased; background: #020008; }
 }
 
-/* ─── glass card (adapts to theme) ─── */
-.glass-card {
-  background: color-mix(in srgb, hsl(var(--foreground)) 4%, transparent);
-  backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in srgb, hsl(var(--foreground)) 8%, transparent);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-}
-.dark .glass-card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  box-shadow: 0 4px 32px rgba(0,0,0,0.35);
-}
-
-/* ─── aurora float keyframes (CSS fallback) ─── */
-@keyframes float0 { 0%,100%{transform:translateY(0) translateX(0)} 50%{transform:translateY(-28px) translateX(8px)} }
-@keyframes float1 { 0%,100%{transform:translateY(0) translateX(0)} 50%{transform:translateY(-18px) translateX(-12px)} }
-@keyframes float2 { 0%,100%{transform:translateY(0) translateX(0)} 33%{transform:translateY(-22px) translateX(6px)} 66%{transform:translateY(8px) translateX(-4px)} }
-@keyframes float3 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-30px) scale(1.25)} }
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #020008; }
+::-webkit-scrollbar-thumb { background: rgba(120,60,255,0.35); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120,60,255,0.55); }
