@@ -29,6 +29,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, res, next) => {
+  if (req.path === "/NexoraGarden" || req.path.startsWith("/NexoraGarden/")) {
+    return res.redirect(301, "https://nexoragarden.onrender.com");
+  }
+  next();
+});
+
 app.use("/api", router);
 
 export default app;
