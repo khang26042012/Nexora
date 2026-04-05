@@ -33,15 +33,8 @@ export function Navigation() {
   return (
     <>
       <motion.header
-        className="fixed top-0 left-0 right-0 z-40 p-5 flex justify-between items-center pointer-events-none transition-all duration-300"
+        className="fixed top-0 left-0 right-0 z-40 p-5 flex items-center pointer-events-none transition-all duration-300"
         style={{ background: scrolled ? "rgba(2,0,8,0.75)" : "transparent", backdropFilter: scrolled ? "blur(16px)" : "none", borderBottom: scrolled ? "1px solid rgba(130,80,255,0.12)" : "1px solid transparent" }}>
-        {/* Logo */}
-        <div className="pointer-events-auto flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "rgba(100,50,220,0.2)", border: "1px solid rgba(130,80,255,0.3)" }}>
-            <span className="text-xs font-bold font-mono" style={{ color: "#a78bfa" }}>PK</span>
-          </div>
-        </div>
         <button
           onClick={() => setIsOpen(true)}
           className="pointer-events-auto p-2.5 rounded-xl transition-colors"
@@ -67,13 +60,7 @@ export function Navigation() {
 
               <div className="p-5 flex items-center justify-between"
                 style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ background: "rgba(100,50,220,0.2)", border: "1px solid rgba(130,80,255,0.3)" }}>
-                    <span className="text-xs font-bold font-mono" style={{ color: "#a78bfa" }}>PK</span>
-                  </div>
-                  <span className="text-sm font-mono text-white/50">Menu</span>
-                </div>
+                <span className="text-sm font-mono text-white/40 tracking-widest uppercase">Menu</span>
                 <button onClick={() => setIsOpen(false)}
                   className="p-2 rounded-lg transition-colors"
                   style={{ background: "rgba(255,255,255,0.05)" }}>
