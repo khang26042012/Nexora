@@ -87,10 +87,6 @@ router.post("/api/pump", (req, res) => {
       return;
     }
     const s = getSystemState();
-    if (action === "ON" && s.soil > 30) {
-      res.status(400).json({ error: "Độ ẩm đất hiện tại > 30%, không thể bật bơm" });
-      return;
-    }
     updateSystemState({ pump: action, pump_locked: 0 });
     insertPumpLog({
       action,

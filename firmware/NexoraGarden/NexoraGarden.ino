@@ -54,8 +54,8 @@ const char* WEATHER_URL =
 
 #define SAMPLE_COUNT    10
 #define SAMPLE_DELAY_MS  2
-#define EMA_ALPHA_SOIL  0.30f   // tăng từ 0.15 → phản ứng nhanh hơn 2x
-#define EMA_ALPHA_WATER 0.35f   // tăng từ 0.20 → phản ứng nhanh hơn
+#define EMA_ALPHA_SOIL  0.08f   // giảm mạnh → lọc nhiễu ADC tốt hơn, ổn định hơn
+#define EMA_ALPHA_WATER 0.15f   // giảm → ổn định hơn
 
 #define PUMP_SOIL_ON   30
 #define PUMP_SOIL_OFF  70
@@ -98,6 +98,10 @@ unsigned long lastWeather     = 0;
 unsigned long lastSend        = 0;
 unsigned long lastDHT         = 0;
 unsigned long lastSerial      = 0;
+unsigned long lastSoilRead    = 0;   // timing guard: đọc soil mỗi 800ms
+unsigned long lastWaterRead   = 0;   // timing guard: đọc water mỗi 800ms
+#define SOIL_READ_INTERVAL_MS  800
+#define WATER_READ_INTERVAL_MS 800
 unsigned long lastCal         = 0;
 unsigned long lastDraw        = 0;
 unsigned long lastConnected   = 0;  // lần cuối wsConnected=true
@@ -409,16 +413,19 @@ void handlePump() {
       }
     } else {
       soilPercent = liveSoil;
-      tft.fillScreen(tft.color565(0,0,0));
-      tft.setTextSize(2);
-      tft.setTextColor(tft.color565(0,255,255), tft.color565(0,0,0));
-      tft.setCursor(20, 80); tft.println("  Dang tuoi cay");
-      tft.setCursor(20, 120);
-      tft.setTextColor(tft.color565(255,255,255), tft.color565(0,0,0));
-      tft.printf("  Do am: %d %%   ", liveSoil);
-      tft.setCursor(20, 155);
-      tft.setTextColor(tft.color565(255,255,0), tft.color565(0,0,0));
-      tft.printf("  Thoi gian: %lus ", (now - pumpStartTime) / 1000);
+      // Chỉ vẽ TFT khi đang bật — tránh xung đột khi TFT đã tắt
+      if (tftOn) {
+        tft.fillScreen(tft.color565(0,0,0));
+        tft.setTextSize(2);
+        tft.setTextColor(tft.color565(0,255,255), tft.color565(0,0,0));
+        tft.setCursor(20, 80); tft.println("  Dang tuoi cay");
+        tft.setCursor(20, 120);
+        tft.setTextColor(tft.color565(255,255,255), tft.color565(0,0,0));
+        tft.printf("  Do am: %d %%   ", liveSoil);
+        tft.setCursor(20, 155);
+        tft.setTextColor(tft.color565(255,255,0), tft.color565(0,0,0));
+        tft.printf("  Thoi gian: %lus ", (now - pumpStartTime) / 1000);
+      }
     }
     return;
   }
@@ -766,8 +773,10 @@ void loop() {
     }
   }
 
-  updateSoil();
-  updateWater();
+  // Timing guard: đọc sensor mỗi 800ms thay vì mỗi vòng loop
+  // Giảm nhiễu ADC và giảm tải CPU
+  if (now - lastSoilRead >= SOIL_READ_INTERVAL_MS)  { updateSoil();  lastSoilRead  = now; }
+  if (now - lastWaterRead >= WATER_READ_INTERVAL_MS) { updateWater(); lastWaterRead = now; }
   handleFire();
   handleRain();
   handlePump();
