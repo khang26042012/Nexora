@@ -1,57 +1,95 @@
 import { Router } from "express";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { existsSync } from "fs";
+import { existsSync, writeFileSync, chmodSync } from "fs";
 import { resolve } from "path";
 import { createRequire } from "module";
 
 const router = Router();
 const execFileAsync = promisify(execFile);
 
-/* ── Tìm đường dẫn binary yt-dlp (lazy — chỉ throw khi thực sự dùng) ── */
-let _ytDlpPath: string | null = null;
-
-function findYtDlpBin(): string {
-  if (_ytDlpPath) return _ytDlpPath;
-
-  /* 1. Biến môi trường cho phép override */
-  if (process.env.YOUTUBE_DL_PATH) {
-    _ytDlpPath = process.env.YOUTUBE_DL_PATH;
-    return _ytDlpPath;
+/* ── Tìm binary yt-dlp đã cài sẵn ── */
+function findExistingBin(): string | null {
+  if (process.env.YOUTUBE_DL_PATH && existsSync(process.env.YOUTUBE_DL_PATH)) {
+    return process.env.YOUTUBE_DL_PATH;
   }
 
-  /* 2. Tìm qua require.resolve từ package yt-dlp-exec */
   try {
     const req = createRequire(import.meta.url);
     const pkgDir = resolve(req.resolve("yt-dlp-exec"), "../..");
     const candidate = resolve(pkgDir, "bin/yt-dlp");
-    if (existsSync(candidate)) { _ytDlpPath = candidate; return _ytDlpPath; }
+    if (existsSync(candidate)) return candidate;
   } catch {}
 
-  /* 3. Fallback — thử nhiều path (Replit dev, Render production, hệ thống) */
   const cwd = process.cwd();
-  const fallbacks = [
-    /* Render production: start từ /opt/render/project/src */
+  const candidates = [
     resolve(cwd, "node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp"),
-    /* Replit dev: start từ packages/api-server */
     resolve(cwd, "../../node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp"),
-    /* npm install (không pnpm) */
     resolve(cwd, "node_modules/yt-dlp-exec/bin/yt-dlp"),
     resolve(cwd, "../../node_modules/yt-dlp-exec/bin/yt-dlp"),
-    /* System yt-dlp */
+    "/tmp/yt-dlp",
     "/usr/bin/yt-dlp",
     "/usr/local/bin/yt-dlp",
   ];
-  for (const p of fallbacks) {
-    if (existsSync(p)) { _ytDlpPath = p; return _ytDlpPath; }
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
   }
+  return null;
+}
 
-  throw new Error(`Không tìm thấy yt-dlp binary. cwd=${cwd}. Cần chạy pnpm install trước.`);
+/* ── Download yt-dlp binary từ GitHub nếu chưa có ── */
+async function ensureYtDlpBin(): Promise<string> {
+  const existing = findExistingBin();
+  if (existing) return existing;
+
+  const tmpPath = "/tmp/yt-dlp";
+
+  /* Lấy URL release mới nhất */
+  const apiRes = await fetch(
+    "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest",
+    {
+      headers: { "User-Agent": "nexora-garden-server" },
+      signal: AbortSignal.timeout(15000),
+    }
+  );
+  if (!apiRes.ok) throw new Error(`GitHub API lỗi ${apiRes.status}`);
+
+  const release = await apiRes.json() as {
+    assets: Array<{ name: string; browser_download_url: string }>;
+  };
+  const asset = release.assets.find(a => a.name === "yt-dlp");
+  if (!asset) throw new Error("Không tìm thấy yt-dlp asset trong GitHub release");
+
+  /* Download binary */
+  const dlRes = await fetch(asset.browser_download_url, {
+    signal: AbortSignal.timeout(60000),
+  });
+  if (!dlRes.ok) throw new Error(`Download yt-dlp thất bại ${dlRes.status}`);
+
+  const buf = await dlRes.arrayBuffer();
+  writeFileSync(tmpPath, Buffer.from(buf));
+  chmodSync(tmpPath, 0o755);
+
+  return tmpPath;
+}
+
+/* ── Cache Promise để tránh download nhiều lần khi concurrent requests ── */
+let _binPromise: Promise<string> | null = null;
+
+function getYtDlpBin(): Promise<string> {
+  if (!_binPromise) {
+    _binPromise = ensureYtDlpBin().catch(err => {
+      _binPromise = null;  // Reset để lần sau thử lại
+      throw err;
+    });
+  }
+  return _binPromise;
 }
 
 /* ── Gọi yt-dlp → JSON ── */
 async function ytDlpInfo(url: string): Promise<any> {
-  const { stdout } = await execFileAsync(findYtDlpBin(), [
+  const bin = await getYtDlpBin();
+  const { stdout } = await execFileAsync(bin, [
     url,
     "--dump-single-json",
     "--no-warnings",
@@ -122,7 +160,6 @@ router.get("/info", async (req, res) => {
         .sort((a: any, b: any) => (b.height ?? 0) - (a.height ?? 0));
 
       if (candidates.length > 0) {
-        /* Có combined URL → dùng trực tiếp */
         formats.push({
           itag:    q.itag,
           quality: q.label,
@@ -130,7 +167,6 @@ router.get("/info", async (req, res) => {
           url:     candidates[0].url,
         });
       } else {
-        /* Fallback: stream qua server với format selector */
         formats.push({
           itag:    q.itag,
           quality: q.label,
@@ -148,7 +184,7 @@ router.get("/info", async (req, res) => {
   }
 });
 
-/* ── GET /api/yt/stream?url=...&height=720
+/* ── GET /api/yt/stream?url=...&height=360
  *  Fallback: stream qua server khi không có combined URL
  * ── */
 router.get("/stream", async (req, res) => {
@@ -163,7 +199,8 @@ router.get("/stream", async (req, res) => {
   const fmt = `best[height<=${height}][ext=mp4]/best[height<=${height}]/best`;
 
   try {
-    const proc = execFile(findYtDlpBin(), [url, "-f", fmt, "-o", "-", "--no-warnings", "--no-call-home"]);
+    const bin = await getYtDlpBin();
+    const proc = execFile(bin, [url, "-f", fmt, "-o", "-", "--no-warnings", "--no-call-home"]);
 
     res.setHeader("Content-Type", "video/mp4");
     res.setHeader("Content-Disposition", `attachment; filename="video_${height}p.mp4"`);
