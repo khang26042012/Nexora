@@ -36,6 +36,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ── NexoraGarden ─────────────────────────────────────────────────────────────
 const nexoraGardenDist = path.resolve(
   __dirname,
   "../../../apps/nexora-garden/dist/public",
@@ -52,11 +53,28 @@ app.use("/NexoraGarden", nexoraRouter);
 
 if (fs.existsSync(nexoraGardenDist)) {
   const indexHtml = path.join(nexoraGardenDist, "index.html");
-  app.use("/NexoraGarden", (_req: Request, res: Response) => {
+  app.get("/NexoraGarden/*", (_req: Request, res: Response) => {
     res.sendFile(indexHtml);
   });
 }
 
+// ── API routes ────────────────────────────────────────────────────────────────
 app.use("/api", router);
+
+// ── Portfolio (serve cuối cùng — catch-all) ───────────────────────────────────
+const portfolioDist = path.resolve(
+  __dirname,
+  "../../../apps/portfolio/dist/public",
+);
+
+if (fs.existsSync(portfolioDist)) {
+  app.use(express.static(portfolioDist));
+  app.get("*", (_req: Request, res: Response) => {
+    res.sendFile(path.join(portfolioDist, "index.html"));
+  });
+  logger.info({ portfolioDist }, "Serving portfolio");
+} else {
+  logger.warn({ portfolioDist }, "Portfolio dist not found — run build first");
+}
 
 export default app;
