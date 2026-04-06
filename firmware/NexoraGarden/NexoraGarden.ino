@@ -64,9 +64,9 @@ float localTemp = -999.0;
 float localHum  = -999.0;
 
 // ─── WiFi ─────────────────────────────────────────────────────────────────────
-const char* ssids[]     = {"Tuan Kha 5G", "Trong Khang", "Vnpt 2022"};
-const char* passwords[] = {"tuankha2015", "khongbiet123", "vnpt270922"};
-const int   NUM_WIFI    = 3;
+const char* ssids[]     = {"phantrongkhangg", "Tuan Kha 5G", "Trong Khang", "Vnpt 2022"};
+const char* passwords[] = {"26042012khang", "tuankha2015", "khongbiet123", "vnpt270922"};
+const int   NUM_WIFI    = 4;
 
 // ─── Server ───────────────────────────────────────────────────────────────────
 const char* SERVER_HOST = "nexorax.cloud";
