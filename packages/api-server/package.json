@@ -23,8 +23,7 @@
     "node-telegram-bot-api": "^0.66.0",
     "pino": "^9",
     "pino-http": "^10",
-    "ws": "^8.18.2",
-    "youtube-dl-exec": "^3.1.4"
+    "ws": "^8.18.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
