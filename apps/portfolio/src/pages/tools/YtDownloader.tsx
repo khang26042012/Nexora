@@ -41,7 +41,7 @@ type VideoInfo = {
 /* ── Gọi backend API — server-side fetch, không bị CORS ── */
 async function fetchVideoInfo(url: string): Promise<VideoInfo> {
   const apiUrl = `/api/yt/info?url=${encodeURIComponent(url)}`;
-  const res = await fetch(apiUrl, { signal: AbortSignal.timeout(30000) });
+  const res = await fetch(apiUrl, { signal: AbortSignal.timeout(35000) });
 
   if (!res.ok) {
     let msg = `Server lỗi ${res.status}`;

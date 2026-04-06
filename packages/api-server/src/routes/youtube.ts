@@ -30,12 +30,33 @@ function runYtdlpJson(url: string): Promise<any> {
       "--no-call-home",
       "--no-check-certificate",
       "--quiet",
+      "--socket-timeout", "10",
+      "--retries", "2",
+      "--extractor-retries", "1",
+      "--geo-bypass",
+      "--no-playlist",
     ]);
     let stdout = "";
     let stderr = "";
+    let done = false;
+
+    const timer = setTimeout(() => {
+      if (!done) {
+        done = true;
+        proc.kill("SIGKILL");
+        reject(new Error("yt-dlp timeout — YouTube đang chặn IP server. Thử lại sau."));
+      }
+    }, 20000);
+
     proc.stdout.on("data", (d) => (stdout += d));
     proc.stderr.on("data", (d) => (stderr += d));
+    proc.on("error", (err) => {
+      if (!done) { done = true; clearTimeout(timer); reject(err); }
+    });
     proc.on("close", (code) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
       if (code !== 0) return reject(new Error(stderr.trim().slice(0, 300) || `yt-dlp exit ${code}`));
       try { resolve(JSON.parse(stdout)); }
       catch (e) { reject(new Error("Không parse được JSON từ yt-dlp")); }
