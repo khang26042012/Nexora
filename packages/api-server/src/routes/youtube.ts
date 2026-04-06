@@ -76,6 +76,7 @@ router.get("/info", async (req, res) => {
       "--dump-json",
       "--no-playlist",
       "--no-warnings",
+      "--extractor-args", "youtube:player_client=android,web",
       url,
     ]);
 
@@ -157,6 +158,7 @@ router.get("/download", async (req, res) => {
     await runYtDlp([
       "--no-playlist",
       "--no-warnings",
+      "--extractor-args", "youtube:player_client=android,web",
       "-f", formatArg,
       "--merge-output-format", "mp4",
       "-o", outPath,
