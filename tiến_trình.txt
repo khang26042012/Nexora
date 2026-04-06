@@ -1,8 +1,59 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 06/04/2026
+  Cập nhật: 06/04/2026 (session 2)
 ================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 2] FIX — YtDownloader màn đen khi tìm kiếm
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: apps/portfolio/src/pages/tools/YtDownloader.tsx
+
+Vấn đề:
+  - Nhập link → nhấn Tìm → màn hình đen
+  - Nguyên nhân: Loader2 được dùng ở JSX nhưng KHÔNG được import
+  - Khi loading=true → render <Loader2> → crash → blank screen
+
+Đã sửa:
+  - Thêm Loader2 vào import từ lucide-react
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 2] FIX — better-sqlite3 native binary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - Môi trường bị reset → node_modules mất
+  - pnpm install --ignore-scripts không build native .node file
+  - pnpm install lần 2 bỏ qua vì "already up to date"
+  - node-gyp không có sẵn trong PATH
+
+Đã làm:
+  1. pnpm install --ignore-scripts → cài 712 packages
+  2. installSystemDependencies: gcc, gnumake, python3, nodejs_24 (Nix)
+  3. npm install -g node-gyp --prefix=/tmp/gyp-install → có node-gyp
+  4. node-gyp configure + build tại thư mục better-sqlite3
+     → Compile thành công: build/Release/better_sqlite3.node (2.27MB)
+  5. Restart workflow "API Server" → RUNNING ✅
+
+Kết quả:
+  - "Start application" (Portfolio) RUNNING port 21113 ✅
+  - "API Server" RUNNING port 8080 ✅
+  - WebSocket /ws + /ws-browser ready ✅
+  - SQLite DB initialized ✅
+  - TELEGRAM_TOKEN chưa set (cần thêm vào Secrets nếu dùng bot)
+
+Lưu ý:
+  - Mỗi khi môi trường reset, cần rebuild better-sqlite3:
+    cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+    /tmp/gyp-install/bin/node-gyp configure && /tmp/gyp-install/bin/node-gyp build
+  - Workflows từ attached_assets/ bị FAILED (code cũ, bỏ qua)
+
+ESP32 cần nạp firmware: KHÔNG
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

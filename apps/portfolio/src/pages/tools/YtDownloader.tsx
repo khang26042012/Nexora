@@ -2,7 +2,7 @@ import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Youtube, ArrowLeft, Download, Search, Clock, User,
-  CheckCircle2, AlertCircle, Film
+  CheckCircle2, AlertCircle, Film, Loader2
 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
