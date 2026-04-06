@@ -6,6 +6,28 @@
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 2] FIX — YtDownloader: Invidious bị block server IP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: apps/portfolio/src/pages/tools/YtDownloader.tsx
+
+Vấn đề:
+  - Tất cả Invidious instance đều báo lỗi khi tìm kiếm
+  - Nguyên nhân gốc: backend (Render server = datacenter IP) gọi Invidious
+    → Invidious block datacenter IP (chỉ trả captcha/fingerprint HTML)
+  - Dù thêm bao nhiêu instance cũng vô dụng nếu gọi từ server
+
+Đã sửa:
+  - Xóa gọi backend `/api/yt/info` hoàn toàn
+  - Frontend tự fetch Invidious API trực tiếp từ browser (IP người dùng)
+  - Browser IP (4G/nhà) không bị Invidious block
+  - Thêm 9 instances vào danh sách, thử lần lượt
+  - Hiển thị hint "Đang thử các server..." khi loading
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [06/04/2026 session 2] FIX — YtDownloader màn đen khi tìm kiếm
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

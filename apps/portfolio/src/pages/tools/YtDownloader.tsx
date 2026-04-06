@@ -7,7 +7,18 @@ import {
 import { useState } from "react";
 import { useLocation } from "wouter";
 
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+/* ── Danh sách Invidious instances — gọi thẳng từ browser ── */
+const INVIDIOUS_INSTANCES = [
+  "https://iv.ggtyler.dev",
+  "https://invidious.slipfox.xyz",
+  "https://invidious.protokolla.fi",
+  "https://invidious.privacyredirect.com",
+  "https://inv.nadeko.net",
+  "https://invidious.nerdvpn.de",
+  "https://yt.artemislena.eu",
+  "https://yewtu.be",
+  "https://invidious.materialio.us",
+];
 
 /* ── Helpers ── */
 function formatDuration(sec: number) {
@@ -18,8 +29,22 @@ function formatDuration(sec: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function extractVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/,
+    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m?.[1]) return m[1];
+  }
+  return null;
+}
+
 function isYouTubeUrl(url: string) {
-  return /youtube\.com\/watch|youtu\.be\//.test(url);
+  return /youtube\.com\/watch|youtu\.be\/|youtube\.com\/shorts/.test(url);
 }
 
 /* ── Quality badge colors ── */
@@ -28,16 +53,92 @@ const qualityColors: Record<string, string> = {
   "720p": "#34d399",
   "480p": "#fbbf24",
   "360p": "#94a3b8",
-  "Best": "#60a5fa",
 };
+
+type Format = { itag: string; quality: string; ext: string; url: string };
 
 type VideoInfo = {
   title: string;
   thumbnail: string;
   duration: number;
   channel: string;
-  formats: { itag: string; quality: string; ext: string; size?: string; url: string }[];
+  formats: Format[];
 };
+
+const QUALITY_RANK: Record<string, number> = {
+  "1080p": 1080, "720p60": 720, "720p": 720,
+  "480p": 480, "360p": 360, "240p": 240, "144p": 144,
+};
+
+/* ── Fetch Invidious từ browser — thử từng instance ── */
+async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
+  const errors: string[] = [];
+
+  for (const base of INVIDIOUS_INSTANCES) {
+    try {
+      const res = await fetch(
+        `${base}/api/v1/videos/${videoId}?fields=title,videoThumbnails,lengthSeconds,author,formatStreams`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (!res.ok) {
+        errors.push(`${base}: HTTP ${res.status}`);
+        continue;
+      }
+
+      const data = await res.json();
+
+      if (!data?.title) {
+        errors.push(`${base}: response không hợp lệ`);
+        continue;
+      }
+
+      /* Thumbnail */
+      const thumbnails: { quality: string; url: string }[] = data.videoThumbnails ?? [];
+      const thumb =
+        thumbnails.find((t) => t.quality === "maxresdefault")?.url ??
+        thumbnails.find((t) => t.quality === "hqdefault")?.url ??
+        thumbnails[0]?.url ?? "";
+
+      /* Formats */
+      type FmtStream = { itag: string; quality: string; type: string; container: string; url: string };
+      const fmtStreams: FmtStream[] = data.formatStreams ?? [];
+      const seen = new Set<number>();
+      const formats: Format[] = [];
+
+      for (const f of fmtStreams) {
+        if (!f.type?.startsWith("video")) continue;
+        const rank = QUALITY_RANK[f.quality] ?? 0;
+        if (!rank || seen.has(rank)) continue;
+        seen.add(rank);
+        formats.push({
+          itag: f.itag,
+          quality: `${rank}p`,
+          ext: f.container ?? "mp4",
+          url: `${base}/latest_version?id=${videoId}&itag=${f.itag}&local=true`,
+        });
+      }
+
+      if (formats.length === 0) {
+        errors.push(`${base}: không có format video nào`);
+        continue;
+      }
+
+      formats.sort((a, b) => parseInt(b.quality) - parseInt(a.quality));
+
+      return {
+        title: data.title,
+        thumbnail: thumb,
+        duration: data.lengthSeconds ?? 0,
+        channel: data.author ?? "",
+        formats,
+      };
+    } catch (e: any) {
+      errors.push(`${base}: ${e.message ?? "timeout"}`);
+    }
+  }
+
+  throw new Error(`Tất cả Invidious instance đều lỗi:\n${errors.join("\n")}`);
+}
 
 /* ── Main Component ── */
 export function YtDownloader() {
@@ -47,6 +148,7 @@ export function YtDownloader() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState<VideoInfo | null>(null);
   const [selectedItag, setSelectedItag] = useState("");
+  const [currentInstance, setCurrentInstance] = useState("");
 
   const handleFetch = async () => {
     if (!url.trim()) return;
@@ -54,17 +156,23 @@ export function YtDownloader() {
       setError("Link không hợp lệ. Vui lòng nhập link YouTube.");
       return;
     }
+
+    const videoId = extractVideoId(url);
+    if (!videoId) {
+      setError("Không tách được Video ID từ link này.");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setInfo(null);
     setSelectedItag("");
+    setCurrentInstance("");
 
     try {
-      const res = await fetch(`${API_BASE}/api/yt/info?url=${encodeURIComponent(url)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Lỗi không xác định");
-      setInfo(data);
-      if (data.formats?.length > 0) setSelectedItag(data.formats[0].itag);
+      const result = await fetchVideoInfo(videoId);
+      setInfo(result);
+      if (result.formats?.length > 0) setSelectedItag(result.formats[0].itag);
     } catch (e: any) {
       setError(e.message ?? "Không lấy được thông tin video");
     } finally {
@@ -76,7 +184,6 @@ export function YtDownloader() {
     if (!info || !selectedItag) return;
     const fmt = info.formats.find(f => f.itag === selectedItag);
     if (!fmt) return;
-    /* Mở URL Invidious proxy trực tiếp — trình duyệt tự tải xuống */
     const link = document.createElement("a");
     link.href = fmt.url;
     link.download = `${info.title}.${fmt.ext}`;
@@ -183,6 +290,21 @@ export function YtDownloader() {
               {loading ? "Đang tìm..." : "Tìm"}
             </motion.button>
           </div>
+
+          {/* Loading hint */}
+          <AnimatePresence>
+            {loading && (
+              <motion.p
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-xs mt-2 pl-1"
+                style={{ color: "rgba(255,255,255,0.3)" }}
+              >
+                Đang thử các server... có thể mất vài giây
+              </motion.p>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Error */}
@@ -192,11 +314,11 @@ export function YtDownloader() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="flex items-center gap-2.5 mb-6 px-4 py-3 rounded-xl text-sm"
+              className="flex items-start gap-2.5 mb-6 px-4 py-3 rounded-xl text-sm"
               style={{ background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.2)", color: "#ff8080" }}
             >
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error}
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span className="whitespace-pre-line break-all">{error}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -271,9 +393,6 @@ export function YtDownloader() {
                       >
                         <Film className="w-3.5 h-3.5" />
                         {f.quality}
-                        {f.size && (
-                          <span className="text-[10px] opacity-60">{f.size}</span>
-                        )}
                       </motion.button>
                     );
                   })}
