@@ -10,7 +10,7 @@ import {
   insertPumpLog,
 } from "./db.js";
 import { askGemini } from "./gemini.js";
-import { pushCommandToEsp32 } from "./websocket.js";
+import { pushCommandToEsp32, getEsp32Socket } from "./websocket.js";
 import { adminOn, adminOff, isAdminActive } from "./adminControl.js";
 import { unlockOn, unlockOff } from "./unlockControl.js";
 import { isWebControlLocked } from "./commandLock.js";
@@ -258,60 +258,71 @@ export async function initTelegramBot() {
   });
 
   bot.onText(/\/pump_on/, (msg) => {
-    const id = msg.chat.id;
-    if (!isAuthorized(id)) return;
-    if (isWebControlLocked()) {
-      bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
-      return;
-    }
-    const s = getSystemState();
-    if (s.soil > 30) {
+      const id = msg.chat.id;
+      if (!isAuthorized(id)) return;
+      if (isWebControlLocked()) {
+        bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
+        return;
+      }
+      const s = getSystemState();
+      const esp32 = getEsp32Socket();
+      if (!esp32 || esp32.readyState !== 1) {
+        bot!.sendMessage(
+          id,
+          `⚠️ Chủ nhân ơi, ESP32 đang offline rồi ạ!\nLệnh không thể gửi đến thiết bị. Kiểm tra nguồn điện và WiFi nhé!`,
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+      updateSystemState({ pump: "ON", pump_locked: 0 });
+      insertPumpLog({
+        action: "ON",
+        trigger: "manual",
+        soil_at_start: s.soil,
+        soil_at_end: null,
+        duration_sec: null,
+      });
+      pushCommandToEsp32("ON");
+      const soilWarn = s.soil > 30 ? `\n⚠️ Lưu ý: Đất đang ở <b>${s.soil}%</b> — hãy tắt bơm đúng lúc nhé!` : ``;
       bot!.sendMessage(
         id,
-        `⚠️ Chủ nhân ơi, chưa thể bật bơm đâu ạ!\nĐộ ẩm đất hiện tại là <b>${s.soil}%</b> (> 30%).`,
+        `✅ Chủ nhân ơi, mình đã bật máy bơm (thủ công) rồi ạ!${soilWarn}`,
         { parse_mode: "HTML" }
       );
-      return;
-    }
-    updateSystemState({ pump: "ON", pump_locked: 0 });
-    insertPumpLog({
-      action: "ON",
-      trigger: "manual",
-      soil_at_start: s.soil,
-      soil_at_end: null,
-      duration_sec: null,
     });
-    pushCommandToEsp32("ON");
-    bot!.sendMessage(
-      id,
-      `✅ Chủ nhân ơi, mình đã bật máy bơm (thủ công) rồi ạ!`,
-      { parse_mode: "HTML" }
-    );
-  });
 
   bot.onText(/\/pump_off/, (msg) => {
-    const id = msg.chat.id;
-    if (!isAuthorized(id)) return;
-    if (isWebControlLocked()) {
-      bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
-      return;
-    }
-    const s = getSystemState();
-    updateSystemState({ pump: "OFF", pump_locked: 0 });
-    insertPumpLog({
-      action: "OFF",
-      trigger: "manual",
-      soil_at_start: null,
-      soil_at_end: s.soil,
-      duration_sec: null,
+      const id = msg.chat.id;
+      if (!isAuthorized(id)) return;
+      if (isWebControlLocked()) {
+        bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
+        return;
+      }
+      const s = getSystemState();
+      const esp32Off = getEsp32Socket();
+      if (!esp32Off || esp32Off.readyState !== 1) {
+        bot!.sendMessage(
+          id,
+          `⚠️ Chủ nhân ơi, ESP32 đang offline rồi ạ!\nLệnh không thể gửi đến thiết bị.`,
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+      updateSystemState({ pump: "OFF", pump_locked: 0 });
+      insertPumpLog({
+        action: "OFF",
+        trigger: "manual",
+        soil_at_start: null,
+        soil_at_end: s.soil,
+        duration_sec: null,
+      });
+      pushCommandToEsp32("OFF");
+      bot!.sendMessage(
+        id,
+        `✅ Chủ nhân ơi, mình đã tắt máy bơm và mở khóa rồi ạ!`,
+        { parse_mode: "HTML" }
+      );
     });
-    pushCommandToEsp32("OFF");
-    bot!.sendMessage(
-      id,
-      `✅ Chủ nhân ơi, mình đã tắt máy bơm và mở khóa rồi ạ!`,
-      { parse_mode: "HTML" }
-    );
-  });
 
   bot.onText(/\/unlock_on/, (msg) => {
     const id = msg.chat.id;
