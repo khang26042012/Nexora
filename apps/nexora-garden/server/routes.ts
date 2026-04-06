@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type IRouter } from "express";
 import {
   getSystemState,
   getRecentLogs,
@@ -18,7 +18,7 @@ import { unlockOn, unlockOff, isUnlockActive } from "./unlockControl.js";
 import { setWebControlLock } from "./commandLock.js";
 import { logger } from "./lib/logger.js";
 
-const router = Router();
+const router: IRouter = Router();
 
 // ── Legacy routes (used by Telegram / UptimeRobot) ──────────────────────────
 router.get("/status", (_req, res) => {

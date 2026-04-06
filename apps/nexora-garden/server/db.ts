@@ -12,7 +12,7 @@ if (!fs.existsSync(dataDir)) {
 
 const DB_PATH = path.join(dataDir, "nexora.db");
 
-export const db = new Database(DB_PATH);
+export const db: ReturnType<typeof Database> = new Database(DB_PATH);
 
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");

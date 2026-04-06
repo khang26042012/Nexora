@@ -46,7 +46,7 @@ export function useWebSocket() {
     if (wsRef.current && wsRef.current.readyState <= 1) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws-browser`;
+    const wsUrl = `${protocol}//${window.location.host}/NexoraGarden/ws-browser`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

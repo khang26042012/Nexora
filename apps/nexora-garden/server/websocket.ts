@@ -98,9 +98,9 @@ export function initWebSocket(
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
 
-    if (pathname === "/ws-browser") {
+    if (pathname === "/ws-browser" || pathname === "/NexoraGarden/ws-browser") {
       handleBrowserConnection(ws);
-    } else if (pathname === "/ws") {
+    } else if (pathname === "/ws" || pathname === "/NexoraGarden/ws") {
       handleEsp32Connection(ws, req, sendTelegram);
     } else {
       // Unknown path — close cleanly

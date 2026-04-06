@@ -18,8 +18,10 @@ import { logger } from "./lib/logger.js";
 
 const WEB_LOCK_MSG = "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~";
 
-const WEATHER_URL =
-  "http://api.weatherapi.com/v1/forecast.json?key=b92581d628b74fda87d123430261103&q=10.2537,105.9722&days=1&aqi=no&alerts=no";
+function getWeatherUrl(): string {
+  const key = process.env["WEATHER_API_KEY"] ?? "";
+  return `http://api.weatherapi.com/v1/forecast.json?key=${key}&q=10.2537,105.9722&days=1&aqi=no&alerts=no`;
+}
 
 let bot: TelegramBot | null = null;
 let chatId: string | null = null;
@@ -149,7 +151,7 @@ export async function initTelegramBot() {
   bot.onText(/\/weather/, async (msg) => {
     const id = msg.chat.id;
     try {
-      const res = await axios.get(WEATHER_URL);
+      const res = await axios.get(getWeatherUrl());
       const d = res.data;
       const cur = d.current;
       const fore = d.forecast?.forecastday?.[0]?.day;
