@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "1JcqsTQ0csoeWkiZ88wso"
+uri = "file://esp32-prompt.md"
+type = "text"
+title = "Prompt thêm unlock + TFT vào code ESP32"

@@ -1,0 +1,1309 @@
+================================================================
+  NEXORAGARDEN — TÀI LIỆU TOÀN BỘ HỆ THỐNG
+  Dùng để huấn luyện NexoraAI
+  Phiên bản: 2.0 | Tháng 4/2026
+================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MỤC LỤC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1.  Giới thiệu dự án
+2.  Kiến trúc tổng thể
+3.  Phần cứng ESP32
+4.  Giao thức WebSocket (ESP32 ↔ Server)
+5.  Logic bơm nước (Server + ESP32)
+6.  Hệ thống khóa lệnh chéo nền tảng
+7.  API Server — Routes & Endpoints
+8.  Cơ sở dữ liệu SQLite
+9.  Bot Telegram — Toàn bộ lệnh & Tin nhắn mẫu
+10. Giao diện Web Dashboard
+11. NexoraAI (Gemini)
+12. Biến môi trường
+13. Code ESP32 đầy đủ (Arduino/C++)
+14. Tóm tắt luồng xử lý chính
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+================================================================
+1. GIỚI THIỆU DỰ ÁN
+================================================================
+
+Tên dự án  : NexoraGarden
+Tác giả    : Phan Trọng Khang — học sinh THCS Vĩnh Hoà
+Mục đích   : Hệ thống nông nghiệp IoT thông minh — tự động tưới
+             cây dựa trên dữ liệu cảm biến, điều khiển từ xa qua
+             Telegram và giao diện web.
+Deploy     : Render.com (backend + frontend), ESP32 kết nối qua WSS
+
+Các thành phần:
+  - ESP32        : Thu thập dữ liệu cảm biến, điều khiển relay bơm,
+                   kết nối server qua WebSocket SSL.
+  - API Server   : Express 5 + WebSocket, quản lý logic bơm, Telegram,
+                   lưu trữ SQLite.
+  - Dashboard    : React 19 + Vite + Tailwind, giao diện web thời gian thực.
+  - Telegram Bot : Điều khiển từ xa, nhận thông báo cảnh báo.
+  - NexoraAI     : Gemini 2.5 Flash trả lời câu hỏi nông nghiệp.
+
+
+================================================================
+2. KIẾN TRÚC TỔNG THỂ
+================================================================
+
+[ESP32]
+  │ WebSocket SSL (wss://nexoragarden.onrender.com/ws)
+  ▼
+[API Server — Express + WebSocket]
+  ├── /ws          → Kết nối ESP32
+  ├── /ws-browser  → Kết nối Dashboard web (real-time)
+  ├── /api/*       → REST API cho Dashboard
+  ├── /telegram-webhook → Nhận lệnh Telegram (webhook mode)
+  ├── SQLite DB    → Lưu sensor_logs, pump_logs, system_state, commands
+  └── Telegram Bot → Gửi thông báo, nhận lệnh
+
+[Dashboard Web]
+  ├── Kết nối /ws-browser để nhận dữ liệu real-time
+  ├── Gọi REST API /api/* để điều khiển
+  └── 3 tab: Giám sát | Điều khiển | Lệnh Telegram
+
+[Telegram Bot]
+  ├── Polling mode (dev) / Webhook mode (production)
+  ├── Nhận lệnh điều khiển từ user
+  └── Gửi thông báo cảnh báo, trạng thái
+
+Luồng dữ liệu cảm biến:
+ESP32 → (sensor JSON mỗi 1000ms) → Server → broadcast → Dashboard (real-time)
+                                          → lưu DB (mỗi 10s)
+                                          → cập nhật system_state
+
+
+================================================================
+3. PHẦN CỨNG ESP32
+================================================================
+
+Vi điều khiển: ESP32 (dual-core 240MHz, WiFi + Bluetooth)
+
+Các cảm biến và chân kết nối:
+  - SOIL_PIN   = 32  : Cảm biến độ ẩm đất (analog, điện trở)
+  - WATER_PIN  = 33  : Cảm biến mức nước (analog)
+  - FIRE_PIN   = 34  : Cảm biến lửa (digital, LOW = có lửa)
+  - RAIN_PIN   = 25  : Cảm biến mưa (digital, LOW = có mưa/nước)
+  - RELAY_PIN  = 26  : Relay điều khiển máy bơm (HIGH = bật bơm)
+  - DHTPIN     = 13  : Cảm biến DHT22 (nhiệt độ + độ ẩm không khí)
+
+Màn hình TFT:
+  - Loại: ST7789 240×240
+  - Bus: SPI (VSPI_HOST)
+  - Chân: SCLK=18, MOSI=23, DC=2, CS=5, RST=4
+  - Thư viện: LovyanGFX
+
+Thông số hiệu chỉnh cảm biến đất:
+  - SOIL_RAW_DRY  = 3200  (đất khô hoàn toàn → 0%)
+  - SOIL_RAW_WET  = 1200  (đất ướt hoàn toàn → 100%)
+
+Thông số hiệu chỉnh mức nước:
+  - WATER_RAW_EMPTY = 100   (trống → 0%)
+  - WATER_RAW_FULL  = 2500  (đầy → 100%)
+
+Ngưỡng logic bơm:
+  - PUMP_SOIL_ON   = 30  : Bật bơm khi độ ẩm đất ≤ 30%
+  - PUMP_SOIL_OFF  = 70  : Tắt bơm khi độ ẩm đất ≥ 70%
+  - PUMP_MAX_MS    = 25000 : Bơm tự động dừng sau 25 giây (an toàn)
+
+Xử lý tín hiệu:
+  - Lấy mẫu 10 lần/đọc, loại bỏ 2 cực trị, lấy median (chống nhiễu)
+  - Lọc EMA (Exponential Moving Average):
+      Alpha đất  = 0.15 (phản hồi chậm, ổn định hơn)
+      Alpha nước = 0.20
+
+WiFi:
+  - Hỗ trợ đa SSID: "Trong Khang" / "Vnpt 2022"
+  - Tự động kết nối lại khi mất WiFi (non-blocking, thử lại mỗi 12s)
+  - Tự tái kết nối WebSocket sau khi WiFi phục hồi
+
+Thời gian thực:
+  - Đồng bộ NTP (UTC+7): pool.ntp.org, time.nist.gov, asia.pool.ntp.org
+  - Hiển thị giờ thực trên màn hình TFT
+
+Thời tiết:
+  - API: WeatherAPI (Vĩnh Hoà, toạ độ 10.2537, 105.9722)
+  - Cập nhật mỗi 10 phút (600000ms)
+  - Dữ liệu: nhiệt độ, độ ẩm KK, gió, cơ hội mưa
+
+
+================================================================
+4. GIAO THỨC WEBSOCKET (ESP32 ↔ SERVER)
+================================================================
+
+Kết nối: wss://nexoragarden.onrender.com/ws (SSL, port 443)
+Thư viện: WebSocketsClient (arduinoWebSockets)
+Heartbeat: ping mỗi 15s, timeout 3s, 2 lần thất bại → ngắt kết nối
+Reconnect interval: 3000ms
+
+── Tin nhắn ESP32 → Server ──────────────────────────────────
+
+1. Sensor data (mỗi 1000ms):
+{
+  "type":  "sensor",
+  "soil":  45,         // % độ ẩm đất (0-100)
+  "water": 80,         // % mức nước (0-100)
+  "temp":  27.5,       // °C nhiệt độ (DHT22)
+  "hum":   65.0,       // % độ ẩm không khí (DHT22)
+  "fire":  false,      // boolean: có lửa không
+  "rain":  false,      // boolean: có mưa/nước không
+  "pump":  true        // boolean: bơm đang bật không
+}
+
+2. Thông báo sự kiện:
+{
+  "type":    "notify",
+  "message": "Tu dong bat bom: do am dat 28%"
+}
+Dùng cho: bơm tự bật/tắt, cảnh báo nước thấp, cháy kéo dài 3s
+
+3. Báo hiệu chuẩn bị tưới (1-2s TRƯỚC khi bơm tự động bật):
+{
+  "type": "pre_water"
+}
+Mục đích: Server broadcast cho web + gửi Telegram báo trước
+
+── Tin nhắn Server → ESP32 ──────────────────────────────────
+
+1. Lệnh bơm:
+{ "type": "command", "pump": "ON" }
+{ "type": "command", "pump": "OFF" }
+
+2. Lệnh unlock (mở/đóng khóa bơm tự động):
+{ "type": "command", "unlock": "ON" }
+{ "type": "command", "unlock": "OFF" }
+
+3. Lệnh admin (bật/tắt buộc, bỏ qua kiểm tra):
+{ "type": "command", "admin": "ON" }
+{ "type": "command", "admin": "OFF" }
+
+4. Lệnh màn hình TFT:
+{ "type": "command", "tft": "ON" }
+{ "type": "command", "tft": "OFF" }
+
+── Tin nhắn Server → Dashboard Browser (/ws-browser) ────────
+
+1. Cập nhật trạng thái đầy đủ:
+{ "type": "state", "pump": "ON", "soil": 45, "water": 80, ... }
+
+2. Trạng thái ESP32 online/offline:
+{ "type": "esp32_status", "online": true }
+
+3. Bản ghi log real-time:
+{ "type": "log", "level": "info|warn|error|success", "message": "...", "timestamp": "..." }
+
+4. Cảnh báo chuẩn bị tưới:
+{ "type": "pre_water" }
+
+5. Trạng thái web lock:
+{ "type": "web_lock", "active": true }
+
+
+================================================================
+5. LOGIC BƠM NƯỚC (SERVER + ESP32)
+================================================================
+
+── Logic tự động (chạy trên ESP32) ──────────────────────────
+
+Điều kiện BẬT bơm tự động:
+  - Độ ẩm đất ≤ 30% (PUMP_SOIL_ON)
+  - pumpLocked = false
+  - pumpState = false (bơm đang tắt)
+  - adminActive = false
+  - manualUnlock = false
+
+Quy trình bật bơm tự động (có pre_water):
+  1. Phát hiện điều kiện đất khô
+  2. Gửi { "type": "pre_water" } lên server
+  3. Đặt pumpPending = true, pumpPendingTime = millis()
+  4. Chờ 1500ms (1.5 giây)
+  5. Thật sự bật relay (setPump(true))
+  6. Gửi notify "Tu dong bat bom: do am dat X%"
+
+Điều kiện TẮT bơm tự động:
+  - Độ ẩm đất live ≥ 70% (PUMP_SOIL_OFF) — đo trực tiếp trong khi bơm
+  - Hoặc đã bơm đủ 25 giây (PUMP_MAX_MS timeout)
+  → Gọi setPump(false), pumpLocked = true
+
+Khóa bơm (pumpLocked):
+  - Bật (=true): khi bơm vừa tắt sau đủ ẩm hoặc timeout
+  - Mở (=false): khi nhận lệnh unlock từ server, hoặc soil < PUMP_SOIL_ON
+
+── Logic trên Server ─────────────────────────────────────────
+
+Khi nhận sensor từ ESP32:
+  - soil ≥ 70 → updateSystemState({ pump: "OFF", pump_locked: 1 })
+  - soil ≤ 30 && soil > 0 && !pump_locked → updateSystemState({ pump: "ON" })
+  - Broadcast state mới đến tất cả browser clients
+
+Admin Mode (25 giây):
+  - Bật bơm buộc, bỏ qua mọi kiểm tra độ ẩm
+  - Server tự tắt sau 25 giây nếu không có lệnh admin_off
+  - Khi hết giờ: gửi Telegram cảnh báo
+
+Unlock Mode (500 giây):
+  - Mở khóa pumpLocked, cho phép bơm tự bật
+  - Server tự khóa lại sau 500 giây
+
+
+================================================================
+6. HỆ THỐNG KHÓA LỆNH CHÉO NỀN TẢNG
+================================================================
+
+Vấn đề: Web và Telegram dùng đồng thời → xung đột lệnh
+
+Giải pháp: webControlLock (module commandLock.ts)
+
+Nguyên tắc:
+  - Khi web BẬT bất kỳ lệnh nào (pump/admin/unlock) → LOCK Telegram
+  - Khi web TẮT lệnh đó → UNLOCK Telegram
+  - Chỉ có MỘT nguồn điều khiển tại một thời điểm
+
+Khi Telegram bị lock và nhận lệnh:
+  → Phản hồi: "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+
+Khi web đang lock:
+  → Hiển thị banner màu cam trên tab Điều khiển:
+     "Bạn đang nắm quyền điều khiển — Telegram đang bị khóa lệnh"
+
+Khi ESP32 chuẩn bị tưới (pre_water):
+  → Web hiển thị banner xanh nhấp nháy:
+     "ESP32 đang chuẩn bị tưới — vui lòng không gửi lệnh xung đột!"
+  → Banner tự mất sau 8 giây
+  → Telegram nhận: "🚿 Đang chuẩn bị tưới đây chủ nhân~"
+
+Các endpoint bị lock khi web active:
+  - /api/pump   (POST)
+  - /api/unlock (POST)
+  - /api/admin  (POST)
+
+Các lệnh Telegram bị khóa:
+  - /pump_on, /pump_off
+  - /unlock_on, /unlock_off
+  - /admin_on, /admin_off
+
+
+================================================================
+7. API SERVER — ROUTES & ENDPOINTS
+================================================================
+
+Framework: Express 5
+Port: process.env.PORT (Render tự assign)
+Mode dev: proxy requests → Vite dev server (port 5173)
+
+── GET Endpoints ─────────────────────────────────────────────
+
+GET /status
+  → Trả về system_state hiện tại (dùng cho Telegram + UptimeRobot)
+  Response: { id, pump, pump_locked, alert_enabled, tft_enabled,
+              last_seen, soil, water, temp, hum, fire, rain }
+
+GET /api/status
+  → Như /status nhưng dùng cho Dashboard
+
+GET /api/logs?limit=20
+  → Trả về N bản ghi sensor_logs gần nhất (max 100)
+
+GET /api/pump-logs
+  → Trả về lịch sử bơm (pump_logs)
+
+GET /api/report
+  → Báo cáo tổng hợp hôm nay (avg_temp, avg_hum, total_readings,
+    pump_activations, fire_events, rain_events)
+
+GET /api/commands
+  → Danh sách lệnh đã lưu (built-in + custom)
+
+── POST Endpoints ────────────────────────────────────────────
+
+POST /api/pump
+  Body: { "action": "ON" | "OFF" }
+  Logic:
+    - action=ON && soil > 30 → 400 "Độ ẩm đất hiện tại > 30%"
+    - Cập nhật DB, gửi lệnh ESP32, log pump, set/clear web lock
+
+POST /api/unlock
+  Body: { "action": "ON" | "OFF" }
+  Logic:
+    - ON: unlockOn() → mở khóa pump, reset sau 500s, set web lock
+    - OFF: unlockOff() → khóa lại, clear web lock
+
+POST /api/admin
+  Body: { "action": "ON" | "OFF" }
+  Logic:
+    - ON: adminOn() → bật bơm buộc, auto-off sau 25s, set web lock
+    - OFF: adminOff() → tắt bơm, clear web lock
+
+POST /api/alert
+  Body: { "enabled": true | false }
+  → Bật/tắt cảnh báo Telegram (alert_enabled trong DB)
+
+POST /api/tft
+  Body: { "enabled": true | false }
+  → Bật/tắt màn hình TFT, gửi lệnh thẳng đến ESP32
+
+POST /api/commands
+  Body: { "name": "...", "command": "...", "description": "..." }
+  → Thêm lệnh mới vào danh sách
+
+PUT /api/commands/:id
+  → Sửa lệnh (chỉ custom, không sửa được built-in)
+
+DELETE /api/commands/:id
+  → Xóa lệnh (chỉ custom)
+
+POST /telegram-webhook
+  → Nhận cập nhật từ Telegram (webhook mode, production)
+
+
+================================================================
+8. CƠ SỞ DỮ LIỆU SQLITE
+================================================================
+
+File: artifacts/api-server/data/nexora.db
+Pragma: WAL mode, foreign_keys ON
+
+── Bảng system_state ─────────────────────────────────────────
+(Luôn chỉ có 1 hàng, id=1)
+
+  id           INTEGER PRIMARY KEY DEFAULT 1
+  pump         TEXT DEFAULT 'OFF'         -- 'ON' | 'OFF'
+  pump_locked  INTEGER DEFAULT 0          -- 0=mở, 1=khóa
+  alert_enabled INTEGER DEFAULT 1        -- 0=tắt, 1=bật
+  tft_enabled  INTEGER DEFAULT 1         -- 0=tắt, 1=bật
+  last_seen    DATETIME                   -- Lần cuối nhận sensor
+  soil         INTEGER DEFAULT 0         -- % độ ẩm đất
+  water        INTEGER DEFAULT 0         -- % mức nước
+  temp         REAL DEFAULT 0            -- °C
+  hum          REAL DEFAULT 0            -- % độ ẩm KK
+  fire         INTEGER DEFAULT 0         -- 0=không, 1=có lửa
+  rain         INTEGER DEFAULT 0         -- 0=không, 1=có mưa
+
+── Bảng sensor_logs ─────────────────────────────────────────
+(Ghi mỗi 10 giây khi có dữ liệu cảm biến)
+
+  id        INTEGER PRIMARY KEY AUTOINCREMENT
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  soil      INTEGER
+  water     INTEGER
+  temp      REAL
+  hum       REAL
+  fire      INTEGER
+  rain      INTEGER
+
+── Bảng pump_logs ────────────────────────────────────────────
+(Ghi mỗi khi bơm bật/tắt)
+
+  id            INTEGER PRIMARY KEY AUTOINCREMENT
+  timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP
+  action        TEXT              -- 'ON' | 'OFF'
+  trigger       TEXT              -- 'auto' | 'manual' | 'manual_web' |
+                                  -- 'admin' | 'admin_auto' | 'admin_manual'
+  soil_at_start INTEGER           -- % đất lúc bắt đầu
+  soil_at_end   INTEGER           -- % đất lúc kết thúc
+  duration_sec  INTEGER           -- Thời gian bơm (giây)
+
+── Bảng commands ─────────────────────────────────────────────
+(Danh sách lệnh Telegram)
+
+  id          INTEGER PRIMARY KEY AUTOINCREMENT
+  name        TEXT NOT NULL        -- Tên hiển thị
+  command     TEXT NOT NULL        -- Lệnh (/pump_on, v.v.)
+  description TEXT                 -- Mô tả
+  is_builtin  INTEGER DEFAULT 0    -- 1=built-in, 0=custom
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+
+Built-in commands mặc định (13 lệnh):
+  /status, /weather, /logs, /report, /history,
+  /pump_on, /pump_off, /unlock_on, /unlock_off,
+  /alert_on, /alert_off, /clear, /help
+
+
+================================================================
+9. BOT TELEGRAM — TOÀN BỘ LỆNH & TIN NHẮN MẪU
+================================================================
+
+Token: process.env.TELEGRAM_TOKEN
+Chat ID: process.env.TELEGRAM_CHAT_ID (tự lưu khi user /start)
+Mode: Polling (dev) | Webhook (production, Render)
+Parse mode: HTML
+
+── Danh sách lệnh ────────────────────────────────────────────
+
+/start
+  → "🌷 Chào chủ nhân đến với NexoraGarden!
+     Mình luôn sẵn sàng hỗ trợ chủ nhân nè 💚
+     Gõ /help để xem danh sách lệnh nhé!"
+
+/help
+  → "📖 Đây là danh sách toàn bộ lệnh của NexoraGarden nè chủ nhân ơi~
+
+     /status — Trạng thái hệ thống
+     /weather — Thời tiết tại vị trí
+     /logs — 10 bản ghi cảm biến gần nhất
+     /report — Báo cáo hôm nay
+     /history — Lịch sử bơm
+     /pump_on — Bật máy bơm
+     /pump_off — Tắt máy bơm
+     /unlock_on — Mở khóa bơm tự động (tự tắt sau 500s)
+     /unlock_off — Tắt mở khóa bơm tự động
+     /admin_on — Bật bơm Admin (bỏ qua kiểm tra độ ẩm, tự tắt sau 25s)
+     /admin_off — Tắt bơm Admin ngay lập tức
+     /alert_on — Bật cảnh báo
+     /alert_off — Tắt cảnh báo
+     /clear — Xóa toàn bộ dữ liệu log
+     /help — Xem lệnh này
+
+     💬 Gửi câu hỏi bất kỳ để hỏi NexoraAI nhé!"
+
+/status
+  → "✨ Trạng thái hiện tại của vườn: [cảnh báo offline nếu cần]
+
+     🌱 Độ ẩm đất: X%
+     💧 Mức nước: X%
+     🌡️ Nhiệt độ: X°C
+     💨 Độ ẩm KK: X%
+     🔥 Lửa: CÓ ⚠️ | Không
+     🌧️ Mưa: Có | Không
+     ⚙️ Máy bơm: ON | OFF
+     🔒 Khóa bơm: Có | Không
+     🔔 Cảnh báo: Bật | Tắt
+     ⏰ Lần cuối thấy: DD-MM-YYYY HH:MM:SS (UTC+7)"
+
+/weather
+  → "🌤️ Thời tiết tại Vĩnh Hoà hôm nay nè chủ nhân:
+
+     📍 [Tên địa danh]
+     🌡️ Nhiệt độ: X°C (cảm giác Y°C)
+     💧 Độ ẩm: X%
+     🌬️ Gió: X km/h
+     ☁️ Điều kiện: [Mô tả]
+     🌧️ Mưa hôm nay: X mm
+     🌡️ Cao/thấp: X°C / Y°C"
+
+/logs
+  → "📒 Đây là 10 bản ghi cảm biến gần nhất nè chủ nhân:
+
+     1. [YYYY-MM-DD HH:MM:SS (UTC+7)]
+        🌱X% 💧X% 🌡️X°C 💨X% 🔥0 🌧️0
+     ..."
+
+/report
+  → "📝 Báo cáo hôm nay của khu vườn:
+
+     🌡️ Nhiệt độ TB: X°C
+     💨 Độ ẩm TB: X%
+     📡 Tổng bản ghi: X
+     ⚙️ Máy bơm: X lần
+     🔥 Lửa: X sự kiện
+     🌧️ Mưa: X sự kiện"
+
+/history
+  → "🕒 Đây là lịch sử 20 lần bơm gần nhất nè chủ nhân:
+
+     1. [ON|OFF] [timestamp (UTC+7)]
+        Trigger: auto | manual | Đất: X% → Y% | Zs
+     ..."
+
+/pump_on
+  ✅ Thành công:
+  → "✅ Chủ nhân ơi, mình đã bật máy bơm (thủ công) rồi ạ!"
+
+  ❌ Đất quá ẩm:
+  → "⚠️ Chủ nhân ơi, chưa thể bật bơm đâu ạ!
+     Độ ẩm đất hiện tại là X% (> 30%)."
+
+  🔒 Web đang lock:
+  → "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+
+/pump_off
+  ✅ Thành công:
+  → "✅ Chủ nhân ơi, mình đã tắt máy bơm và mở khóa rồi ạ!"
+
+  🔒 Web đang lock:
+  → "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+
+/unlock_on
+  ✅ Thành công:
+  → "✅ Chủ nhân ơi, mình đã gửi lệnh mở khóa (unlock ON) về ESP32 rồi ạ!
+     ⏳ Lệnh sẽ tự động tắt sau 500 giây để tránh bơm tự bật nhé!"
+
+  🔒 Web đang lock:
+  → "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+
+/unlock_off
+  ✅ Thành công:
+  → "✅ Chủ nhân ơi, mình đã gửi lệnh tắt mở khóa (unlock OFF) về ESP32 rồi ạ!"
+
+  🔒 Web đang lock:
+  → "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+
+/admin_on
+  ✅ Lần đầu:
+  → "🔓 Chủ nhân ơi, mình đã bật Admin Mode rồi ạ!
+     ⚙️ Máy bơm đã được BẬT ngay (bỏ qua kiểm tra độ ẩm).
+     ⏳ Sẽ tự động TẮT sau 25 giây nếu chủ nhân không tắt trước nhé!"
+
+  ✅ Reset timer (đang chạy):
+  → "[như trên] + ♻️ Đã reset lại bộ đếm 25s từ đầu."
+
+  🔒 Web đang lock:
+  → "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+
+/admin_off
+  ✅ Admin đang bật:
+  → "✅ Chủ nhân ơi, mình đã tắt Admin Mode và TẮT máy bơm rồi ạ!"
+
+  ✅ Admin không bật:
+  → "✅ Chủ nhân ơi, mình đã tắt máy bơm rồi ạ! (Admin mode không đang chạy)"
+
+  🔒 Web đang lock:
+  → "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+
+/alert_on
+  → "🔔 Chủ nhân ơi, mình đã bật cảnh báo rồi ạ!"
+
+/alert_off
+  → "🔕 Chủ nhân ơi, mình đã tắt cảnh báo rồi ạ!"
+
+/clear
+  → "🧹 Chủ nhân ơi, mình đã xóa toàn bộ sensor_logs và pump_logs rồi ạ!"
+
+Câu hỏi tự do (không phải lệnh /):
+  → Gửi đến NexoraAI (Gemini) và trả lời
+
+── Thông báo tự động (server gửi proactive) ──────────────────
+
+ESP32 kết nối lại:
+  → "✅ ESP32 đã kết nối lại"
+
+ESP32 mất kết nối > 60s:
+  → "⚠️ ESP32 mất kết nối đã hơn 60 giây!"
+
+Phát hiện lửa (ESP32 xử lý, gửi notify):
+  → "🔥 CẢNH BÁO: Phát hiện lửa!"
+
+Admin mode tự tắt sau 25s:
+  → "⏱️ Chủ nhân ơi, đã hết 25 giây Admin mode rồi ạ!
+     Mình đã tự động tắt máy bơm để tránh quá tưới, chủ nhân yên tâm nha 💚"
+
+Unlock mode tự khóa sau 500s:
+  → "🔒 Chủ nhân ơi, đã hết 500 giây mở khóa!
+     Mình đã tự động khóa lại bơm tự động để tránh bơm tự bật ạ."
+
+ESP32 chuẩn bị tưới (pre_water):
+  → "🚿 Đang chuẩn bị tưới đây chủ nhân~"
+
+Nước thấp (từ server khi water ≤ 10%):
+  → Broadcast log "⚠️ Mực nước thấp: X%"
+
+Nước thấp (ESP32 notify khi water < 15%):
+  → "CANH BAO: Muc nuoc trong binh duoi 15%! Can bo sung nuoc."
+
+Bơm tự tắt (ESP32 notify):
+  → "May bom da dung: het 25s | dat du am X%"
+
+── Style nhân vật Bot ────────────────────────────────────────
+
+- Xưng "mình", gọi người dùng là "chủ nhân"
+- Giọng điệu thân thiện, dễ thương, quan tâm
+- Dùng emoji phù hợp
+- Kết câu thường có "ạ", "nha", "nè"
+- Thêm emoji cây xanh 💚 khi cần biểu cảm tích cực
+
+
+================================================================
+10. GIAO DIỆN WEB DASHBOARD
+================================================================
+
+Framework: React 19 + Vite + Tailwind CSS + Radix UI
+Kết nối real-time: WebSocket tại /ws-browser
+Polling fallback: REST API mỗi 3 giây (dữ liệu trạng thái)
+
+── Tab 1: Giám sát (Monitor) ────────────────────────────────
+
+Các card cảm biến:
+  - 🌱 Độ ẩm đất (%)    — màu xanh lá
+  - 💧 Mức nước (%)      — màu xanh dương
+  - 🌡️ Nhiệt độ (°C)     — màu đỏ cam
+  - 💨 Độ ẩm KK (%)      — màu tím
+
+Badge trạng thái:
+  - 🔥 Lửa (đỏ nhấp nháy khi active)
+  - 🌧️ Mưa (xanh khi active)
+
+Trạng thái kết nối:
+  - ESP32 online/offline badge
+  - WebSocket connected/disconnected
+
+Bảng log real-time:
+  - Hiển thị tối đa 200 dòng log
+  - Màu theo level: info/warn/error/success
+  - Cập nhật real-time qua WebSocket
+
+── Tab 2: Điều khiển (Control) ──────────────────────────────
+
+Banner pre_water (xanh, nhấp nháy, tự mất sau 8s):
+  "🚿 ESP32 đang chuẩn bị tưới — vui lòng không gửi lệnh xung đột!"
+
+Banner web lock (cam):
+  "Bạn đang nắm quyền điều khiển — Telegram đang bị khóa lệnh"
+
+Section Điều khiển máy bơm:
+  - Hiển thị trạng thái hiện tại (Đang bật/Đang tắt)
+  - Thanh progress độ ẩm đất
+  - Cảnh báo nếu soil > 30% (không thể bật bơm)
+  - Nút [Bật bơm] / [Tắt bơm]
+
+Section Khóa bơm tự động:
+  - Nút [Mở khóa] / [Khóa lại]
+  - Mô tả trạng thái khóa
+
+Section Admin Mode:
+  - Mô tả: bỏ qua kiểm tra độ ẩm, tự tắt sau 25 giây
+  - Nút [Admin ON] / [Admin OFF]
+  - Cảnh báo màu cam
+
+Toggle switches:
+  - Cảnh báo Telegram (on/off)
+  - Màn hình TFT (on/off)
+
+Toast notifications (3 giây):
+  - Màu xanh: thành công
+  - Màu đỏ: lỗi
+
+── Tab 3: Lệnh Telegram (Commands) ──────────────────────────
+
+Danh sách lệnh đã lưu (built-in + custom)
+Chức năng:
+  - Thêm lệnh custom mới
+  - Sửa/xóa lệnh custom
+  - Không thể sửa/xóa built-in commands
+
+
+================================================================
+11. NEXORAAI (GEMINI)
+================================================================
+
+Model: gemini-2.5-flash
+API Key: process.env.GEMINI_API_KEY
+Kích hoạt: Khi Telegram nhận tin nhắn không phải lệnh /
+
+System Prompt:
+  "Bạn là NexoraAI, trợ lý thông minh của hệ thống nông nghiệp NexoraGarden.
+   Người dùng của bạn là Khang (Phan Trọng Khang), học sinh THCS Vĩnh Hoà,
+   người tạo ra hệ thống này.
+   Xưng 'mình', gọi người dùng là 'Khang'.
+   Chỉ trả lời về nông nghiệp, cây trồng, và hệ thống NexoraGarden.
+   Trả lời ngắn gọn, thân thiện, thực tế."
+
+Context tự động đính kèm mỗi request:
+  "[Trạng thái hiện tại]
+   Độ ẩm đất: X% | Mức nước: X% | Nhiệt độ: X°C |
+   Độ ẩm KK: X% | Máy bơm: ON/OFF | Lửa: 0/1 | Mưa: 0/1"
+
+
+================================================================
+12. BIẾN MÔI TRƯỜNG
+================================================================
+
+TELEGRAM_TOKEN       : Token bot Telegram
+TELEGRAM_CHAT_ID     : Chat ID mặc định (tự lưu từ /start)
+TELEGRAM_WEBHOOK_URL : URL webhook production (Render)
+GEMINI_API_KEY       : API key Google Gemini
+NODE_ENV             : 'production' | 'development'
+RENDER_EXTERNAL_URL  : URL public của Render (tự inject)
+PORT                 : Port server (Render tự inject)
+
+
+================================================================
+13. CODE ESP32 ĐẦY ĐỦ (Arduino/C++)
+================================================================
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <DHT.h>
+#include <WebSocketsClient.h>
+#include <time.h>
+#define LGFX_USE_V1
+#include <LovyanGFX.hpp>
+
+// #define CALIBRATE_MODE
+
+class LGFX : public lgfx::LGFX_Device {
+  lgfx::Panel_ST7789 _panel_instance;
+  lgfx::Bus_SPI      _bus_instance;
+public:
+  LGFX(void) {
+    { auto cfg = _bus_instance.config(); cfg.spi_host = VSPI_HOST; cfg.spi_mode = 0;
+      cfg.freq_write = 40000000; cfg.freq_read = 16000000; cfg.pin_sclk = 18;
+      cfg.pin_mosi = 23; cfg.pin_miso = -1; cfg.pin_dc = 2;
+      _bus_instance.config(cfg); _panel_instance.setBus(&_bus_instance); }
+    { auto cfg = _panel_instance.config(); cfg.pin_cs = 5; cfg.pin_rst = 4;
+      cfg.pin_busy = -1; cfg.panel_width = 240; cfg.panel_height = 240;
+      cfg.offset_x = 0; cfg.offset_y = 0; cfg.invert = true; cfg.rgb_order = false;
+      _panel_instance.config(cfg); }
+    setPanel(&_panel_instance);
+  }
+};
+LGFX tft;
+
+#define DHTPIN 13
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+float localTemp = -999.0;
+float localHum  = -999.0;
+
+const char* ssids[]     = {"Trong Khang", "Vnpt 2022"};
+const char* passwords[] = {"khongbiet123", "vnpt270922"};
+const int   NUM_WIFI    = 2;
+
+const char* SERVER_HOST = "nexoragarden.onrender.com";
+const int   SERVER_PORT = 443;
+const char* WS_PATH     = "/ws";
+
+const char* WEATHER_URL =
+  "http://api.weatherapi.com/v1/forecast.json"
+  "?key=b92581d628b74fda87d123430261103"
+  "&q=10.2537,105.9722&days=1&aqi=no&alerts=no";
+
+#define SOIL_PIN   32
+#define WATER_PIN  33
+#define FIRE_PIN   34
+#define RELAY_PIN  26
+#define RAIN_PIN   25
+
+#define SOIL_RAW_DRY    3200
+#define SOIL_RAW_WET    1200
+#define WATER_RAW_EMPTY  100
+#define WATER_RAW_FULL  2500
+
+#define SAMPLE_COUNT    10
+#define SAMPLE_DELAY_MS  2
+#define EMA_ALPHA_SOIL  0.15f
+#define EMA_ALPHA_WATER 0.20f
+
+#define PUMP_SOIL_ON   30
+#define PUMP_SOIL_OFF  70
+#define PUMP_MAX_MS    25000
+
+struct SensorState {
+  float   emaValue;
+  int     displayValue;
+  int     prevValue;
+  bool    isError;
+  int8_t  trend;
+  int     trendBuffer[5];
+  uint8_t trendIdx;
+};
+
+SensorState soilState  = { 50.0f, 50, 50, false, 0, {50,50,50,50,50}, 0 };
+SensorState waterState = { 50.0f, 50, 50, false, 0, {50,50,50,50,50}, 0 };
+
+float tempC      = 0;
+int   humidity   = 0;
+float wind       = 0;
+int   rainChance = 0;
+
+unsigned long lastWeather = 0;
+unsigned long lastSend    = 0;
+unsigned long lastDHT     = 0;
+unsigned long lastSerial  = 0;
+unsigned long lastCal     = 0;
+unsigned long lastDraw    = 0;
+
+int  soilPercent  = 0;
+int  waterPercent = 0;
+bool pumpState    = false;
+
+unsigned long fireStartTime  = 0;
+bool          fireActive     = false;
+bool          fireAlerted    = false;
+bool          rainAlerted    = false;
+bool          lowWaterAlerted = false;
+bool          headerDrawn    = false;
+
+unsigned long pumpStartTime  = 0;
+bool          pumpLocked     = false;
+bool          pumpAutoActive = false;
+bool          manualUnlock   = false;
+bool          adminActive    = false;
+bool          wifiWasConnected = false;
+bool          tftOn           = true;
+int8_t        tftPending      = -1;
+bool          pumpPending     = false;
+unsigned long pumpPendingTime = 0;
+
+WebSocketsClient webSocket;
+bool wsConnected   = false;
+bool sendOnConnect = false;
+
+int getMedian(int* arr, int n) {
+  for (int i = 1; i < n; i++) {
+    int key = arr[i], j = i - 1;
+    while (j >= 0 && arr[j] > key) { arr[j+1] = arr[j]; j--; }
+    arr[j+1] = key;
+  }
+  int sum = 0;
+  for (int i = 2; i < n-2; i++) sum += arr[i];
+  return sum / (n-4);
+}
+
+void updateTrend(SensorState& s, int newVal) {
+  s.trendBuffer[s.trendIdx] = newVal;
+  s.trendIdx = (s.trendIdx + 1) % 5;
+  int oldAvg = (s.trendBuffer[s.trendIdx % 5] + s.trendBuffer[(s.trendIdx+1) % 5]) / 2;
+  int newAvg = (s.trendBuffer[(s.trendIdx+3) % 5] + s.trendBuffer[(s.trendIdx+4) % 5]) / 2;
+  if      (newAvg - oldAvg >= 3) s.trend = +1;
+  else if (oldAvg - newAvg >= 3) s.trend = -1;
+  else                            s.trend =  0;
+}
+
+void wsSend(JsonDocument &doc) {
+  if (!wsConnected) return;
+  String out; serializeJson(doc, out); webSocket.sendTXT(out);
+}
+
+void sendNotify(String message) {
+  if (!wsConnected) return;
+  JsonDocument doc; doc["type"] = "notify"; doc["message"] = message; wsSend(doc);
+}
+
+void sendPreWater() {
+  if (!wsConnected) return;
+  JsonDocument doc; doc["type"] = "pre_water"; wsSend(doc);
+  Serial.println("[Bom] Gui tin hieu pre_water len server (chuan bi tuoi)");
+}
+
+void sendSensorData() {
+  if (!wsConnected) return;
+  JsonDocument doc;
+  doc["type"]  = "sensor"; doc["soil"]  = soilPercent; doc["water"] = waterPercent;
+  doc["temp"]  = localTemp; doc["hum"]   = localHum;
+  doc["fire"]  = fireActive && fireAlerted; doc["rain"] = (digitalRead(RAIN_PIN) == LOW);
+  doc["pump"]  = pumpState;
+  wsSend(doc);
+}
+
+void drawTFT();
+
+void setPump(bool on) {
+  pumpState = on;
+  digitalWrite(RELAY_PIN, on ? HIGH : LOW);
+  if (on) {
+    pumpStartTime = millis();
+    Serial.println("[Bom] BAT");
+  } else {
+    delay(500);
+    Serial.println("[Bom] TAT");
+    headerDrawn = false;
+    tft.fillScreen(tft.color565(0, 0, 0));
+  }
+}
+
+void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
+  switch (type) {
+    case WStype_CONNECTED:
+      wsConnected = true;
+      sendOnConnect = true;
+      Serial.println("[WS] Ket noi thanh cong!"); break;
+    case WStype_DISCONNECTED:
+      wsConnected = false; Serial.println("[WS] Mat ket noi, dang thu lai..."); break;
+    case WStype_TEXT: {
+      JsonDocument doc;
+      if (!deserializeJson(doc, payload, length)) {
+        String t = doc["type"] | "";
+        if (t == "command") {
+          if (doc["pump"].is<String>()) {
+            String pump = doc["pump"] | "OFF";
+            bool newState = (pump == "ON");
+            pumpPending = false;  // Huy pre_water neu co lenh thu cong
+            if (newState && !pumpState && soilPercent <= PUMP_SOIL_ON && !pumpLocked) {
+              setPump(true); pumpAutoActive = false;
+            } else if (!newState && pumpState) {
+              setPump(false); pumpLocked = true;
+            }
+          }
+          if (doc["unlock"].is<String>()) {
+            String ul = doc["unlock"] | "OFF";
+            if (ul == "ON") { pumpLocked = false; Serial.println("[Unlock] Mo khoa bom tu dong"); }
+            else            { pumpLocked = true;  Serial.println("[Unlock] Khoa bom tu dong"); }
+          }
+          if (doc["tft"].is<String>()) {
+            String tftCmd = doc["tft"] | "ON";
+            tftOn     = (tftCmd == "ON");
+            tftPending = tftOn ? 1 : 0;
+            Serial.printf("[TFT] Nhan lenh: %s\n", tftOn ? "BAT" : "TAT");
+          }
+          if (doc["admin"].is<String>()) {
+            String adm = doc["admin"] | "OFF";
+            if (adm == "ON") {
+              adminActive = true; pumpLocked = false; manualUnlock = false;
+              setPump(true); pumpAutoActive = false;
+              Serial.println("[Admin] BAT bom buoc (admin mode ON)");
+            } else {
+              adminActive = false; setPump(false); pumpLocked = false;
+              Serial.println("[Admin] TAT bom buoc (admin mode OFF)");
+            }
+          }
+        }
+      }
+      break;
+    }
+    default: break;
+  }
+}
+
+void handlePump() {
+  if (adminActive) return;
+
+  unsigned long now = millis();
+  if (pumpState) {
+    int raw = analogRead(SOIL_PIN);
+    int liveSoil = 0;
+    if (raw >= 100 && raw <= 4090) {
+      liveSoil = map(raw, SOIL_RAW_DRY, SOIL_RAW_WET, 0, 100);
+      liveSoil = constrain(liveSoil, 1, 100);
+    }
+    bool timeout = (now - pumpStartTime >= PUMP_MAX_MS);
+    bool soilOK  = (liveSoil >= PUMP_SOIL_OFF);
+    if (timeout || soilOK) {
+      setPump(false); pumpLocked = true; soilPercent = liveSoil;
+      String reason = timeout ? "het 25s" : "dat du am " + String(liveSoil) + "%";
+      sendNotify("May bom da dung: " + reason);
+    } else {
+      soilPercent = liveSoil;
+      tft.fillScreen(tft.color565(0,0,0));
+      tft.setTextSize(2);
+      tft.setTextColor(tft.color565(0,255,255), tft.color565(0,0,0));
+      tft.setCursor(20, 80); tft.println("  Dang tuoi cay");
+      tft.setCursor(20, 120);
+      tft.setTextColor(tft.color565(255,255,255), tft.color565(0,0,0));
+      tft.printf("  Do am: %d %%   ", liveSoil);
+      tft.setCursor(20, 155);
+      tft.setTextColor(tft.color565(255,255,0), tft.color565(0,0,0));
+      tft.printf("  Thoi gian: %lus ", (now - pumpStartTime) / 1000);
+    }
+    return;
+  }
+
+  if (manualUnlock) {
+    pumpPending = false;
+    pumpLocked = false;
+    return;
+  }
+
+  if (pumpLocked && soilPercent < PUMP_SOIL_ON) { pumpLocked = false; Serial.println("[Bom] Mo khoa"); }
+
+  // Xu ly pre_water pending: doi 1.5s sau khi bao server roi moi bat bom that su
+  if (pumpPending) {
+    if (now - pumpPendingTime >= 1500) {
+      pumpPending = false;
+      setPump(true); pumpAutoActive = true;
+      sendNotify("Tu dong bat bom: do am dat " + String(soilPercent) + "%");
+    }
+    return;
+  }
+
+  if (!pumpLocked && soilPercent >= 1 && soilPercent <= PUMP_SOIL_ON) {
+    sendPreWater();
+    pumpPending     = true;
+    pumpPendingTime = now;
+    Serial.println("[Bom] Chuan bi tuoi — cho 1.5 giay sau pre_water...");
+  }
+}
+
+void updateSoil() {
+  int samples[SAMPLE_COUNT];
+  for (int i = 0; i < SAMPLE_COUNT; i++) { samples[i] = analogRead(SOIL_PIN); delay(SAMPLE_DELAY_MS); }
+  int raw = getMedian(samples, SAMPLE_COUNT);
+  if (raw < 50 || raw > 4090) { soilState.isError = true; soilPercent = 0; return; }
+  soilState.isError = false;
+  int mapped = map(raw, SOIL_RAW_DRY, SOIL_RAW_WET, 0, 100);
+  mapped = constrain(mapped, 0, 100);
+  soilState.emaValue     = EMA_ALPHA_SOIL * mapped + (1.0f - EMA_ALPHA_SOIL) * soilState.emaValue;
+  soilState.prevValue    = soilState.displayValue;
+  soilState.displayValue = (int)round(soilState.emaValue);
+  updateTrend(soilState, soilState.displayValue);
+  soilPercent = soilState.displayValue;
+}
+
+void updateWater() {
+  if (pumpState) return;
+  int samples[SAMPLE_COUNT];
+  for (int i = 0; i < SAMPLE_COUNT; i++) { samples[i] = analogRead(WATER_PIN); delay(SAMPLE_DELAY_MS); }
+  int raw = getMedian(samples, SAMPLE_COUNT);
+  if (raw > 4090) { waterState.isError = true; waterPercent = 0; return; }
+  waterState.isError = false;
+  int mapped;
+  if      (raw < WATER_RAW_EMPTY) mapped = 0;
+  else if (raw < 400)              mapped = 5;
+  else if (raw < 1000)             mapped = 15;
+  else { mapped = map(raw, 1000, WATER_RAW_FULL, 15, 100); mapped = constrain(mapped, 15, 100); }
+  waterState.emaValue     = EMA_ALPHA_WATER * mapped + (1.0f - EMA_ALPHA_WATER) * waterState.emaValue;
+  waterState.prevValue    = waterState.displayValue;
+  waterState.displayValue = (int)round(waterState.emaValue);
+  updateTrend(waterState, waterState.displayValue);
+  waterPercent = waterState.displayValue;
+  if (waterPercent < 15) {
+    if (!lowWaterAlerted) {
+      lowWaterAlerted = true;
+      sendNotify("CANH BAO: Muc nuoc trong binh duoi 15%! Can bo sung nuoc.");
+    }
+  } else {
+    lowWaterAlerted = false;
+  }
+}
+
+void updateDHT() {
+  if (pumpState) return;
+  for (int i = 0; i < 3; i++) {
+    float h = dht.readHumidity(); float t = dht.readTemperature();
+    if (!isnan(t) && !isnan(h)) { localTemp = t; localHum = h; return; }
+    delay(200);
+  }
+}
+
+void handleFire() {
+  if (pumpState) { fireActive = false; fireAlerted = false; fireStartTime = 0; return; }
+  bool fireNow = (digitalRead(FIRE_PIN) == LOW);
+  if (fireNow) {
+    if (!fireActive) { fireActive = true; fireStartTime = millis(); fireAlerted = false; }
+    else if (!fireAlerted && millis() - fireStartTime >= 3000) {
+      sendNotify("CANH BAO KHAN CAP: Phat hien CHAY lien tuc 3 giay!");
+      fireAlerted = true;
+    }
+  } else { fireActive = false; fireAlerted = false; fireStartTime = 0; }
+}
+
+void handleRain() {
+  bool rainNow = (digitalRead(RAIN_PIN) == LOW);
+  if (rainNow && !rainAlerted)  { sendNotify("Phat hien co nuoc tren cam bien, co the co mua!"); rainAlerted = true; }
+  else if (!rainNow && rainAlerted) rainAlerted = false;
+}
+
+void drawTFT() {
+  if (!tftOn)    return;
+  if (pumpState) return;
+  if (!headerDrawn) {
+    tft.fillScreen(tft.color565(0, 0, 0));
+    tft.setTextSize(2);
+    tft.setTextColor(tft.color565(0, 255, 255), tft.color565(0, 0, 0));
+    tft.setCursor(15, 5); tft.println(" NEXORA GARDEN ");
+    tft.drawFastHLine(0, 30, 240, tft.color565(0, 255, 0));
+    headerDrawn = true;
+  }
+  tft.setTextSize(2); tft.setTextPadding(230);
+  tft.setCursor(5, 45); tft.setTextColor(tft.color565(255,255,255), tft.color565(0,0,0));
+  if (localTemp == -999.0) tft.print("Nhiet: Dang do...");
+  else { char buf[24]; snprintf(buf, sizeof(buf), "Nhiet: %.1f C  ", localTemp); tft.print(buf); }
+  tft.setCursor(5, 75); tft.setTextColor(tft.color565(255,255,255), tft.color565(0,0,0));
+  if (localHum == -999.0) tft.print("Am kk: Dang do...");
+  else { char buf[24]; snprintf(buf, sizeof(buf), "Am kk: %.1f %%  ", localHum); tft.print(buf); }
+  tft.setCursor(5, 105);
+  if (soilState.isError || soilPercent == 0) {
+    tft.setTextColor(tft.color565(255,0,0), tft.color565(0,0,0)); tft.print("Dat: KHONG CO   ");
+  } else {
+    uint16_t soilColor = soilPercent < 30 ? tft.color565(255,80,0) : tft.color565(0,220,100);
+    tft.setTextColor(soilColor, tft.color565(0,0,0));
+    char buf[24];
+    snprintf(buf, sizeof(buf), "Dat: %3d %% %s  ", soilPercent,
+      soilState.trend == 1 ? "^" : soilState.trend == -1 ? "v" : "-");
+    tft.print(buf);
+  }
+  tft.setCursor(5, 135);
+  if (waterPercent < 15) {
+    tft.setTextColor(tft.color565(255,0,0), tft.color565(0,0,0)); tft.print("Nuoc: THAP <15%");
+  } else {
+    tft.setTextColor(tft.color565(255,255,255), tft.color565(0,0,0));
+    char buf[20]; snprintf(buf, sizeof(buf), "Nuoc: %3d %%   ", waterPercent); tft.print(buf);
+  }
+  tft.setCursor(5, 165); tft.setTextColor(tft.color565(255,255,0), tft.color565(0,0,0));
+  char bufGio[24]; snprintf(bufGio, sizeof(bufGio), "Gio: %.1f km/h   ", wind); tft.print(bufGio);
+  tft.setCursor(5, 195); tft.setTextColor(tft.color565(100,220,255), tft.color565(0,0,0));
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo, 0)) {
+    char bufTime[24];
+    snprintf(bufTime, sizeof(bufTime), "Gio: %02d:%02d:%02d  ",
+             timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    tft.print(bufTime);
+  } else { tft.print("Gio: --:--:--  "); }
+  tft.setTextPadding(0);
+}
+
+void connectWiFi() {
+  for (int i = 0; i < NUM_WIFI; i++) {
+    Serial.print("[WiFi] Thu: "); Serial.println(ssids[i]);
+    WiFi.disconnect(); WiFi.begin(ssids[i], passwords[i]);
+    int tries = 0;
+    while (WiFi.status() != WL_CONNECTED && tries < 20) { delay(500); Serial.print("."); tries++; }
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.printf("\n[WiFi] OK: %s\n", WiFi.localIP().toString().c_str()); return;
+    }
+  }
+}
+
+void handleWiFi() {
+  bool connected = (WiFi.status() == WL_CONNECTED);
+  if (!connected) {
+    wifiWasConnected = false;
+    static unsigned long lastAttempt = 0;
+    static int wifiIdx = 0;
+    unsigned long now = millis();
+    if (now - lastAttempt > 12000) {
+      lastAttempt = now;
+      Serial.printf("[WiFi] Ket noi lai voi: %s\n", ssids[wifiIdx]);
+      WiFi.disconnect(); WiFi.begin(ssids[wifiIdx], passwords[wifiIdx]);
+      wifiIdx = (wifiIdx + 1) % NUM_WIFI;
+    }
+  } else {
+    if (!wifiWasConnected) {
+      wifiWasConnected = true;
+      Serial.printf("[WiFi] Da ket noi lai: %s\n", WiFi.localIP().toString().c_str());
+      webSocket.disconnect(); delay(300);
+      webSocket.beginSSL(SERVER_HOST, SERVER_PORT, WS_PATH);
+      Serial.println("[WS] Re-init WebSocket sau khi WiFi phuc hoi");
+    }
+  }
+}
+
+void getWeather() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  HTTPClient http; http.begin(WEATHER_URL); http.setTimeout(8000);
+  int code = http.GET();
+  if (code == 200) {
+    String payload = http.getString();
+    JsonDocument doc;
+    if (!deserializeJson(doc, payload)) {
+      tempC      = doc["current"]["temp_c"]    | 0.0f;
+      humidity   = doc["current"]["humidity"]  | 0;
+      wind       = doc["current"]["wind_kph"]  | 0.0f;
+      rainChance = doc["forecast"]["forecastday"][0]["day"]["daily_chance_of_rain"] | 0;
+    }
+  }
+  http.end();
+}
+
+void setup() {
+  Serial.begin(115200); delay(100);
+  pinMode(SOIL_PIN, INPUT); pinMode(WATER_PIN, INPUT);
+  pinMode(FIRE_PIN, INPUT); pinMode(RAIN_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT); digitalWrite(RELAY_PIN, LOW);
+  dht.begin(); delay(2500);
+  tft.init(); tft.setRotation(0); tft.fillScreen(tft.color565(0,0,0));
+  tft.setTextColor(tft.color565(255,255,255)); tft.setTextSize(2);
+  tft.setCursor(30, 100); tft.println("Dang ket noi...");
+  connectWiFi();
+  wifiWasConnected = (WiFi.status() == WL_CONNECTED);
+  configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov", "asia.pool.ntp.org");
+  webSocket.beginSSL(SERVER_HOST, SERVER_PORT, WS_PATH);
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setReconnectInterval(3000);
+  webSocket.enableHeartbeat(15000, 3000, 2);
+  tft.fillScreen(tft.color565(0,0,0));
+  tft.setCursor(10, 80); tft.println("Nexora OK!");
+  tft.setCursor(10, 110); tft.setTextSize(1); tft.println(WiFi.localIP().toString());
+  delay(1500);
+  tft.fillScreen(tft.color565(0,0,0));
+  updateSoil(); updateWater(); updateDHT(); drawTFT(); getWeather();
+  Serial.println("[System] San sang!");
+}
+
+void loop() {
+  unsigned long now = millis();
+  webSocket.loop();
+  if (sendOnConnect && wsConnected) { sendOnConnect = false; sendSensorData(); }
+  handleWiFi();
+  updateSoil(); updateWater(); handleFire(); handleRain(); handlePump();
+  if (tftPending != -1) {
+    if (tftPending == 0) { tft.fillScreen(tft.color565(0,0,0)); Serial.println("[TFT] Tat"); }
+    else { headerDrawn = false; Serial.println("[TFT] Bat"); }
+    tftPending = -1;
+  }
+  if (!pumpState && now - lastDraw > 500) { drawTFT(); lastDraw = now; }
+  if (now - lastSend    > 1000)   { sendSensorData(); lastSend    = now; }
+  if (now - lastDHT     > 2000)   { updateDHT();      lastDHT     = now; }
+  if (now - lastWeather > 600000) { getWeather();      lastWeather = now; }
+  if (now - lastSerial  > 2000)   { printSerial();     lastSerial  = now; }
+  delay(10);
+}
+
+
+================================================================
+14. TÓM TẮT LUỒNG XỬ LÝ CHÍNH
+================================================================
+
+── Luồng tự động tưới ────────────────────────────────────────
+
+  [ESP32 đọc cảm biến đất liên tục]
+       ↓ soil ≤ 30% && không khóa
+  [sendPreWater()] → Server → Telegram: "🚿 Đang chuẩn bị tưới đây chủ nhân~"
+                           → Web: Banner xanh nhấp nháy (8s)
+       ↓ Chờ 1.5 giây
+  [setPump(true)] → Relay bật → Bơm chạy
+       ↓ soil ≥ 70% || đã 25s
+  [setPump(false)] → pumpLocked=true → Server notify "May bom da dung"
+
+── Luồng điều khiển từ Web ──────────────────────────────────
+
+  [User bấm Bật bơm trên Web]
+       ↓
+  [POST /api/pump { action: "ON" }]
+       ↓ kiểm tra soil ≤ 30%
+  [Server: updateDB, pushToESP32, setWebLock(true), broadcastWebLock]
+       ↓
+  [ESP32: setPump(true)] | [Web: banner cam] | [Telegram: bị khóa]
+       ↓
+  [User bấm Tắt bơm]
+       ↓
+  [POST /api/pump { action: "OFF" }]
+  [Server: setWebLock(false), broadcastWebLock] → Telegram mở khóa
+
+── Luồng điều khiển từ Telegram ─────────────────────────────
+
+  [User gửi /pump_on]
+       ↓ isWebControlLocked() ?
+       YES → "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+       NO  → kiểm tra soil ≤ 30% → bật bơm → phản hồi confirm
+
+── Luồng cảnh báo ────────────────────────────────────────────
+
+  Lửa (ESP32):
+    digitalRead(FIRE_PIN)==LOW liên tục 3s
+    → sendNotify("CANH BAO KHAN CAP: Phat hien CHAY...")
+    → Server → Telegram: "🔥 CẢNH BÁO: Phát hiện lửa!" (nếu alert_enabled)
+    → Web: log error đỏ
+
+  Mất kết nối ESP32 > 60s:
+    → Server timer → Telegram: "⚠️ ESP32 mất kết nối đã hơn 60 giây!"
+    → Web: log error, badge offline
+
+  Nước thấp < 15% (ESP32):
+    → sendNotify("CANH BAO: Muc nuoc trong binh duoi 15%!")
+    → Server → Telegram (nếu alert_enabled)
+
+  Nước thấp ≤ 10% (Server):
+    → broadcastLog warn "⚠️ Mực nước thấp: X%"
+
+── Chu kỳ gửi dữ liệu ESP32 ────────────────────────────────
+
+  Mỗi 1000ms  : sendSensorData() — gửi đọc cảm biến lên server
+  Mỗi 2000ms  : updateDHT() — đọc DHT22
+  Mỗi 500ms   : drawTFT() — cập nhật màn hình
+  Mỗi 2000ms  : printSerial() — in debug ra Serial Monitor
+  Mỗi 600000ms: getWeather() — lấy thời tiết từ WeatherAPI
+
+── Chu kỳ server ────────────────────────────────────────────
+
+  Mỗi 10s    : Ghi sensor_logs vào DB (throttled từ sensor 1s)
+  25s timer  : Admin mode auto-off (nếu không admin_off trước)
+  500s timer : Unlock mode auto-reset
+  60s timer  : Thông báo Telegram khi ESP32 offline
+
+================================================================
+  END OF DOCUMENT — NEXORAGARDEN v2.0
+================================================================

@@ -1,0 +1,157 @@
+================================================================
+  QUY TRÌNH LÀM VIỆC — NEXORAGARDEN
+  Giữa: Phan Trọng Khang & NexoraAI (Agent)
+  Cập nhật lần cuối: Tháng 4/2026
+================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. THÔNG TIN DỰ ÁN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tên dự án     : NexoraGarden
+Chủ dự án     : Phan Trọng Khang (học sinh THCS Vĩnh Hoà)
+GitHub repo   : khang26042012/NexoraGarden
+GitHub token  : [lưu trong Replit Secrets — GITHUB_TOKEN]
+Deploy        : Render.com (auto-deploy từ GitHub branch main)
+Production URL: nexoragarden.onrender.com
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. QUY TẮC PUSH CODE LÊN GITHUB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+QUAN TRỌNG: Render tự động deploy mỗi khi có commit mới.
+Nếu push nhiều commit liên tiếp → Render sẽ cancel hết, chỉ
+giữ cái cuối cùng → gây lãng phí và log lộn xộn.
+
+CÁCH PUSH ĐÚNG (dùng GitHub Git Tree API):
+  1. Tạo blob cho từng file thay đổi
+  2. Tạo 1 tree mới chứa tất cả file
+  3. Tạo 1 commit duy nhất từ tree đó
+  4. Update ref/heads/main lên commit mới
+
+→ Kết quả: chỉ 1 commit = chỉ 1 lần Render deploy
+
+KHÔNG dùng: GitHub Contents API (PUT từng file riêng lẻ)
+  → Mỗi file = 1 commit = nhiều deploy = cancel nhau
+
+Lệnh push mẫu (xem file data_nexorax_garden.txt nếu cần
+tra cứu lại flow chi tiết).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. QUY TẮC KHI THAY ĐỔI CODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sau mỗi lần thay đổi, agent PHẢI thông báo rõ:
+
+  ✅ ESP32 cần cập nhật firmware: KHÔNG
+     Lý do: (giải thích ngắn)
+
+  hoặc
+
+  ⚠️ ESP32 cần cập nhật firmware: CÓ
+     Thay đổi: (mô tả những gì thay đổi trong code C++)
+     File: attached_assets/nexora_garden_full_*.txt
+
+Khang phải nạp lại firmware nếu:
+  - Thay đổi PIN mapping
+  - Thay đổi ngưỡng cảm biến (PUMP_SOIL_ON, PUMP_SOIL_OFF, v.v.)
+  - Thêm/sửa logic bơm, pre_water, pumpLocked
+  - Thay đổi giao thức WebSocket (message format)
+  - Thay đổi địa chỉ server, WiFi credentials
+  - Thêm cảm biến hoặc actuator mới
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. THÔNG TIN KỸ THUẬT HAY DÙNG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Server WebSocket  : wss://nexoragarden.onrender.com/ws (ESP32)
+                    wss://nexoragarden.onrender.com/ws-browser (Web)
+Database          : SQLite tại artifacts/api-server/data/nexora.db
+Admin timeout     : 25 giây (tự tắt nếu không /admin_off)
+Unlock timeout    : 500 giây
+Offline alert     : 5 giây sau khi mất kết nối → Telegram
+Telegram cooldown : 30 giây (tránh spam)
+
+WiFi ESP32:
+  - "Trong Khang"  / [xem code ESP32]
+  - "Vnpt 2022"    / [xem code ESP32]
+
+Toạ độ vườn (thời tiết): 10.2537, 105.9722 (Vĩnh Hoà)
+Weather API key   : [lưu trong code ESP32 — xem attached_assets]
+Gemini model      : gemini-2.5-flash
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. PHONG CÁCH LÀM VIỆC CỦA KHANG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Giao tiếp bằng tiếng Việt, thân thiện, không formal
+- Thích câu trả lời ngắn gọn, đi thẳng vào vấn đề
+- Không cần giải thích dài dòng trừ khi hỏi
+- Hay gửi ảnh chụp màn hình để báo lỗi (Render, Telegram, v.v.)
+- Khi gửi "?" một mình = muốn giải thích nhanh về ảnh vừa gửi
+- Thích biết rõ có cần làm gì thêm (như nạp firmware) không
+- Thường làm việc từ điện thoại (ảnh chụp từ Android)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. CẤU TRÚC FILE QUAN TRỌNG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+artifacts/api-server/src/
+  websocket.ts       — Logic WebSocket, xử lý sensor, offline detection
+  telegram.ts        — Bot Telegram, toàn bộ lệnh và tin nhắn
+  adminControl.ts    — Admin mode (25s timeout)
+  unlockControl.ts   — Unlock mode (500s timeout)
+  commandLock.ts     — Khóa lệnh chéo nền tảng (web lock)
+  routes.ts          — Tất cả REST API endpoints
+  db.ts              — Schema SQLite + các hàm truy vấn
+  gemini.ts          — NexoraAI (Gemini 2.5 Flash)
+
+artifacts/dashboard/src/
+  hooks/useWebSocket.ts  — WebSocket client, quản lý state real-time
+  pages/Monitor.tsx      — Tab Giám sát (sensor cards, logs)
+  pages/Control.tsx      — Tab Điều khiển (pump, admin, unlock)
+  pages/Commands.tsx     — Tab Lệnh Telegram
+  lib/api.ts             — REST API client functions
+
+attached_assets/
+  nexora_garden_full_*.txt  — Code ESP32 đầy đủ (nguồn gốc)
+
+data_nexorax_garden.txt     — Tài liệu toàn bộ hệ thống (AI training)
+quy_trinh_lam_viec.txt      — File này
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. LỊCH SỬ THAY ĐỔI LỚN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[v1.0] Khởi tạo dự án
+  - ESP32 gửi sensor → server → Telegram + Web
+  - Điều khiển bơm thủ công qua Telegram
+
+[v1.1] Cross-platform command lock
+  - Web bật → Telegram bị khóa
+  - Web tắt → Telegram mở lại
+  - Tin nhắn: "⚠️ Có người đang sử dụng lệnh, chủ nhân chờ một xíu nha~"
+
+[v1.2] pre_water signal
+  - ESP32 gửi pre_water 1.5s trước khi bật bơm tự động
+  - Web: banner xanh nhấp nháy
+  - Telegram: "🚿 Đang chuẩn bị tưới đây chủ nhân~"
+
+[v1.3] Admin timeout 500s → 25s
+  - Đổi timeout admin mode từ 500 giây xuống 25 giây
+  - Cập nhật tất cả thông báo và mô tả giao diện
+
+[v1.4] Offline detection cải thiện
+  - Phát hiện mất kết nối ESP32: 60s → 5s
+  - Web: sensor cards xám + hiện "—" ngay lập tức
+  - Banner đỏ khi offline
+  - Telegram: tin nhắn chi tiết hơn
+  ESP32 cần cập nhật: KHÔNG
+
+================================================================

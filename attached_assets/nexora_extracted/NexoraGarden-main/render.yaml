@@ -1,0 +1,22 @@
+services:
+    - type: web
+      name: nexora-garden
+      runtime: node
+      region: singapore
+      plan: free
+      rootDir: .
+      buildCommand: pnpm install && pnpm --filter @workspace/dashboard run build && pnpm --filter @workspace/api-server run build
+      startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
+      healthCheckPath: /status
+      envVars:
+        - key: NODE_ENV
+          value: production
+        # Render tự động set PORT — không cần khai báo thủ công
+        # Vào Render Dashboard → Environment để thêm 2 biến bí mật sau:
+        - key: TELEGRAM_TOKEN
+          sync: false
+        - key: GEMINI_API_KEY
+          sync: false
+        - key: TELEGRAM_CHAT_ID
+          sync: false
+  
