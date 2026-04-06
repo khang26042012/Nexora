@@ -240,11 +240,22 @@ export function YtDownloader() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="flex items-start gap-2.5 mb-6 px-4 py-3 rounded-xl text-sm"
-              style={{ background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.2)", color: "#ff8080" }}
+              className="mb-6 px-4 py-3 rounded-xl text-sm"
+              style={{ background: "rgba(255,68,68,0.08)", border: "1px solid rgba(255,68,68,0.2)" }}
             >
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span className="whitespace-pre-line break-all">{error}</span>
+              <div className="flex items-start gap-2.5" style={{ color: "#ff8080" }}>
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span className="whitespace-pre-line break-all">{error}</span>
+              </div>
+              {(error.includes("Sign in") || error.includes("bot") || error.includes("cookies") || error.includes("YOUTUBE_COOKIES")) && (
+                <div className="mt-3 pt-3 text-xs space-y-1"
+                  style={{ borderTop: "1px solid rgba(255,68,68,0.2)", color: "rgba(255,255,255,0.5)" }}>
+                  <p className="font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Cách fix (Render bị YouTube chặn):</p>
+                  <p>1. Cài extension <span className="font-mono" style={{color:"#fbbf24"}}>"Get cookies.txt LOCALLY"</span> trên Chrome</p>
+                  <p>2. Mở YouTube → export cookies của <span className="font-mono" style={{color:"#fbbf24"}}>youtube.com</span></p>
+                  <p>3. Set env var <span className="font-mono" style={{color:"#fbbf24"}}>YOUTUBE_COOKIES</span> trên Render với nội dung file đó</p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

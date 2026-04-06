@@ -1,93 +1,105 @@
 import { Router } from "express";
 import { execFile } from "child_process";
-import { promisify } from "util";
-import { existsSync, writeFileSync, chmodSync } from "fs";
-import { resolve } from "path";
-import { createRequire } from "module";
+import path from "path";
+import fs from "fs";
+import https from "https";
 
 const router = Router();
-const execFileAsync = promisify(execFile);
 
-/* ── Tìm binary yt-dlp đã cài sẵn ── */
-function findExistingBin(): string | null {
-  if (process.env.YOUTUBE_DL_PATH && existsSync(process.env.YOUTUBE_DL_PATH)) {
-    return process.env.YOUTUBE_DL_PATH;
-  }
+/* ── Cookie setup ──────────────────────────────────────────────
+ *  Nếu env YOUTUBE_COOKIES được set (nội dung Netscape cookies.txt),
+ *  server ghi ra /tmp/yt-cookies.txt và yt-dlp sẽ dùng file này.
+ *  → Bypass bot check trên Render datacenter IP.
+ * ──────────────────────────────────────────────────────────── */
+const COOKIES_PATH = "/tmp/yt-cookies.txt";
 
+function setupCookies() {
+  const raw = process.env["YOUTUBE_COOKIES"];
+  if (!raw) return false;
   try {
-    const req = createRequire(import.meta.url);
-    const pkgDir = resolve(req.resolve("yt-dlp-exec"), "../..");
-    const candidate = resolve(pkgDir, "bin/yt-dlp");
-    if (existsSync(candidate)) return candidate;
-  } catch {}
-
-  const cwd = process.cwd();
-  const candidates = [
-    resolve(cwd, "node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp"),
-    resolve(cwd, "../../node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp"),
-    resolve(cwd, "node_modules/yt-dlp-exec/bin/yt-dlp"),
-    resolve(cwd, "../../node_modules/yt-dlp-exec/bin/yt-dlp"),
-    "/tmp/yt-dlp",
-    "/usr/bin/yt-dlp",
-    "/usr/local/bin/yt-dlp",
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  return null;
+    // Hỗ trợ cả plain text và base64
+    const decoded = raw.startsWith("# Netscape") ? raw
+      : Buffer.from(raw, "base64").toString("utf8");
+    fs.writeFileSync(COOKIES_PATH, decoded, { mode: 0o600 });
+    return true;
+  } catch { return false; }
 }
 
-/* ── Download yt-dlp binary từ GitHub nếu chưa có ── */
-async function ensureYtDlpBin(): Promise<string> {
-  const existing = findExistingBin();
-  if (existing) return existing;
+const hasCookies = setupCookies();
 
-  const tmpPath = "/tmp/yt-dlp";
-
-  /* Download binary trực tiếp — không cần GitHub API (tránh rate limit 403) */
-  const dlRes = await fetch(
-    "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp",
-    {
-      headers: { "User-Agent": "nexora-garden-server" },
-      signal: AbortSignal.timeout(60000),
-    }
-  );
-  if (!dlRes.ok) throw new Error(`Download yt-dlp thất bại ${dlRes.status}`);
-
-  const buf = await dlRes.arrayBuffer();
-  writeFileSync(tmpPath, Buffer.from(buf));
-  chmodSync(tmpPath, 0o755);
-
-  return tmpPath;
-}
-
-/* ── Cache Promise để tránh download nhiều lần khi concurrent requests ── */
-let _binPromise: Promise<string> | null = null;
+/* ── Binary locator ──────────────────────────────────────────── */
+let _binCache: Promise<string> | null = null;
 
 function getYtDlpBin(): Promise<string> {
-  if (!_binPromise) {
-    _binPromise = ensureYtDlpBin().catch(err => {
-      _binPromise = null;  // Reset để lần sau thử lại
-      throw err;
+  if (_binCache) return _binCache;
+  _binCache = (async () => {
+    const candidates = [
+      ...(() => {
+        try {
+          const base = path.join(process.cwd(), "node_modules/.pnpm");
+          return fs.readdirSync(base)
+            .filter(d => d.startsWith("yt-dlp-exec"))
+            .map(d => path.join(base, d, "node_modules/yt-dlp-exec/bin/yt-dlp"));
+        } catch { return []; }
+      })(),
+      path.join(process.cwd(), "node_modules/yt-dlp-exec/bin/yt-dlp"),
+      "/tmp/yt-dlp",
+    ];
+
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        fs.chmodSync(p, "755");
+        return p;
+      }
+    }
+
+    /* auto-download */
+    return new Promise<string>((resolve, reject) => {
+      const dest = "/tmp/yt-dlp";
+      const url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
+      const file = fs.createWriteStream(dest);
+      const download = (u: string) => https.get(u, res => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          return download(res.headers.location!);
+        }
+        res.pipe(file);
+        file.on("finish", () => { file.close(); fs.chmodSync(dest, "755"); resolve(dest); });
+      }).on("error", reject);
+      download(url);
     });
-  }
-  return _binPromise;
+  })();
+  return _binCache;
 }
 
-/* ── Gọi yt-dlp → JSON ── */
-async function ytDlpInfo(url: string): Promise<any> {
-  const bin = await getYtDlpBin();
-  const { stdout } = await execFileAsync(bin, [
-    url,
-    "--dump-single-json",
-    "--no-warnings",
-    "--no-check-certificate",
-    "--prefer-free-formats",
-    /* android client: bỏ qua bot check của YouTube trên datacenter IP */
-    "--extractor-args", "youtube:player_client=android,web",
-  ], { maxBuffer: 50 * 1024 * 1024, timeout: 30000 });
+/* ── Run yt-dlp ──────────────────────────────────────────────── */
+function ytDlpInfo(url: string): Promise<any> {
+  return new Promise(async (resolve, reject) => {
+    const bin = await getYtDlpBin();
 
-  return JSON.parse(stdout);
+    const args = [
+      url,
+      "--dump-single-json",
+      "--no-warnings",
+      "--no-check-certificate",
+      "--prefer-free-formats",
+      "--extractor-args", "youtube:player_client=android,web",
+    ];
+
+    if (hasCookies) {
+      args.push("--cookies", COOKIES_PATH);
+    }
+
+    execFile(bin, args, { maxBuffer: 10 * 1024 * 1024, timeout: 60_000 },
+      (err, stdout, stderr) => {
+        if (err) {
+          const msg = stderr || err.message;
+          return reject(new Error(msg.trim().split("\n").slice(-3).join(" | ")));
+        }
+        try { resolve(JSON.parse(stdout)); }
+        catch { reject(new Error("Lỗi parse JSON từ yt-dlp")); }
+      }
+    );
+  });
 }
 
 function extractVideoId(url: string): string | null {
@@ -104,106 +116,113 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
+function cleanUrl(url: string): string {
+  const videoId = extractVideoId(url);
+  return videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
+}
+
 /* ── GET /api/yt/info?url=... ── */
 router.get("/info", async (req, res) => {
   const url = String(req.query["url"] ?? "");
   if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
-
-  const videoId = extractVideoId(url);
-  if (!videoId) return res.status(400).json({ error: "Link YouTube không hợp lệ" });
+  if (!extractVideoId(url)) return res.status(400).json({ error: "Link YouTube không hợp lệ" });
 
   try {
-    /* Dùng URL sạch (không có ?si= tracking params) */
-    const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const info = await ytDlpInfo(cleanUrl);
+    const data = await ytDlpInfo(cleanUrl(url));
+    const base  = `${req.protocol}://${req.get("host")}`;
+    const enc   = (v: string) => encodeURIComponent(v);
 
-    const title    = info.title    ?? "Video";
-    const channel  = info.uploader ?? "";
-    const duration = info.duration ?? 0;
-    const thumbnail = info.thumbnail
-      ?? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    const qualityMap: Record<string, { minH: number; maxH: number }> = {
+      "1080p": { minH: 900,  maxH: 9999 },
+      "720p":  { minH: 650,  maxH: 899  },
+      "480p":  { minH: 400,  maxH: 649  },
+      "360p":  { minH: 0,    maxH: 399  },
+    };
 
-    const allFormats: any[] = info.formats ?? [];
+    const allFormats: any[] = data.formats ?? [];
 
-    /* Lọc combined (video+audio) có URL trực tiếp */
-    const combined = allFormats.filter((f: any) =>
-      f.url &&
-      f.vcodec && f.vcodec !== "none" &&
-      f.acodec && f.acodec !== "none" &&
-      (f.height ?? 0) > 0
-    );
-
-    const qualityBands = [
-      { itag: "1080", label: "1080p", minH: 900,  maxH: 9999 },
-      { itag: "720",  label: "720p",  minH: 650,  maxH: 899  },
-      { itag: "480",  label: "480p",  minH: 400,  maxH: 649  },
-      { itag: "360",  label: "360p",  minH: 0,    maxH: 399  },
-    ];
-
-    const formats: Array<{ itag: string; quality: string; ext: string; url: string }> = [];
-    const base = `${req.protocol}://${req.get("host")}`;
-    const enc  = (v: string) => encodeURIComponent(v);
-
-    for (const q of qualityBands) {
-      const candidates = combined
-        .filter((f: any) => (f.height ?? 0) >= q.minH && (f.height ?? 0) <= q.maxH)
-        .sort((a: any, b: any) => (b.height ?? 0) - (a.height ?? 0));
+    const formats = Object.entries(qualityMap).map(([label, { minH, maxH }]) => {
+      /* Tìm combined format (video+audio) MP4 trong dải height */
+      const candidates = allFormats
+        .filter(f => f.url && f.vcodec !== "none" && f.acodec !== "none"
+          && f.ext === "mp4"
+          && (f.height ?? 0) >= minH && (f.height ?? 0) <= maxH)
+        .sort((a, b) => (b.height ?? 0) - (a.height ?? 0));
 
       if (candidates.length > 0) {
-        formats.push({
-          itag:    q.itag,
-          quality: q.label,
-          ext:     "mp4",
-          url:     candidates[0].url,
-        });
-      } else {
-        formats.push({
-          itag:    q.itag,
-          quality: q.label,
-          ext:     "mp4",
-          url:     `${base}/api/yt/stream?url=${enc(url)}&height=${q.minH || 360}`,
-        });
+        return { itag: String(candidates[0].format_id), quality: label, ext: "mp4", url: candidates[0].url };
       }
-    }
 
-    return res.json({ title, thumbnail, duration, channel, formats });
+      /* Fallback: stream proxy */
+      return {
+        itag: label.replace("p", ""),
+        quality: label,
+        ext: "mp4",
+        url: `${base}/api/yt/stream?id=${enc(data.id)}&height=${minH || 360}`,
+      };
+    });
+
+    return res.json({
+      title:     data.title,
+      thumbnail: data.thumbnail,
+      duration:  data.duration,
+      channel:   data.channel ?? data.uploader,
+      formats,
+    });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";
-    return res.status(500).json({ error: `yt-dlp: ${msg}` });
+
+    /* Hướng dẫn thêm nếu bot check */
+    const isBotCheck = msg.includes("Sign in") || msg.includes("bot") || msg.includes("cookies");
+    const hint = isBotCheck
+      ? " | Hãy set YOUTUBE_COOKIES trên Render để bypass."
+      : "";
+
+    return res.status(500).json({ error: `yt-dlp: ${msg}${hint}` });
   }
 });
 
-/* ── GET /api/yt/stream?url=...&height=360
- *  Fallback: stream qua server khi không có combined URL
- * ── */
+/* ── GET /api/yt/stream?id=VIDEO_ID&height=360 ── */
 router.get("/stream", async (req, res) => {
-  const rawUrl = String(req.query["url"]    ?? "");
-  const height = String(req.query["height"] ?? "360");
-  if (!rawUrl) return res.status(400).json({ error: "Thiếu tham số url" });
-
-  const videoId = extractVideoId(rawUrl);
-  if (!videoId) return res.status(400).json({ error: "Link không hợp lệ" });
-
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const fmt = `best[height<=${height}][ext=mp4]/best[height<=${height}]/best`;
+  const videoId = String(req.query["id"] ?? "");
+  const height  = parseInt(String(req.query["height"] ?? "360"), 10);
+  if (!videoId) return res.status(400).json({ error: "Thiếu tham số id" });
 
   try {
+    const data = await ytDlpInfo(`https://www.youtube.com/watch?v=${videoId}`);
+    const allFormats: any[] = data.formats ?? [];
+
+    const fmt = allFormats
+      .filter(f => f.url && f.vcodec !== "none" && f.acodec !== "none" && f.ext === "mp4"
+        && (f.height ?? 0) <= height + 50)
+      .sort((a, b) => (b.height ?? 0) - (a.height ?? 0))[0];
+
+    if (!fmt) return res.status(404).json({ error: "Không tìm thấy format phù hợp" });
+
     const bin = await getYtDlpBin();
-    const proc = execFile(bin, [url, "-f", fmt, "-o", "-", "--no-warnings", "--no-check-certificate", "--extractor-args", "youtube:player_client=android,web"]);
+    const args = [
+      `https://www.youtube.com/watch?v=${videoId}`,
+      "-f", `best[height<=${height}][ext=mp4]/best[height<=${height}]/best`,
+      "-o", "-",
+      "--no-warnings",
+      "--no-check-certificate",
+      "--extractor-args", "youtube:player_client=android,web",
+    ];
+    if (hasCookies) args.push("--cookies", COOKIES_PATH);
+
+    const proc = execFile(bin, args);
 
     res.setHeader("Content-Type", "video/mp4");
     res.setHeader("Content-Disposition", `attachment; filename="video_${height}p.mp4"`);
 
     proc.stdout?.pipe(res);
-
-    proc.on("error", (err: Error) => {
-      if (!res.headersSent) res.status(500).json({ error: err.message });
-    });
+    proc.on("error", () => { if (!res.headersSent) res.status(500).end(); });
+    req.on("close", () => proc.kill());
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";
-    return res.status(500).json({ error: msg });
+    if (!res.headersSent) res.status(500).json({ error: msg });
   }
 });
 
