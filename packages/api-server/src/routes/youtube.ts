@@ -1,9 +1,24 @@
 import { Router } from "express";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 
-const _require = createRequire(import.meta.url);
-const { YOUTUBE_DL_PATH } = _require("yt-dlp-exec/src/constants") as { YOUTUBE_DL_PATH: string };
+function resolveYtdlpPath(): string {
+  /* 1. System-level binary (curl install trong render.yaml) */
+  if (existsSync("/usr/local/bin/yt-dlp")) return "/usr/local/bin/yt-dlp";
+
+  /* 2. Binary từ yt-dlp-exec npm package */
+  try {
+    const _require = createRequire(import.meta.url);
+    const { YOUTUBE_DL_PATH } = _require("yt-dlp-exec/src/constants") as { YOUTUBE_DL_PATH: string };
+    if (existsSync(YOUTUBE_DL_PATH)) return YOUTUBE_DL_PATH;
+  } catch {}
+
+  /* 3. Fallback PATH (nếu có yt-dlp trong PATH) */
+  return "yt-dlp";
+}
+
+const YOUTUBE_DL_PATH = resolveYtdlpPath();
 
 const router = Router();
 
