@@ -64,9 +64,14 @@ router.get("/info", async (req, res) => {
  *  (Không proxy qua server — cobalt tunnel chặn datacenter IP)
  * ── */
 router.get("/download", async (req, res) => {
-  const url     = String(req.query["url"]     ?? "");
+  const rawUrl  = String(req.query["url"]     ?? "");
   const quality = String(req.query["quality"] ?? "720");
-  if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
+  if (!rawUrl) return res.status(400).json({ error: "Thiếu tham số url" });
+
+  /* Chuẩn hoá URL: bỏ ?si= và các tracking params, dùng dạng watch?v= */
+  const videoId = extractVideoId(rawUrl);
+  if (!videoId) return res.status(400).json({ error: "Link YouTube không hợp lệ" });
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
 
   try {
     const cobaltRes = await fetch("https://api.cobalt.tools/", {
