@@ -7,19 +7,6 @@ import {
 import { useState } from "react";
 import { useLocation } from "wouter";
 
-/* ── Danh sách Invidious instances — gọi thẳng từ browser ── */
-const INVIDIOUS_INSTANCES = [
-  "https://iv.ggtyler.dev",
-  "https://invidious.slipfox.xyz",
-  "https://invidious.protokolla.fi",
-  "https://invidious.privacyredirect.com",
-  "https://inv.nadeko.net",
-  "https://invidious.nerdvpn.de",
-  "https://yt.artemislena.eu",
-  "https://yewtu.be",
-  "https://invidious.materialio.us",
-];
-
 /* ── Helpers ── */
 function formatDuration(sec: number) {
   const h = Math.floor(sec / 3600);
@@ -27,20 +14,6 @@ function formatDuration(sec: number) {
   const s = sec % 60;
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function extractVideoId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/,
-    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-    /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-  ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m?.[1]) return m[1];
-  }
-  return null;
 }
 
 function isYouTubeUrl(url: string) {
@@ -65,79 +38,27 @@ type VideoInfo = {
   formats: Format[];
 };
 
-const QUALITY_RANK: Record<string, number> = {
-  "1080p": 1080, "720p60": 720, "720p": 720,
-  "480p": 480, "360p": 360, "240p": 240, "144p": 144,
-};
+/* ── Gọi backend API — server-side fetch, không bị CORS ── */
+async function fetchVideoInfo(url: string): Promise<VideoInfo> {
+  const apiUrl = `/api/yt/info?url=${encodeURIComponent(url)}`;
+  const res = await fetch(apiUrl, { signal: AbortSignal.timeout(30000) });
 
-/* ── Fetch Invidious từ browser — thử từng instance ── */
-async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
-  const errors: string[] = [];
-
-  for (const base of INVIDIOUS_INSTANCES) {
+  if (!res.ok) {
+    let msg = `Server lỗi ${res.status}`;
     try {
-      const res = await fetch(
-        `${base}/api/v1/videos/${videoId}?fields=title,videoThumbnails,lengthSeconds,author,formatStreams`,
-        { signal: AbortSignal.timeout(8000) }
-      );
-      if (!res.ok) {
-        errors.push(`${base}: HTTP ${res.status}`);
-        continue;
-      }
-
-      const data = await res.json();
-
-      if (!data?.title) {
-        errors.push(`${base}: response không hợp lệ`);
-        continue;
-      }
-
-      /* Thumbnail */
-      const thumbnails: { quality: string; url: string }[] = data.videoThumbnails ?? [];
-      const thumb =
-        thumbnails.find((t) => t.quality === "maxresdefault")?.url ??
-        thumbnails.find((t) => t.quality === "hqdefault")?.url ??
-        thumbnails[0]?.url ?? "";
-
-      /* Formats */
-      type FmtStream = { itag: string; quality: string; type: string; container: string; url: string };
-      const fmtStreams: FmtStream[] = data.formatStreams ?? [];
-      const seen = new Set<number>();
-      const formats: Format[] = [];
-
-      for (const f of fmtStreams) {
-        if (!f.type?.startsWith("video")) continue;
-        const rank = QUALITY_RANK[f.quality] ?? 0;
-        if (!rank || seen.has(rank)) continue;
-        seen.add(rank);
-        formats.push({
-          itag: f.itag,
-          quality: `${rank}p`,
-          ext: f.container ?? "mp4",
-          url: `${base}/latest_version?id=${videoId}&itag=${f.itag}&local=true`,
-        });
-      }
-
-      if (formats.length === 0) {
-        errors.push(`${base}: không có format video nào`);
-        continue;
-      }
-
-      formats.sort((a, b) => parseInt(b.quality) - parseInt(a.quality));
-
-      return {
-        title: data.title,
-        thumbnail: thumb,
-        duration: data.lengthSeconds ?? 0,
-        channel: data.author ?? "",
-        formats,
-      };
-    } catch (e: any) {
-      errors.push(`${base}: ${e.message ?? "timeout"}`);
-    }
+      const body = await res.json();
+      if (body?.error) msg = body.error;
+    } catch {}
+    throw new Error(msg);
   }
 
-  throw new Error(`Tất cả Invidious instance đều lỗi:\n${errors.join("\n")}`);
+  const data = await res.json();
+
+  if (!data?.title || !data?.formats?.length) {
+    throw new Error("Server trả về dữ liệu không hợp lệ");
+  }
+
+  return data as VideoInfo;
 }
 
 /* ── Main Component ── */
@@ -148,7 +69,6 @@ export function YtDownloader() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState<VideoInfo | null>(null);
   const [selectedItag, setSelectedItag] = useState("");
-  const [currentInstance, setCurrentInstance] = useState("");
 
   const handleFetch = async () => {
     if (!url.trim()) return;
@@ -157,20 +77,13 @@ export function YtDownloader() {
       return;
     }
 
-    const videoId = extractVideoId(url);
-    if (!videoId) {
-      setError("Không tách được Video ID từ link này.");
-      return;
-    }
-
     setLoading(true);
     setError("");
     setInfo(null);
     setSelectedItag("");
-    setCurrentInstance("");
 
     try {
-      const result = await fetchVideoInfo(videoId);
+      const result = await fetchVideoInfo(url);
       setInfo(result);
       if (result.formats?.length > 0) setSelectedItag(result.formats[0].itag);
     } catch (e: any) {
@@ -301,7 +214,7 @@ export function YtDownloader() {
                 className="text-xs mt-2 pl-1"
                 style={{ color: "rgba(255,255,255,0.3)" }}
               >
-                Đang thử các server... có thể mất vài giây
+                Đang xử lý qua server... có thể mất vài giây
               </motion.p>
             )}
           </AnimatePresence>

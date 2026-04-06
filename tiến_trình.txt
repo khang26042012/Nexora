@@ -6,6 +6,54 @@
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 3] FIX — YtDownloader: CORS block khi fetch Invidious
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: apps/portfolio/src/pages/tools/YtDownloader.tsx
+
+Vấn đề:
+  - Browser fetch Invidious trực tiếp → "Failed to fetch" (CORS block)
+  - Invidious instance không cho phép cross-origin request từ nexorax.cloud
+  - Dù thêm bao nhiêu instance cũng vô dụng vì CORS block ở browser
+
+Đã sửa:
+  - Xóa toàn bộ INVIDIOUS_INSTANCES + fetchVideoInfo() browser-side
+  - Thay bằng gọi backend API: /api/yt/info?url=...
+  - Backend đã có sẵn route này (packages/api-server/src/routes/youtube.ts)
+  - Backend fetch Invidious server-side → không bị CORS
+  - Production: portfolio + API cùng domain nexorax.cloud → same-origin
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 3] SETUP — Khởi động lại môi trường Replit
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → cài 712 packages
+  2. Rebuild better-sqlite3 native bindings (node-gyp build)
+     → better_sqlite3.node 2.2MB ✅
+  3. Khởi động workflow "Start application" (Portfolio port 21113) ✅
+  4. Tạo workflow "API Server":
+     - Lệnh: PORT=8080 pnpm --filter @workspace/api-server run dev
+     - Port 8080, outputType: console ✅
+
+Kết quả:
+  - Portfolio chạy tại port 21113 ✅
+  - API Server chạy tại port 8080 ✅
+  - WebSocket /ws và /ws-browser sẵn sàng ✅
+  - SQLite DB initialized ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt (cần set trong Secrets)
+
+Lưu ý rebuild better-sqlite3 mỗi khi env reset:
+  cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+  /tmp/gyp-install/bin/node-gyp configure && /tmp/gyp-install/bin/node-gyp build
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [06/04/2026 session 2] FIX — YtDownloader: Invidious bị block server IP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
