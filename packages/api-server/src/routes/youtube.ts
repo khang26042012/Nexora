@@ -81,8 +81,7 @@ function ytDlpInfo(url: string): Promise<any> {
       "--dump-single-json",
       "--no-warnings",
       "--no-check-certificate",
-      "--prefer-free-formats",
-      "--extractor-args", "youtube:player_client=android,web",
+      "-f", "bestvideo*+bestaudio/bestvideo/bestaudio/best",
     ];
 
     if (hasCookies) {
@@ -207,7 +206,7 @@ router.get("/stream", async (req, res) => {
       "-o", "-",
       "--no-warnings",
       "--no-check-certificate",
-      "--extractor-args", "youtube:player_client=android,web",
+      "--extractor-args", "youtube:player_client=ios,web",
     ];
     if (hasCookies) args.push("--cookies", COOKIES_PATH);
 
