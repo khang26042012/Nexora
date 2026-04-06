@@ -202,6 +202,7 @@ bool          lowWaterAlerted = false;
 // ─── Trạng thái bơm ──────────────────────────────────────────────────────────
 unsigned long pumpStartTime         = 0;
 unsigned long pumpAutoCooldownUntil = 0;
+time_t        lastPumpEpoch         = 0;  // epoch lúc bơm lần cuối được bật
 uint8_t       pumpAutoFailCount     = 0;
 bool          pumpLocked     = false;
 bool          pumpAutoActive = false;
@@ -521,6 +522,7 @@ void setPump(bool on) {
   digitalWrite(RELAY_PIN, on ? HIGH : LOW);
   if (on) {
     pumpStartTime = millis();
+    time(&lastPumpEpoch);  // ghi thời gian NTP khi bơm được bật
     Serial.println("[Bom] BAT");
   } else {
     Serial.println("[Bom] TAT");
@@ -701,16 +703,24 @@ void drawMainScreen() {
   else                   { tft.setTextColor(C_GRAY, C_BLACK); }
   if (fireActive)        strcat(status, "CANH BAO LUA!");
   else if (rainNow)      strcat(status, "CO MUA");
-  else if (strlen(status) == 0) strcat(status, "OK");
 
   // Pad to clear old content
   char padded[40];
   snprintf(padded, sizeof(padded), "%-37s", status);
   tft.print(padded);
 
-  // Dòng 9: % mưa (thời tiết)
+  // Dòng 9: Bơm gần đây
   tft.setCursor(5, 218); tft.setTextColor(C_DIMWHITE, C_BLACK);
-  { char b[30]; snprintf(b, sizeof(b), "Mua hom nay: %d%%", rainChance); tft.print(b); }
+  if (lastPumpEpoch == 0) {
+    tft.print("Bom gan day: Chua co      ");
+  } else {
+    struct tm pt;
+    localtime_r(&lastPumpEpoch, &pt);
+    char b[36];
+    snprintf(b, sizeof(b), "Bom gan day: %02d:%02d %02d/%02d  ",
+             pt.tm_hour, pt.tm_min, pt.tm_mday, pt.tm_mon + 1);
+    tft.print(b);
+  }
 }
 
 // ─── Vẽ màn hình đang bơm ────────────────────────────────────────────────────
