@@ -66,6 +66,7 @@ export function YtDownloader() {
   const [, navigate] = useLocation();
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState<VideoInfo | null>(null);
   const [selectedItag, setSelectedItag] = useState("");
@@ -93,18 +94,41 @@ export function YtDownloader() {
     }
   };
 
-  const handleDownload = () => {
-    if (!info || !selectedItag) return;
+  const handleDownload = async () => {
+    if (!info || !selectedItag || downloading) return;
     const fmt = info.formats.find(f => f.itag === selectedItag);
     if (!fmt) return;
-    const link = document.createElement("a");
-    link.href = fmt.url;
-    link.download = `${info.title}.${fmt.ext}`;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    setDownloading(true);
+    setError("");
+
+    try {
+      /* Bước 1: server resolve cobalt URL */
+      const res = await fetch(fmt.url, { signal: AbortSignal.timeout(35000) });
+      const data = await res.json();
+
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error ?? `Lỗi ${res.status}`);
+      }
+
+      /* Bước 2: mở URL trực tiếp — browser user tải từ CDN/cobalt */
+      const link = document.createElement("a");
+      link.href = data.url;
+      /* filename: server trả về hoặc dùng title */
+      const name = (data.filename as string | undefined)
+        ?? `${info.title}_${fmt.quality}.mp4`;
+      link.download = name;
+      link.target   = "_blank";
+      link.rel      = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Tải xuống thất bại";
+      setError(msg);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -316,15 +340,17 @@ export function YtDownloader() {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleDownload}
-                disabled={!selectedItag}
+                disabled={!selectedItag || downloading}
                 className="w-full flex items-center justify-center gap-2.5 py-4 rounded-xl text-base font-bold text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   background: "linear-gradient(135deg, #ff4444 0%, #cc2222 100%)",
                   boxShadow: "0 8px 32px rgba(255,68,68,0.3)",
                 }}
               >
-                <Download className="w-5 h-5" />
-                Tải xuống
+                {downloading
+                  ? <><Loader2 className="w-5 h-5 animate-spin" />Đang chuẩn bị...</>
+                  : <><Download className="w-5 h-5" />Tải xuống</>
+                }
               </motion.button>
 
               <p className="text-center text-xs mt-3" style={{ color: "rgba(255,255,255,0.3)" }}>
