@@ -98,14 +98,36 @@ export async function initTelegramBot() {
       logger.error({ err }, "Failed to set Telegram webhook");
     }
   } else {
-    // Polling mode — only for local development
-    bot = new TelegramBot(token, { polling: true });
+    // Polling mode — delete any existing webhook first to avoid conflicts
+    // (If a webhook was previously registered, polling will never receive updates)
+    bot = new TelegramBot(token, { polling: false });
+    try {
+      await bot.deleteWebHook();
+      logger.info("Telegram: cleared existing webhook before starting polling");
+    } catch (err) {
+      logger.warn({ err }, "Telegram: failed to clear webhook (non-fatal)");
+    }
 
-    bot.on("polling_error", (err) => {
-      logger.error({ err }, "Telegram polling error");
+    // Re-create bot with polling enabled after webhook is cleared
+    bot = new TelegramBot(token, {
+      polling: {
+        interval: 1000,
+        autoStart: true,
+        params: { timeout: 10 },
+      },
     });
 
-    logger.info("Telegram bot started (polling mode — development only)");
+    bot.on("polling_error", (err: any) => {
+      // 409 Conflict = still has a webhook; 404 = token invalid
+      const code = err?.response?.body?.error_code;
+      if (code === 409) {
+        logger.error({ err }, "Telegram polling conflict: webhook still active. Set TELEGRAM_WEBHOOK_URL or call deleteWebhook manually.");
+      } else {
+        logger.error({ err }, "Telegram polling error");
+      }
+    });
+
+    logger.info("Telegram bot started (polling mode)");
   }
 
   bot.onText(/\/start/, (msg) => {
