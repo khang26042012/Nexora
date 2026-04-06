@@ -98,6 +98,24 @@ const char* WEATHER_URL =
 #define EMA_ALPHA_SOIL   0.08f
 #define EMA_ALPHA_WATER  0.15f
 
+// ─── Hiệu chỉnh đa điểm cảm biến đất (Cách 2) ───────────────────────────────
+// Đo giá trị ADC thực tế tại các mức ẩm biết trước, điền vào đây
+// raw PHẢI giảm dần (đất khô → raw cao, đất ướt → raw thấp)
+struct CalPoint { int raw; int percent; };
+const CalPoint SOIL_CAL[] = {
+  { 3200,   0 },  // Ngoài không khí / đất khô hoàn toàn
+  { 2800,  20 },  // Đất hơi ẩm
+  { 2200,  45 },  // Đất ẩm vừa
+  { 1700,  70 },  // Đất ẩm tốt
+  { 1200, 100 },  // Nhúng vào nước
+};
+const int CAL_POINTS = sizeof(SOIL_CAL) / sizeof(SOIL_CAL[0]);
+
+// ─── Bù nhiệt độ cảm biến đất (Cách 3) ──────────────────────────────────────
+// Nhiệt độ cao → cảm biến đọc thấp hơn thực → cộng bù vào
+#define SOIL_TEMP_REF    25.0f  // Nhiệt độ lúc cân chỉnh (°C)
+#define SOIL_TEMP_ALPHA   0.30f // Hệ số bù: % độ ẩm / °C lệch
+
 // ─── Ngưỡng bơm ──────────────────────────────────────────────────────────────
 #define PUMP_SOIL_ON    30
 #define PUMP_SOIL_OFF   70
@@ -367,6 +385,20 @@ int getMedian(int* arr, int n) {
   return sum / (n-4);
 }
 
+// ─── Nội suy tuyến tính đa điểm (Cách 2) ─────────────────────────────────────
+// raw giảm dần tương ứng percent tăng dần trong SOIL_CAL
+int multiPointMap(int raw) {
+  if (raw >= SOIL_CAL[0].raw)                    return SOIL_CAL[0].percent;
+  if (raw <= SOIL_CAL[CAL_POINTS - 1].raw)       return SOIL_CAL[CAL_POINTS - 1].percent;
+  for (int i = 0; i < CAL_POINTS - 1; i++) {
+    if (raw <= SOIL_CAL[i].raw && raw >= SOIL_CAL[i + 1].raw) {
+      return (int)map(raw, SOIL_CAL[i].raw, SOIL_CAL[i + 1].raw,
+                          SOIL_CAL[i].percent, SOIL_CAL[i + 1].percent);
+    }
+  }
+  return 0;
+}
+
 void updateTrend(SensorState& s, int newVal) {
   s.trendBuffer[s.trendIdx] = newVal;
   s.trendIdx = (s.trendIdx + 1) % 5;
@@ -383,7 +415,16 @@ void updateSoil() {
   int raw = getMedian(samples, SAMPLE_COUNT);
   if (raw < 50 || raw > 4090) { soilState.isError = true; soilPercent = 0; return; }
   soilState.isError = false;
-  int mapped = constrain(map(raw, SOIL_RAW_DRY, SOIL_RAW_WET, 0, 100), 0, 100);
+
+  // Cách 2: Nội suy đa điểm thay cho map() tuyến tính đơn giản
+  int mapped = constrain(multiPointMap(raw), 0, 100);
+
+  // Cách 3: Bù nhiệt độ dùng DHT22 (nhiệt độ cao → cảm biến đọc thấp hơn thực)
+  if (localTemp > -100.0f) {
+    float comp = SOIL_TEMP_ALPHA * (localTemp - SOIL_TEMP_REF);
+    mapped = constrain((int)(mapped + comp), 0, 100);
+  }
+
   if (!soilInitialized) { soilState.emaValue = (float)mapped; soilInitialized = true; }
   else soilState.emaValue = EMA_ALPHA_SOIL * mapped + (1.0f - EMA_ALPHA_SOIL) * soilState.emaValue;
   soilState.prevValue    = soilState.displayValue;
@@ -963,6 +1004,9 @@ void printCalibrate() {
 void setup() {
   Serial.begin(115200);
   delay(100);
+
+  // Cách 1: Đảm bảo ADC đọc đúng dải 0-3.3V (không bị cắt ở 1.1V)
+  analogSetAttenuation(ADC_11db);
 
   pinMode(SOIL_PIN,  INPUT);
   pinMode(WATER_PIN, INPUT);
