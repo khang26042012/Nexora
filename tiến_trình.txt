@@ -1,8 +1,62 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 06/04/2026 (session 2)
+  Cập nhật: 06/04/2026 (session 4)
 ================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 4] FIX — YtDownloader: bỏ hoàn toàn Invidious, dùng yt-dlp-exec
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: packages/api-server/src/routes/youtube.ts
+Package mới: yt-dlp-exec@1.0.2 (tự download binary yt-dlp v2026.03.17)
+pnpm-workspace.yaml: thêm yt-dlp-exec vào onlyBuiltDependencies
+
+Vấn đề:
+  - Invidious trả HTML/Cloudflare từ datacenter IP (Render/Replit)
+  - ytdl-core và youtubei.js: không decipher được cipher → url=false cho format 720p+
+  - Chỉ lấy được 360p itag=18 nhưng url=false → không dùng được
+
+Giải pháp: yt-dlp-exec
+  - yt-dlp v2026.03.17 decipher thành công YouTube CDN URLs
+  - Test: Rick Astley → 360p mp4 hasUrl=true, HTTP 200 từ CDN
+  - API /api/yt/info trả về: title, thumbnail, duration, channel, formats[]
+  - Formats: combined (video+audio) với URL trực tiếp → frontend download không qua server
+  - Fallback: /api/yt/download endpoint server-side stream nếu không có combined format
+
+Kết quả test local:
+  - title: "Rick Astley - Never Gonna Give You Up" ✅
+  - channel: "Rick Astley" ✅
+  - thumbnail URL ✅
+  - formats: [{q:"360p", ext:"mp4", hasUrl:true}] ✅
+  - CDN URL: HTTP 200, Content-Type: video/mp4 ✅
+
+Lưu ý Render production:
+  - yt-dlp-exec tự download binary trong postinstall → hoạt động trên Render
+  - 360p: không cần ffmpeg (combined format)
+  - 720p+: cần ffmpeg (adaptive streams cần mux) — chưa test trên Render
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 3] FIX — YtDownloader: Invidious instances chết, cập nhật list mới
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: packages/api-server/src/routes/youtube.ts
+
+Vấn đề:
+  - Các Invidious instance trong backend đều chết (404, 401, 500, timeout)
+  - Test thực từ server: chỉ còn 4 instance cho HTTP 200:
+    protokolla.fi, iv.ggtyler.dev, slipfox.xyz, materialio.us
+
+Đã sửa:
+  - Đặt 4 instance đang sống lên đầu danh sách
+  - Thêm redirect: "follow" để xử lý 301 redirect
+  - Giữ lại các instance cũ ở cuối list (dự phòng nếu instance trên chết)
+
+ESP32 cần nạp firmware: KHÔNG
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
