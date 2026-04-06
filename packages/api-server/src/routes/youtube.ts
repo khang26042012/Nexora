@@ -44,26 +44,14 @@ async function ensureYtDlpBin(): Promise<string> {
 
   const tmpPath = "/tmp/yt-dlp";
 
-  /* Lấy URL release mới nhất */
-  const apiRes = await fetch(
-    "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest",
+  /* Download binary trực tiếp — không cần GitHub API (tránh rate limit 403) */
+  const dlRes = await fetch(
+    "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp",
     {
       headers: { "User-Agent": "nexora-garden-server" },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(60000),
     }
   );
-  if (!apiRes.ok) throw new Error(`GitHub API lỗi ${apiRes.status}`);
-
-  const release = await apiRes.json() as {
-    assets: Array<{ name: string; browser_download_url: string }>;
-  };
-  const asset = release.assets.find(a => a.name === "yt-dlp");
-  if (!asset) throw new Error("Không tìm thấy yt-dlp asset trong GitHub release");
-
-  /* Download binary */
-  const dlRes = await fetch(asset.browser_download_url, {
-    signal: AbortSignal.timeout(60000),
-  });
   if (!dlRes.ok) throw new Error(`Download yt-dlp thất bại ${dlRes.status}`);
 
   const buf = await dlRes.arrayBuffer();
