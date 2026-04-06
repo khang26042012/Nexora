@@ -8,38 +8,50 @@ import { createRequire } from "module";
 const router = Router();
 const execFileAsync = promisify(execFile);
 
-/* ── Tìm đường dẫn binary yt-dlp ── */
+/* ── Tìm đường dẫn binary yt-dlp (lazy — chỉ throw khi thực sự dùng) ── */
+let _ytDlpPath: string | null = null;
+
 function findYtDlpBin(): string {
+  if (_ytDlpPath) return _ytDlpPath;
+
   /* 1. Biến môi trường cho phép override */
-  if (process.env.YOUTUBE_DL_PATH) return process.env.YOUTUBE_DL_PATH;
+  if (process.env.YOUTUBE_DL_PATH) {
+    _ytDlpPath = process.env.YOUTUBE_DL_PATH;
+    return _ytDlpPath;
+  }
 
   /* 2. Tìm qua require.resolve từ package yt-dlp-exec */
   try {
     const req = createRequire(import.meta.url);
     const pkgDir = resolve(req.resolve("yt-dlp-exec"), "../..");
     const candidate = resolve(pkgDir, "bin/yt-dlp");
-    if (existsSync(candidate)) return candidate;
+    if (existsSync(candidate)) { _ytDlpPath = candidate; return _ytDlpPath; }
   } catch {}
 
-  /* 3. Fallback hardcoded (Replit pnpm workspace) */
+  /* 3. Fallback — thử nhiều path (Replit dev, Render production, hệ thống) */
+  const cwd = process.cwd();
   const fallbacks = [
-    resolve(process.cwd(), "../../node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp"),
-    resolve(process.cwd(), "node_modules/yt-dlp-exec/bin/yt-dlp"),
+    /* Render production: start từ /opt/render/project/src */
+    resolve(cwd, "node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp"),
+    /* Replit dev: start từ packages/api-server */
+    resolve(cwd, "../../node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp"),
+    /* npm install (không pnpm) */
+    resolve(cwd, "node_modules/yt-dlp-exec/bin/yt-dlp"),
+    resolve(cwd, "../../node_modules/yt-dlp-exec/bin/yt-dlp"),
+    /* System yt-dlp */
     "/usr/bin/yt-dlp",
     "/usr/local/bin/yt-dlp",
   ];
   for (const p of fallbacks) {
-    if (existsSync(p)) return p;
+    if (existsSync(p)) { _ytDlpPath = p; return _ytDlpPath; }
   }
 
-  throw new Error("Không tìm thấy yt-dlp binary. Cần chạy pnpm install trước.");
+  throw new Error(`Không tìm thấy yt-dlp binary. cwd=${cwd}. Cần chạy pnpm install trước.`);
 }
-
-const YT_DLP = findYtDlpBin();
 
 /* ── Gọi yt-dlp → JSON ── */
 async function ytDlpInfo(url: string): Promise<any> {
-  const { stdout } = await execFileAsync(YT_DLP, [
+  const { stdout } = await execFileAsync(findYtDlpBin(), [
     url,
     "--dump-single-json",
     "--no-warnings",
@@ -151,7 +163,7 @@ router.get("/stream", async (req, res) => {
   const fmt = `best[height<=${height}][ext=mp4]/best[height<=${height}]/best`;
 
   try {
-    const proc = execFile(YT_DLP, [url, "-f", fmt, "-o", "-", "--no-warnings", "--no-call-home"]);
+    const proc = execFile(findYtDlpBin(), [url, "-f", fmt, "-o", "-", "--no-warnings", "--no-call-home"]);
 
     res.setHeader("Content-Type", "video/mp4");
     res.setHeader("Content-Disposition", `attachment; filename="video_${height}p.mp4"`);
