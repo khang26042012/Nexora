@@ -26,6 +26,21 @@ function getWeatherUrl(): string {
 let bot: TelegramBot | null = null;
 let chatId: string | null = null;
 
+/** Returns the webhook secret for header verification, if configured. */
+export function getTelegramWebhookSecret(): string | undefined {
+  return process.env["TELEGRAM_WEBHOOK_SECRET"];
+}
+
+/**
+ * Returns true if the message's chat ID is the authorized one.
+ * If TELEGRAM_CHAT_ID is not set, allows all chats (backward compat).
+ */
+function isAuthorized(id: number): boolean {
+  const allowed = process.env["TELEGRAM_CHAT_ID"];
+  if (!allowed) return true;
+  return String(id) === allowed;
+}
+
 export function sendTelegram(message: string) {
   const target = chatId ?? process.env["TELEGRAM_CHAT_ID"];
   if (!bot || !target) return;
@@ -65,15 +80,18 @@ export async function initTelegramBot() {
 
   // Use webhook mode in production, polling in development
   const isProduction = process.env["NODE_ENV"] === "production";
-  const webhookUrl = process.env["TELEGRAM_WEBHOOK_URL"];
+  // Base URL of the api-server deployment, e.g. "https://nexorax-api.onrender.com"
+  const serverBaseUrl = process.env["TELEGRAM_WEBHOOK_URL"];
+  const webhookSecret = process.env["TELEGRAM_WEBHOOK_SECRET"];
 
-  if (isProduction && webhookUrl) {
+  if (isProduction && serverBaseUrl) {
     // Webhook mode — no polling, no network conflicts, safe for Render
     bot = new TelegramBot(token, { polling: false });
 
-    const fullWebhookUrl = `${webhookUrl}/telegram-webhook`;
+    // Path is always /NexoraGarden/telegram-webhook — matches router mount point
+    const fullWebhookUrl = `${serverBaseUrl}/NexoraGarden/telegram-webhook`;
     try {
-      await bot.setWebHook(fullWebhookUrl);
+      await bot.setWebHook(fullWebhookUrl, webhookSecret ? { secret_token: webhookSecret } : undefined);
       logger.info({ fullWebhookUrl }, "Telegram bot started (webhook mode)");
     } catch (err) {
       logger.error({ err }, "Failed to set Telegram webhook");
@@ -231,6 +249,7 @@ export async function initTelegramBot() {
 
   bot.onText(/\/pump_on/, (msg) => {
     const id = msg.chat.id;
+    if (!isAuthorized(id)) return;
     if (isWebControlLocked()) {
       bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
       return;
@@ -262,6 +281,7 @@ export async function initTelegramBot() {
 
   bot.onText(/\/pump_off/, (msg) => {
     const id = msg.chat.id;
+    if (!isAuthorized(id)) return;
     if (isWebControlLocked()) {
       bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
       return;
@@ -285,6 +305,7 @@ export async function initTelegramBot() {
 
   bot.onText(/\/unlock_on/, (msg) => {
     const id = msg.chat.id;
+    if (!isAuthorized(id)) return;
     if (isWebControlLocked()) {
       bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
       return;
@@ -299,6 +320,7 @@ export async function initTelegramBot() {
 
   bot.onText(/\/unlock_off/, (msg) => {
     const id = msg.chat.id;
+    if (!isAuthorized(id)) return;
     if (isWebControlLocked()) {
       bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
       return;
@@ -313,6 +335,7 @@ export async function initTelegramBot() {
 
   bot.onText(/\/admin_on/, (msg) => {
     const id = msg.chat.id;
+    if (!isAuthorized(id)) return;
     if (isWebControlLocked()) {
       bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
       return;
@@ -331,6 +354,7 @@ export async function initTelegramBot() {
 
   bot.onText(/\/admin_off/, (msg) => {
     const id = msg.chat.id;
+    if (!isAuthorized(id)) return;
     if (isWebControlLocked()) {
       bot!.sendMessage(id, WEB_LOCK_MSG, { parse_mode: "HTML" });
       return;
@@ -347,6 +371,7 @@ export async function initTelegramBot() {
   });
 
   bot.onText(/\/alert_on/, (msg) => {
+    if (!isAuthorized(msg.chat.id)) return;
     updateSystemState({ alert_enabled: 1 });
     bot!.sendMessage(
       msg.chat.id,
@@ -356,6 +381,7 @@ export async function initTelegramBot() {
   });
 
   bot.onText(/\/alert_off/, (msg) => {
+    if (!isAuthorized(msg.chat.id)) return;
     updateSystemState({ alert_enabled: 0 });
     bot!.sendMessage(
       msg.chat.id,
@@ -365,6 +391,7 @@ export async function initTelegramBot() {
   });
 
   bot.onText(/\/clear/, (msg) => {
+    if (!isAuthorized(msg.chat.id)) return;
     clearAllLogs();
     bot!.sendMessage(
       msg.chat.id,

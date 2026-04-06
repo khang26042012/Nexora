@@ -32,3 +32,5 @@ services:
         sync: false
       - key: WEATHER_API_KEY
         sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false

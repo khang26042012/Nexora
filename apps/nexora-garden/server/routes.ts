@@ -12,7 +12,7 @@ import {
   deleteCommand,
 } from "./db.js";
 import { pushCommandToEsp32, getEsp32Socket, broadcastManualPumpLog, broadcastWebLock } from "./websocket.js";
-import { processTelegramUpdate, sendTelegram } from "./telegram.js";
+import { processTelegramUpdate, sendTelegram, getTelegramWebhookSecret } from "./telegram.js";
 import { adminOn, adminOff, isAdminActive } from "./adminControl.js";
 import { unlockOn, unlockOff, isUnlockActive } from "./unlockControl.js";
 import { setWebControlLock } from "./commandLock.js";
@@ -251,6 +251,16 @@ router.delete("/api/commands/:id", (req, res) => {
 
 // ── Telegram Webhook (production mode) ────────────────────────────────────────
 router.post("/telegram-webhook", (req, res) => {
+  // Verify webhook secret if configured
+  const expectedSecret = getTelegramWebhookSecret();
+  if (expectedSecret) {
+    const incomingSecret = req.headers["x-telegram-bot-api-secret-token"];
+    if (incomingSecret !== expectedSecret) {
+      logger.warn("Telegram webhook: invalid secret token — request rejected");
+      res.sendStatus(403);
+      return;
+    }
+  }
   try {
     processTelegramUpdate(req.body);
     res.sendStatus(200);
