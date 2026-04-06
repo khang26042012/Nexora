@@ -2,13 +2,18 @@ import { Router } from "express";
 
 const router = Router();
 
-/* ── Danh sách Invidious instances (thử lần lượt nếu lỗi) ──────────── */
+/* ── Danh sách Invidious instances — đã kiểm tra hoạt động từ server ── */
 const INVIDIOUS_INSTANCES = [
+  "https://invidious.protokolla.fi",
+  "https://iv.ggtyler.dev",
+  "https://invidious.slipfox.xyz",
+  "https://invidious.materialio.us",
   "https://invidious.privacyredirect.com",
-  "https://inv.nadeko.net",
   "https://invidious.nerdvpn.de",
   "https://yt.artemislena.eu",
-  "https://invidious.materialio.us",
+  "https://yewtu.be",
+  "https://inv.nadeko.net",
+  "https://invidious.perennialte.ch",
 ];
 
 function extractVideoId(url: string): string | null {
@@ -25,30 +30,41 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
+/* ── Fetch với follow redirect ── */
+async function fetchWithRedirect(url: string, timeoutMs = 10000): Promise<Response> {
+  return fetch(url, {
+    signal: AbortSignal.timeout(timeoutMs),
+    redirect: "follow",
+  });
+}
+
 async function fetchInvidious(videoId: string): Promise<any> {
   const errors: string[] = [];
   for (const base of INVIDIOUS_INSTANCES) {
     try {
-      const res = await fetch(
+      const res = await fetchWithRedirect(
         `${base}/api/v1/videos/${videoId}?fields=title,videoThumbnails,lengthSeconds,author,formatStreams,adaptiveFormats`,
-        { signal: AbortSignal.timeout(8000) }
+        10000
       );
       if (!res.ok) {
         errors.push(`${base}: HTTP ${res.status}`);
         continue;
       }
       const data = await res.json();
-      // Gắn base URL vào data để dùng khi build proxy link
+      if (!data?.title) {
+        errors.push(`${base}: response thiếu title`);
+        continue;
+      }
       data._invidiousBase = base;
       return data;
     } catch (e: any) {
-      errors.push(`${base}: ${e.message}`);
+      errors.push(`${base}: ${e.message ?? "timeout"}`);
     }
   }
   throw new Error(`Tất cả Invidious instance đều lỗi: ${errors.join(" | ")}`);
 }
 
-/* ── GET /api/yt/info?url=... ──────────────────────────────────────── */
+/* ── GET /api/yt/info?url=... ── */
 router.get("/info", async (req, res) => {
   const url = String(req.query["url"] ?? "");
   if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
@@ -67,7 +83,7 @@ router.get("/info", async (req, res) => {
       thumbnails.find((t) => t.quality === "hqdefault")?.url ??
       thumbnails[0]?.url ?? "";
 
-    /* formatStreams = video + audio kết hợp (360p, 720p) */
+    /* formatStreams = video+audio kết hợp (360p, 720p) */
     type FmtStream = { itag: string; quality: string; type: string; container: string; url: string };
     const fmtStreams: FmtStream[] = data.formatStreams ?? [];
 
@@ -85,7 +101,6 @@ router.get("/info", async (req, res) => {
       if (!rank || seen.has(rank)) continue;
       seen.add(rank);
 
-      /* Dùng Invidious proxy URL để tải thẳng không cần server */
       const proxyUrl = `${base}/latest_version?id=${videoId}&itag=${f.itag}&local=true`;
 
       formats.push({
