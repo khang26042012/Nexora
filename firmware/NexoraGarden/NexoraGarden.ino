@@ -176,9 +176,6 @@ unsigned long lastSerial    = 0;
 unsigned long lastSoilRead  = 0;
 unsigned long lastWaterRead = 0;
 unsigned long lastConnected = 0;
-#ifdef CALIBRATE_MODE
-unsigned long lastCal       = 0;
-#endif
 
 // ─── Sensor values ───────────────────────────────────────────────────────────
 int  soilPercent  = 0;
@@ -349,7 +346,7 @@ void wsTask(void* pvParameters) {
   webSocket.beginSSL(SERVER_HOST, SERVER_PORT, WS_PATH);
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(1000);
-  webSocket.enableHeartbeat(15000, 8000, 1);
+  webSocket.enableHeartbeat(15000, 8000, 2);  // 2 retry: chiu duoc 1 pong cham, tranh reconnect loop
   Serial.println("[WS] Task khoi tao tren Core 0");
   for (;;) {
     char* buf = nullptr;
@@ -366,6 +363,7 @@ void wsTask(void* pvParameters) {
 // ═══════════════════════════════════════════════════════════════
 
 int getMedian(int* arr, int n) {
+  if (n < 5) { return arr[n / 2]; }  // an toan: tranh chia cho 0 khi n < 5
   for (int i = 1; i < n; i++) {
     int key = arr[i], j = i - 1;
     while (j >= 0 && arr[j] > key) { arr[j+1] = arr[j]; j--; }
@@ -486,7 +484,7 @@ void handleRain() {
 bool shouldSendData() {
   // Khi bơm bật: rain bị force false, bỏ qua thay đổi rain
   bool rainNow = pumpState ? false : (digitalRead(RAIN_PIN) == LOW);
-  bool fireNow = fireActive && fireAlerted;
+  bool fireNow = fireActive;  // Gui ngay khi phat hien, khong cho 3s debounce (debounce chi danh cho notify Telegram)
   if (abs(soilPercent  - lastSentSoil)  >= SOIL_THRESHOLD)  return true;
   if (abs(waterPercent - lastSentWater) >= WATER_THRESHOLD)  return true;
   if (localTemp != -999.0 && abs(localTemp - lastSentTemp) >= TEMP_THRESHOLD) return true;
@@ -500,7 +498,7 @@ void sendSensorData() {
   if (!wsConnected) return;
   // Khi bơm bật: cảm biến mưa bị nhiễu → gửi false để server không xử lý nhầm
   bool rainNow = pumpState ? false : (digitalRead(RAIN_PIN) == LOW);
-  bool fireNow = fireActive && fireAlerted;
+  bool fireNow = fireActive;  // Gui ngay khi phat hien lua (debounce 3s chi danh cho notify Telegram)
   JsonDocument doc;
   doc["type"]  = "sensor"; doc["soil"]  = soilPercent;  doc["water"] = waterPercent;
   doc["temp"]  = localTemp; doc["hum"]   = localHum;
@@ -541,7 +539,8 @@ void handlePump() {
     int raw = analogRead(SOIL_PIN);
     int liveSoil = 0;
     if (raw >= 100 && raw <= 4090) {
-      liveSoil = constrain(map(raw, SOIL_RAW_DRY, SOIL_RAW_WET, 0, 100), 1, 100);
+      // Dung multiPointMap nhu updateSoil() de liveSoil nhat quan voi soilPercent hien thi
+      liveSoil = max(1, constrain(multiPointMap(raw), 0, 100));
     }
     bool timeout = (now - pumpStartTime >= PUMP_MAX_MS);
     bool soilOK  = (liveSoil >= PUMP_SOIL_OFF);
@@ -991,8 +990,10 @@ void loop() {
       Serial.println("[Admin] BAT bom buoc");
     } else {
       adminActive = false;
-      setPump(false); pumpLocked = false;
-      Serial.println("[Admin] TAT bom buoc");
+      setPump(false);
+      pumpLocked = true;
+      pumpAutoCooldownUntil = millis() + PUMP_AUTO_COOLDOWN_MS;  // cooldown 10 phut tranh auto-pump ngay lap tuc
+      Serial.println("[Admin] TAT bom buoc — khoa + cooldown 10 phut");
     }
   }
 
