@@ -53,7 +53,7 @@ app.use("/NexoraGarden", nexoraRouter);
 
 if (fs.existsSync(nexoraGardenDist)) {
   const indexHtml = path.join(nexoraGardenDist, "index.html");
-  app.get("/NexoraGarden/*", (_req: Request, res: Response) => {
+  app.get("/NexoraGarden/{*path}", (_req: Request, res: Response) => {
     res.sendFile(indexHtml);
   });
 }
@@ -69,7 +69,7 @@ const portfolioDist = path.resolve(
 
 if (fs.existsSync(portfolioDist)) {
   app.use(express.static(portfolioDist));
-  app.get("*", (_req: Request, res: Response) => {
+  app.get("{*path}", (_req: Request, res: Response) => {
     res.sendFile(path.join(portfolioDist, "index.html"));
   });
   logger.info({ portfolioDist }, "Serving portfolio");
