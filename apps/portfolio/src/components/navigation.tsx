@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Menu, X, Home, User, FolderOpen, Mail, Wrench, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "wouter";
 
 const NAV_SECTIONS = [
   {
@@ -15,8 +16,8 @@ const NAV_SECTIONS = [
   {
     label: "Khám phá",
     links: [
-      { name: "Tool",     href: "#tool",     icon: Wrench,        badge: "Sắp có" },
-      { name: "Hỏi Đáp", href: "#hoi-dap",  icon: MessageCircle, badge: "Sắp có" },
+      { name: "Tool",     href: "/tool",    icon: Wrench,        route: true },
+      { name: "Hỏi Đáp", href: "#hoi-dap", icon: MessageCircle, badge: "Sắp có" },
     ],
   },
 ];
@@ -25,6 +26,7 @@ export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("#trang-chu");
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setIsOpen(false); };
@@ -37,11 +39,15 @@ export function Navigation() {
     };
   }, []);
 
-  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string, isRoute?: boolean) => {
     e.preventDefault();
     setIsOpen(false);
     setActive(href);
-    document.querySelector(href)?.scrollIntoView({ behavior: "smooth" });
+    if (isRoute) {
+      navigate(href);
+    } else {
+      document.querySelector(href)?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   return (
@@ -123,7 +129,7 @@ export function Navigation() {
                           <motion.a
                             key={link.name}
                             href={link.href}
-                            onClick={(e) => !isSoon && handleNavClick(e, link.href)}
+                            onClick={(e) => !isSoon && handleNavClick(e, link.href, (link as any).route)}
                             initial={{ opacity: 0, x: -16 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.06 + si * 0.1 + i * 0.07, type: "spring", stiffness: 300, damping: 24 }}
