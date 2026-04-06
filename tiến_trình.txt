@@ -6,6 +6,39 @@
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 5] FIX — YtDownloader: nhiều fix liên tiếp (cobalt → yt-dlp)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: packages/api-server/src/routes/youtube.ts
+
+Fix 1 — cobalt.tools JWT auth:
+  - Bỏ cobalt.tools, dùng yt-dlp qua child_process.execFile
+  - findExistingBin() tìm binary theo nhiều path
+
+Fix 2 — ENOENT: binary không tìm thấy trên Render:
+  - Lazy init (không throw tại module load)
+  - ensureYtDlpBin(): auto-download từ github.com/releases/latest/download/yt-dlp
+  - getYtDlpBin(): cache Promise (concurrent-safe)
+
+Fix 3 — GitHub API 403 rate limit:
+  - Bỏ gọi api.github.com (bị 403 từ datacenter IP)
+  - Download trực tiếp: github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
+
+Fix 4 — YouTube bot check + deprecated flags:
+  - Bỏ --no-call-home, --youtube-skip-dash-manifest (deprecated)
+  - Thêm --extractor-args youtube:player_client=android,web
+    → Android client bypass bot check trên datacenter IP
+  - Pass URL sạch watch?v=ID (bỏ ?si= tracking params)
+  - Test OK local: KARAOKE TIẾNG CHUÔNG VÀ NGỌN CỜ ✅
+
+Kết quả cuối:
+  - 360p: CDN URL trực tiếp từ YouTube ✅
+  - 720p+: stream qua server (fallback)
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [06/04/2026 session 5] FIX — YtDownloader: cobalt.tools JWT auth, fix dùng child_process
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
