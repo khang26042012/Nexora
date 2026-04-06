@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import NotFound from "@/pages/not-found";
 import { Home } from "@/pages/Home";
 import { Tool } from "@/pages/Tool";
+import { YtDownloader } from "@/pages/tools/YtDownloader";
 
 const queryClient = new QueryClient();
 
@@ -14,6 +15,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/tool" component={Tool} />
+      <Route path="/tool/yt-downloader" component={YtDownloader} />
       <Route component={NotFound} />
     </Switch>
   );

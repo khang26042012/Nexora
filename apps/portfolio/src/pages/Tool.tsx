@@ -2,6 +2,7 @@ import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Youtube, ArrowUpRight, Sparkles, Lock } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
 /* ── Danh sách tool ── */
 const TOOLS = [
@@ -17,12 +18,14 @@ const TOOLS = [
     tag: "Video",
     tagColor: "#ff4444",
     available: true,
+    route: "/tool/yt-downloader",
   },
 ];
 
 /* ── Tool card ── */
 function ToolCard({ tool, index }: { tool: typeof TOOLS[0]; index: number }) {
   const [hovered, setHovered] = useState(false);
+  const [, navigate] = useLocation();
   const Icon = tool.icon;
 
   return (
@@ -32,6 +35,7 @@ function ToolCard({ tool, index }: { tool: typeof TOOLS[0]; index: number }) {
       transition={{ delay: 0.1 + index * 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => tool.available && tool.route && navigate(tool.route)}
       className="relative cursor-pointer select-none"
       style={{ perspective: "800px" }}>
 

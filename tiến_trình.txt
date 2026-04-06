@@ -121,4 +121,56 @@ Workflows đang chạy:
 Sau khi sửa server code: restart workflow "packages/api-server"
 Sau khi sửa firmware: push GitHub → Khang nạp lại vào ESP32
 
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026] MIGRATION — Chuyển sang Replit environment mới
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → cài toàn bộ 712 packages
+  2. installSystemDependencies: gcc, gnumake, python3 (Nix)
+  3. pnpm rebuild better-sqlite3 → build native bindings thành công
+  4. Tạo workflow "API Server":
+     - Lệnh: PORT=8080 pnpm --filter @workspace/api-server run dev
+     - Port 8080, outputType: console
+  5. Restart workflow "Start application" (Portfolio port 21113)
+
+Kết quả:
+  - Portfolio chạy tại port 21113 ✅
+  - API Server chạy tại port 8080 ✅
+  - SQLite DB initialized ✅
+  - WebSocket /ws và /ws-browser sẵn sàng ✅
+  - TELEGRAM_TOKEN chưa set → Telegram tắt (cần thêm vào Secrets nếu dùng)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026] YouTube Downloader — Làm logic tải thực sự
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. Cài yt-dlp + ffmpeg (Nix system packages)
+  2. Tạo API routes:
+     - GET /api/yt/info?url=...   → fetch title, thumbnail, formats
+     - GET /api/yt/download?url=...&itag=...&title=...  → stream MP4
+  3. Tạo trang frontend: apps/portfolio/src/pages/tools/YtDownloader.tsx
+     - Input URL + nút Tìm
+     - Hiển thị thumbnail, tên video, kênh, thời lượng
+     - Chọn chất lượng (1080p / 720p / 480p / 360p)
+     - Nút Tải xuống → download file về máy
+  4. Thêm route /tool/yt-downloader vào App.tsx
+  5. Cập nhật Tool.tsx: click card → navigate tới trang downloader
+
+Files đã tạo/sửa:
+  packages/api-server/src/routes/youtube.ts   (MỚI)
+  packages/api-server/src/routes/index.ts     (thêm /yt route)
+  apps/portfolio/src/pages/tools/YtDownloader.tsx  (MỚI)
+  apps/portfolio/src/pages/Tool.tsx           (thêm route + onClick)
+  apps/portfolio/src/App.tsx                  (thêm route /tool/yt-downloader)
+
+Kết quả test:
+  API /api/yt/info → trả về 4 format: 1080p, 720p, 480p, 360p ✅
+  yt-dlp merge video + audio → xuất file MP4 ✅
+
+ESP32 cần nạp firmware: KHÔNG
+
 ================================================================
