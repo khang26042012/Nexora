@@ -42,7 +42,8 @@ function isAuthorized(id: number): boolean {
 }
 
 export function sendTelegram(message: string) {
-  const target = chatId ?? process.env["TELEGRAM_CHAT_ID"];
+  // Prefer the immutable env var; fall back to dynamically discovered chatId
+  const target = process.env["TELEGRAM_CHAT_ID"] ?? chatId;
   if (!bot || !target) return;
   bot
     .sendMessage(target, message, { parse_mode: "HTML" })
@@ -108,10 +109,19 @@ export async function initTelegramBot() {
   }
 
   bot.onText(/\/start/, (msg) => {
-    chatId = String(msg.chat.id);
-    process.env["TELEGRAM_CHAT_ID"] = chatId;
+    const id = msg.chat.id;
+    const configuredId = process.env["TELEGRAM_CHAT_ID"];
+
+    if (configuredId && String(id) !== configuredId) {
+      // Bot is configured for a specific owner — reject unauthorized users silently
+      logger.warn({ chatId: id }, "Unauthorized /start attempt rejected");
+      return;
+    }
+
+    // Update local reply target (only for notification routing; never overrides env auth)
+    chatId = String(id);
     bot!.sendMessage(
-      msg.chat.id,
+      id,
       `🌷 Chào chủ nhân đến với NexoraGarden!\nMình luôn sẵn sàng hỗ trợ chủ nhân nè 💚\nGõ /help để xem danh sách lệnh nhé!`,
       { parse_mode: "HTML" }
     );
