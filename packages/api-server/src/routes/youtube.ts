@@ -2,10 +2,14 @@ import { Router } from "express";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 function resolveYtdlpPath(): string {
-  /* 1. System-level binary (curl install trong render.yaml) */
-  if (existsSync("/usr/local/bin/yt-dlp")) return "/usr/local/bin/yt-dlp";
+  /* 1. Project root binary — download bởi render.yaml build step
+   *    Render: startCommand chạy từ /opt/render/project/src/
+   *    Local : process.cwd() = workspace root */
+  const cwdBin = join(process.cwd(), "yt-dlp");
+  if (existsSync(cwdBin)) return cwdBin;
 
   /* 2. Binary từ yt-dlp-exec npm package */
   try {
@@ -14,7 +18,10 @@ function resolveYtdlpPath(): string {
     if (existsSync(YOUTUBE_DL_PATH)) return YOUTUBE_DL_PATH;
   } catch {}
 
-  /* 3. Fallback PATH (nếu có yt-dlp trong PATH) */
+  /* 3. Thử /usr/local/bin nếu có */
+  if (existsSync("/usr/local/bin/yt-dlp")) return "/usr/local/bin/yt-dlp";
+
+  /* 4. Fallback PATH */
   return "yt-dlp";
 }
 
