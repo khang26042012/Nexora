@@ -890,17 +890,51 @@ void manageTFT() {
   tftScreen = determineTFTScreen();
   unsigned long now = millis();
 
-  // Phát hiện thay đổi screen → clear và vẽ ngay
+  // Phát hiện thay đổi screen → clear thông minh (chỉ xóa vùng riêng của màn cũ)
   bool screenChanged = (tftScreen != tftPrevScreen);
   if (screenChanged) {
     if (tftScreen == SCR_OFF) {
       tft.fillScreen(C_BLACK);
     } else {
-      tft.fillScreen(C_BLACK);
+      // In-place transition: mỗi drawXxx dùng setTextPadding(240) + bg C_BLACK → tự xóa ngang.
+      // Chỉ cần xóa thêm các vùng đồ họa (progress bar) hoặc vùng màn cũ vẽ thấp hơn màn mới.
+
+      if (tftPrevScreen == SCR_PUMPING) {
+        // Progress bar + label + "Dung khi" + water (y=108..178): đồ họa, setTextPadding không xóa
+        tft.fillRect(0, 108, 240, 70, C_BLACK);
+        // Mức nước và giờ của pump (y=168..208) được SCR_MAIN/OFFLINE/PRE_WATER ghi đè qua text bg
+      } else if (tftPrevScreen == SCR_MAIN) {
+        if (tftScreen == SCR_PUMPING) {
+          // Pump kết thúc tại y~208 (giờ y=192 size=2 cao 16px)
+          // Main có separator y=196, status y=202, last_pump y=218 — vùng y=210..240 pump không ghi đè
+          tft.fillRect(0, 210, 240, 30, C_BLACK);
+        } else if (tftScreen == SCR_PRE_WATER) {
+          // Pre_water chỉ vẽ đến y~148 — vùng y=148..240 của main cần xóa
+          tft.fillRect(0, 148, 240, 92, C_BLACK);
+        }
+        // MAIN→OFFLINE: offline vẽ đến y~220, main đến y~226 → xóa phần cuối
+        else if (tftScreen == SCR_OFFLINE) {
+          tft.fillRect(0, 220, 240, 20, C_BLACK);
+        }
+      } else if (tftPrevScreen == SCR_OFFLINE) {
+        if (tftScreen == SCR_PUMPING) {
+          // Offline có wifi text y=212 (size=1 cao 8px) → y=212..220, pump không đến
+          tft.fillRect(0, 210, 240, 30, C_BLACK);
+        } else if (tftScreen == SCR_PRE_WATER) {
+          // Pre_water chỉ đến y~148, offline có y=153,185,212 phía dưới
+          tft.fillRect(0, 148, 240, 92, C_BLACK);
+        }
+      } else if (tftPrevScreen == SCR_PRE_WATER) {
+        if (tftScreen == SCR_MAIN || tftScreen == SCR_OFFLINE || tftScreen == SCR_PUMPING) {
+          // Pre_water chỉ vẽ đến y~148 — màn mới bắt đầu từ y=5..15, sẽ ghi đè hết
+          // Không cần xóa thêm gì
+        }
+      }
+
       tftForceRedraw = true;
     }
     tftPrevScreen = tftScreen;
-    tftLastDraw   = 0;   // reset timer để vẽ ngay ở dưới
+    tftLastDraw   = 0;
   }
 
   if (tftScreen == SCR_OFF) return;
