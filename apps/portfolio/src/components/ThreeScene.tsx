@@ -368,7 +368,9 @@ export function ThreeScene({ className }: { className?: string }) {
   }, []);
   const onTouchEnd = useCallback(() => { drag.current.isDragging = false; }, []);
 
-  if (canUseWebGL === null) return null;
+  if (canUseWebGL === null) return (
+    <div className={className} style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, #0d0820 0%, #020008 100%)" }} />
+  );
   if (!canUseWebGL) return (
     <div className={className} style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, #0d0820 0%, #020008 100%)" }} />
   );

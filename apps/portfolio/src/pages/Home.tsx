@@ -259,9 +259,9 @@ function TimelineItem({ item, i }: { item: (typeof timelineData)[0]; i: number }
 
 /* ─── Project card ─── */
 const projects = [
-  { id:"1", title:"NexoraGarden", desc:"Hệ thống nông nghiệp thông minh — ESP32, cảm biến môi trường, giao tiếp thời gian thực tối ưu hóa chăm sóc cây trồng tự động.", tag:"IoT · AI",    icon:Leaf,    href:"https://github.com/khang26042012", tech:["ESP32","Python","MQTT","AI"],          status:"Active", color:"#34d399" },
-  { id:"2", title:"NexoraNode",   desc:"Nền tảng lưu trữ và quản lý mã nguồn đa năng — tổ chức, chia sẻ code thông minh với giao diện tối giản.",                          tag:"Cloud",   icon:Network, href:"https://github.com/khang26042012", tech:["Node.js","Cloud","API","Storage"],   status:"Beta",   color:"#818cf8" },
-  { id:"3", title:"Nexorax",      desc:"Chatbot AI đa mô hình — tích hợp GPT, Gemini, Claude để cung cấp trải nghiệm hội thoại thông minh nhất.",                           tag:"AI · Chat",icon:Cpu,    href:"https://github.com/khang26042012", tech:["GPT-4","Gemini","Claude","Python"], status:"Live",   color:"#a78bfa" },
+  { id:"1", title:"NexoraGarden", desc:"Hệ thống nông nghiệp thông minh — ESP32, cảm biến môi trường, giao tiếp thời gian thực tối ưu hóa chăm sóc cây trồng tự động.", tag:"IoT · AI",    icon:Leaf,    href:"https://nexorax.cloud/NexoraGarden", tech:["ESP32","Python","MQTT","AI"],          status:"Active", color:"#34d399" },
+  { id:"2", title:"NexoraNode",   desc:"Nền tảng lưu trữ và quản lý mã nguồn đa năng — tổ chức, chia sẻ code thông minh với giao diện tối giản.",                          tag:"Cloud",   icon:Network, href:"https://github.com/khang26042012",    tech:["Node.js","Cloud","API","Storage"],   status:"Beta",   color:"#818cf8" },
+  { id:"3", title:"Nexorax",      desc:"Chatbot AI đa mô hình — tích hợp GPT, Gemini, Claude để cung cấp trải nghiệm hội thoại thông minh nhất.",                           tag:"AI · Chat",icon:Cpu,    href:"https://github.com/khang26042012",    tech:["GPT-4","Gemini","Claude","Python"], status:"Live",   color:"#a78bfa" },
 ];
 
 function ProjectCard({ project, i }: { project: (typeof projects)[0]; i: number }) {
@@ -294,6 +294,7 @@ function ProjectCard({ project, i }: { project: (typeof projects)[0]; i: number 
       onMouseMove={onMove}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={onLeave}
+      onClick={() => window.open(project.href, "_blank", "noopener,noreferrer")}
       className="relative rounded-2xl overflow-hidden cursor-pointer backdrop-blur-sm">
       <motion.div className="absolute inset-0" animate={{ opacity: hovered ? 1 : 0 }} transition={{ duration: 0.3 }}
         style={{ background: `radial-gradient(ellipse at top left,${project.color}0c,transparent 70%)` }} />
