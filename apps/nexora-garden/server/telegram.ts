@@ -79,36 +79,42 @@ export async function initTelegramBot() {
     return;
   }
 
-  // Use webhook mode in production, polling in development
-  const isProduction = process.env["NODE_ENV"] === "production";
-  // Base URL of the api-server deployment, e.g. "https://nexorax-api.onrender.com"
-  const serverBaseUrl = process.env["TELEGRAM_WEBHOOK_URL"];
+  // Resolve server base URL:
+  // 1. Explicit env var (TELEGRAM_WEBHOOK_URL) — highest priority
+  // 2. Render auto-injects RENDER_EXTERNAL_URL (e.g. https://nexoragarden.onrender.com)
+  // 3. Fall back to polling if no URL available
+  const serverBaseUrl =
+    process.env["TELEGRAM_WEBHOOK_URL"] ??
+    process.env["RENDER_EXTERNAL_URL"] ??
+    null;
+
   const webhookSecret = process.env["TELEGRAM_WEBHOOK_SECRET"];
 
-  if (isProduction && serverBaseUrl) {
-    // Webhook mode — no polling, no network conflicts, safe for Render
+  if (serverBaseUrl) {
+    // Webhook mode — Telegram pushes updates to our server
+    // Works on Render even when free tier sleeps (Telegram retries)
     bot = new TelegramBot(token, { polling: false });
 
-    // Path is always /NexoraGarden/telegram-webhook — matches router mount point
     const fullWebhookUrl = `${serverBaseUrl}/NexoraGarden/telegram-webhook`;
     try {
-      await bot.setWebHook(fullWebhookUrl, webhookSecret ? { secret_token: webhookSecret } : undefined);
+      await bot.setWebHook(
+        fullWebhookUrl,
+        webhookSecret ? { secret_token: webhookSecret } : undefined,
+      );
       logger.info({ fullWebhookUrl }, "Telegram bot started (webhook mode)");
     } catch (err) {
       logger.error({ err }, "Failed to set Telegram webhook");
     }
   } else {
-    // Polling mode — delete any existing webhook first to avoid conflicts
-    // (If a webhook was previously registered, polling will never receive updates)
+    // Polling mode (local dev only) — clear any stale webhook first
     bot = new TelegramBot(token, { polling: false });
     try {
       await bot.deleteWebHook();
-      logger.info("Telegram: cleared existing webhook before starting polling");
+      logger.info("Telegram: cleared existing webhook before polling");
     } catch (err) {
-      logger.warn({ err }, "Telegram: failed to clear webhook (non-fatal)");
+      logger.warn({ err }, "Telegram: deleteWebhook failed (non-fatal)");
     }
 
-    // Re-create bot with polling enabled after webhook is cleared
     bot = new TelegramBot(token, {
       polling: {
         interval: 1000,
@@ -118,16 +124,15 @@ export async function initTelegramBot() {
     });
 
     bot.on("polling_error", (err: any) => {
-      // 409 Conflict = still has a webhook; 404 = token invalid
       const code = err?.response?.body?.error_code;
       if (code === 409) {
-        logger.error({ err }, "Telegram polling conflict: webhook still active. Set TELEGRAM_WEBHOOK_URL or call deleteWebhook manually.");
+        logger.error("Telegram 409: webhook still active, polling blocked. Set RENDER_EXTERNAL_URL or TELEGRAM_WEBHOOK_URL.");
       } else {
         logger.error({ err }, "Telegram polling error");
       }
     });
 
-    logger.info("Telegram bot started (polling mode)");
+    logger.info("Telegram bot started (polling mode — local dev)");
   }
 
   bot.onText(/\/start/, (msg) => {
