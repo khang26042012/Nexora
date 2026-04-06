@@ -1,6 +1,56 @@
 import { Router } from "express";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { existsSync } from "fs";
+import { resolve } from "path";
+import { createRequire } from "module";
 
 const router = Router();
+const execFileAsync = promisify(execFile);
+
+/* ── Tìm đường dẫn binary yt-dlp ── */
+function findYtDlpBin(): string {
+  /* 1. Biến môi trường cho phép override */
+  if (process.env.YOUTUBE_DL_PATH) return process.env.YOUTUBE_DL_PATH;
+
+  /* 2. Tìm qua require.resolve từ package yt-dlp-exec */
+  try {
+    const req = createRequire(import.meta.url);
+    const pkgDir = resolve(req.resolve("yt-dlp-exec"), "../..");
+    const candidate = resolve(pkgDir, "bin/yt-dlp");
+    if (existsSync(candidate)) return candidate;
+  } catch {}
+
+  /* 3. Fallback hardcoded (Replit pnpm workspace) */
+  const fallbacks = [
+    resolve(process.cwd(), "../../node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp"),
+    resolve(process.cwd(), "node_modules/yt-dlp-exec/bin/yt-dlp"),
+    "/usr/bin/yt-dlp",
+    "/usr/local/bin/yt-dlp",
+  ];
+  for (const p of fallbacks) {
+    if (existsSync(p)) return p;
+  }
+
+  throw new Error("Không tìm thấy yt-dlp binary. Cần chạy pnpm install trước.");
+}
+
+const YT_DLP = findYtDlpBin();
+
+/* ── Gọi yt-dlp → JSON ── */
+async function ytDlpInfo(url: string): Promise<any> {
+  const { stdout } = await execFileAsync(YT_DLP, [
+    url,
+    "--dump-single-json",
+    "--no-warnings",
+    "--no-call-home",
+    "--no-check-certificate",
+    "--prefer-free-formats",
+    "--youtube-skip-dash-manifest",
+  ], { maxBuffer: 50 * 1024 * 1024, timeout: 30000 });
+
+  return JSON.parse(stdout);
+}
 
 function extractVideoId(url: string): string | null {
   const patterns = [
@@ -25,99 +75,92 @@ router.get("/info", async (req, res) => {
   if (!videoId) return res.status(400).json({ error: "Link YouTube không hợp lệ" });
 
   try {
-    const oembedRes = await fetch(
-      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
-      { signal: AbortSignal.timeout(10000) }
+    const info = await ytDlpInfo(url);
+
+    const title    = info.title    ?? "Video";
+    const channel  = info.uploader ?? "";
+    const duration = info.duration ?? 0;
+    const thumbnail = info.thumbnail
+      ?? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+    const allFormats: any[] = info.formats ?? [];
+
+    /* Lọc combined (video+audio) có URL trực tiếp */
+    const combined = allFormats.filter((f: any) =>
+      f.url &&
+      f.vcodec && f.vcodec !== "none" &&
+      f.acodec && f.acodec !== "none" &&
+      (f.height ?? 0) > 0
     );
-    if (!oembedRes.ok) throw new Error("Không lấy được thông tin video");
-    const oembed = await oembedRes.json() as {
-      title?: string; author_name?: string; thumbnail_url?: string;
-    };
 
-    const title = oembed.title ?? "";
-    const base  = `${req.protocol}://${req.get("host")}`;
-    const enc   = (v: string) => encodeURIComponent(v);
-
-    const formats = [
-      { itag: "1080", quality: "1080p", ext: "mp4", url: `${base}/api/yt/download?url=${enc(url)}&quality=1080` },
-      { itag: "720",  quality: "720p",  ext: "mp4", url: `${base}/api/yt/download?url=${enc(url)}&quality=720`  },
-      { itag: "480",  quality: "480p",  ext: "mp4", url: `${base}/api/yt/download?url=${enc(url)}&quality=480`  },
-      { itag: "360",  quality: "360p",  ext: "mp4", url: `${base}/api/yt/download?url=${enc(url)}&quality=360`  },
+    const qualityBands = [
+      { itag: "1080", label: "1080p", minH: 900,  maxH: 9999 },
+      { itag: "720",  label: "720p",  minH: 650,  maxH: 899  },
+      { itag: "480",  label: "480p",  minH: 400,  maxH: 649  },
+      { itag: "360",  label: "360p",  minH: 0,    maxH: 399  },
     ];
 
-    return res.json({
-      title,
-      thumbnail: oembed.thumbnail_url ?? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-      duration:  0,
-      channel:   oembed.author_name ?? "",
-      formats,
-    });
+    const formats: Array<{ itag: string; quality: string; ext: string; url: string }> = [];
+    const base = `${req.protocol}://${req.get("host")}`;
+    const enc  = (v: string) => encodeURIComponent(v);
+
+    for (const q of qualityBands) {
+      const candidates = combined
+        .filter((f: any) => (f.height ?? 0) >= q.minH && (f.height ?? 0) <= q.maxH)
+        .sort((a: any, b: any) => (b.height ?? 0) - (a.height ?? 0));
+
+      if (candidates.length > 0) {
+        /* Có combined URL → dùng trực tiếp */
+        formats.push({
+          itag:    q.itag,
+          quality: q.label,
+          ext:     "mp4",
+          url:     candidates[0].url,
+        });
+      } else {
+        /* Fallback: stream qua server với format selector */
+        formats.push({
+          itag:    q.itag,
+          quality: q.label,
+          ext:     "mp4",
+          url:     `${base}/api/yt/stream?url=${enc(url)}&height=${q.minH || 360}`,
+        });
+      }
+    }
+
+    return res.json({ title, thumbnail, duration, channel, formats });
+
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";
-    return res.status(500).json({ error: msg });
+    return res.status(500).json({ error: `yt-dlp: ${msg}` });
   }
 });
 
-/* ── GET /api/yt/download?url=...&quality=720
- *  Chỉ RESOLVE URL từ cobalt → trả JSON { url, filename }
- *  Frontend dùng URL này mở tab mới → browser user tải trực tiếp
- *  (Không proxy qua server — cobalt tunnel chặn datacenter IP)
+/* ── GET /api/yt/stream?url=...&height=720
+ *  Fallback: stream qua server khi không có combined URL
  * ── */
-router.get("/download", async (req, res) => {
-  const rawUrl  = String(req.query["url"]     ?? "");
-  const quality = String(req.query["quality"] ?? "720");
+router.get("/stream", async (req, res) => {
+  const rawUrl = String(req.query["url"]    ?? "");
+  const height = String(req.query["height"] ?? "360");
   if (!rawUrl) return res.status(400).json({ error: "Thiếu tham số url" });
 
-  /* Chuẩn hoá URL: bỏ ?si= và các tracking params, dùng dạng watch?v= */
   const videoId = extractVideoId(rawUrl);
-  if (!videoId) return res.status(400).json({ error: "Link YouTube không hợp lệ" });
+  if (!videoId) return res.status(400).json({ error: "Link không hợp lệ" });
+
   const url = `https://www.youtube.com/watch?v=${videoId}`;
+  const fmt = `best[height<=${height}][ext=mp4]/best[height<=${height}]/best`;
 
   try {
-    const cobaltRes = await fetch("https://api.cobalt.tools/", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({
-        url,
-        videoQuality:      quality,
-        youtubeVideoCodec: "h264",
-        filenameStyle:     "basic",
-        downloadMode:      "auto",
-      }),
-      signal: AbortSignal.timeout(25000),
+    const proc = execFile(YT_DLP, [url, "-f", fmt, "-o", "-", "--no-warnings", "--no-call-home"]);
+
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader("Content-Disposition", `attachment; filename="video_${height}p.mp4"`);
+
+    proc.stdout?.pipe(res);
+
+    proc.on("error", (err: Error) => {
+      if (!res.headersSent) res.status(500).json({ error: err.message });
     });
-
-    if (!cobaltRes.ok) {
-      throw new Error(`cobalt.tools lỗi ${cobaltRes.status}`);
-    }
-
-    const data = await cobaltRes.json() as {
-      status:    string;
-      url?:      string;
-      filename?: string;
-      error?:    { code?: string; message?: string };
-      picker?:   Array<{ url: string; type?: string; filename?: string }>;
-    };
-
-    let dlUrl:  string | undefined;
-    let dlName: string | undefined;
-
-    if ((data.status === "redirect" || data.status === "tunnel") && data.url) {
-      dlUrl  = data.url;
-      dlName = data.filename;
-    } else if (data.status === "picker" && data.picker?.length) {
-      const picked = data.picker.find(p => p.type === "video") ?? data.picker[0];
-      dlUrl  = picked.url;
-      dlName = picked.filename;
-    } else if (data.status === "error") {
-      throw new Error(data.error?.message ?? data.error?.code ?? "cobalt error");
-    } else {
-      throw new Error(`cobalt status: ${data.status}`);
-    }
-
-    if (!dlUrl) throw new Error("Không lấy được URL từ cobalt.tools");
-
-    return res.json({ url: dlUrl, filename: dlName ?? `video_${quality}p.mp4` });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";

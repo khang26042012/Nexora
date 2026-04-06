@@ -1,8 +1,43 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 06/04/2026 (session 4)
+  Cập nhật: 06/04/2026 (session 5)
 ================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 5] FIX — YtDownloader: cobalt.tools JWT auth, fix dùng child_process
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: packages/api-server/src/routes/youtube.ts
+       apps/portfolio/src/pages/tools/YtDownloader.tsx
+
+Vấn đề:
+  - cobalt.tools thêm JWT auth bắt buộc → không còn free public API
+  - Code cũ dùng cobalt.tools API → 401 Unauthorized trên production
+  - yt-dlp-exec library bị esbuild bundle mất __dirname → ENOENT binary
+
+Đã sửa:
+  - Bỏ hoàn toàn cobalt.tools
+  - Dùng child_process.execFile trực tiếp với yt-dlp binary (tránh esbuild path issue)
+  - findYtDlpBin(): tìm binary theo thứ tự: env YOUTUBE_DL_PATH → createRequire resolve → fallback path cứng
+  - GET /api/yt/info: yt-dlp --dump-single-json → lấy combined formats (video+audio)
+    - 360p (itag 18): CDN URL trực tiếp → frontend dùng thẳng ✅
+    - 720p/1080p: adaptive (không có combined) → fallback /api/yt/stream
+  - GET /api/yt/stream: stream video qua server dùng yt-dlp -o - | pipe to response
+  - Frontend: handleDownload đơn giản hơn — dùng fmt.url trực tiếp, không cần fetch trung gian
+
+Kết quả test:
+  - /api/yt/info Rick Astley: title ✅ thumbnail ✅ channel ✅ duration ✅
+  - 360p CDN URL: HTTP 200 video/mp4 11MB ✅
+  - 720p+: stream endpoint (CDN từ datacenter IP có thể bị block)
+
+Lưu ý:
+  - yt-dlp binary ở: node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/bin/yt-dlp
+  - Mỗi khi env reset: chạy postinstall để re-download binary:
+    node node_modules/.pnpm/yt-dlp-exec@1.0.2/node_modules/yt-dlp-exec/scripts/postinstall.js
+
+ESP32 cần nạp firmware: KHÔNG
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

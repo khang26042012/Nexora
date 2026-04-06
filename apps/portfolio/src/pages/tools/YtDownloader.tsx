@@ -103,21 +103,10 @@ export function YtDownloader() {
     setError("");
 
     try {
-      /* Bước 1: server resolve cobalt URL */
-      const res = await fetch(fmt.url, { signal: AbortSignal.timeout(35000) });
-      const data = await res.json();
-
-      if (!res.ok || !data?.url) {
-        throw new Error(data?.error ?? `Lỗi ${res.status}`);
-      }
-
-      /* Bước 2: mở URL trực tiếp — browser user tải từ CDN/cobalt */
+      /* fmt.url là URL trực tiếp (CDN hoặc /api/yt/stream) — mở thẳng */
       const link = document.createElement("a");
-      link.href = data.url;
-      /* filename: server trả về hoặc dùng title */
-      const name = (data.filename as string | undefined)
-        ?? `${info.title}_${fmt.quality}.mp4`;
-      link.download = name;
+      link.href = fmt.url;
+      link.download = `${info.title}_${fmt.quality}.mp4`;
       link.target   = "_blank";
       link.rel      = "noopener noreferrer";
       document.body.appendChild(link);
@@ -238,7 +227,7 @@ export function YtDownloader() {
                 className="text-xs mt-2 pl-1"
                 style={{ color: "rgba(255,255,255,0.3)" }}
               >
-                Đang xử lý qua server... có thể mất vài giây
+                Đang phân tích video... có thể mất 5-10 giây
               </motion.p>
             )}
           </AnimatePresence>
