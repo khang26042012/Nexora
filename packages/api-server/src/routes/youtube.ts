@@ -103,17 +103,18 @@ async function ytDlpInfo(url: string): Promise<any> {
   ];
   const cookieArgs = hasCookies ? ["--cookies", COOKIES_PATH] : [];
 
-  /* Strategy 1: web client mặc định (đầy đủ format nhất) */
+  /* Strategy 1: tv_embedded client (ít bị block nhất từ datacenter IP, đủ 1080p) */
   try {
     return await runYtDlp(bin, [
       url, ...baseArgs,
       "-f", "bestvideo*+bestaudio/bestvideo/bestaudio/best",
+      "--extractor-args", "youtube:player_client=tv_embedded",
       ...cookieArgs,
     ]);
   } catch (e1) {
     const msg1 = (e1 as Error).message;
 
-    /* Strategy 2: android client (bypass datacenter bot-check, 360p combined) */
+    /* Strategy 2: android client (360p combined format) */
     try {
       return await runYtDlp(bin, [
         url, ...baseArgs,
@@ -124,7 +125,7 @@ async function ytDlpInfo(url: string): Promise<any> {
     } catch (e2) {
       const msg2 = (e2 as Error).message;
 
-      /* Strategy 3: mobileapp + bỏ format selector (lấy bất kỳ) */
+      /* Strategy 3: android + no format selector (last resort) */
       try {
         return await runYtDlp(bin, [
           url, ...baseArgs,
@@ -132,7 +133,6 @@ async function ytDlpInfo(url: string): Promise<any> {
           ...cookieArgs,
         ]);
       } catch (e3) {
-        /* Ném lỗi của strategy 1 (thường rõ nghĩa nhất) */
         throw new Error(msg1 || msg2 || (e3 as Error).message);
       }
     }
@@ -244,7 +244,7 @@ router.get("/stream", async (req, res) => {
       "-o", "-",
       "--no-warnings",
       "--no-check-certificate",
-      "--extractor-args", "youtube:player_client=ios,web",
+      "--extractor-args", "youtube:player_client=tv_embedded",
     ];
     if (hasCookies) args.push("--cookies", COOKIES_PATH);
 
