@@ -1,0 +1,124 @@
+================================================================
+  TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
+  Ghi lại mọi thứ đã làm được để AI khác hiểu context
+  Cập nhật: 06/04/2026
+================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026] SETUP REPLIT — Import project vào môi trường mới
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - Node modules chưa được cài (pnpm install chưa chạy)
+  - better-sqlite3 cần native build (C++ addon)
+  - Thiếu build tools: gcc, make
+
+Đã làm:
+  1. pnpm install --ignore-scripts  → cài tất cả deps
+  2. installSystemDependencies: gcc, gnumake, python3 (qua Nix)
+  3. pnpm rebuild  → build better-sqlite3 native bindings
+  4. Restart workflow "packages/api-server" và "Start application"
+
+Kết quả:
+  - API Server chạy tại PORT 8080 ✅
+  - Portfolio chạy tại PORT 21113 ✅
+  - SQLite DB initialized ✅
+  - WebSocket sẵn sàng ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026] FIX TFT — Màn hình mất đồng bộ khi bật/tắt bơm
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: firmware/NexoraGarden/NexoraGarden.ino
+GitHub commit: e0c39036b92fe24a0938c847e64ca82c5b142a2f
+
+Vấn đề:
+  - Bật/tắt bơm → TFT clear trắng, không vẽ lại
+  - Gốc rễ: relay click → SPI noise → TFT ST7789 mất đồng bộ
+
+Đã thêm:
+  - Biến: unsigned long tftReinitAt = 0;
+  - setPump(): thay tftForceRedraw=true bằng tftReinitAt=millis()+150
+  - manageTFT():
+      + Khi tftReinitAt đến: tft.init() + fillScreen + redraw
+      + Watchdog 2s: nếu không vẽ > 2s → tự reinit
+  - setup(): tftLastDraw = millis() (tránh watchdog trigger ngay)
+
+Kết quả: TFT tự phục hồi sau mỗi relay click ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026] FIX #1+2 — Cảm biến mưa báo nhầm khi bơm bật
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: firmware/NexoraGarden/NexoraGarden.ino
+       apps/nexora-garden/server/websocket.ts
+GitHub commit: (xem commit mới nhất)
+
+Vấn đề:
+  - Bơm bật → nước bắn vào cảm biến mưa → gửi rain=true liên tục
+  - handleFire() có guard "if pumpState return" → lửa bị tắt khi bơm (SAI)
+
+Đã sửa trong firmware:
+  - handleFire(): BỎ guard pumpState → lửa luôn active kể cả khi bơm
+  - handleRain(): THÊM guard "if (pumpState) { rainAlerted=false; return; }"
+  - shouldSendData(): rain = pumpState ? false : digitalRead(RAIN_PIN)
+  - sendSensorData(): rain = pumpState ? false : digitalRead(RAIN_PIN)
+
+Kết quả: khi bơm bật, chỉ soil + fire hoạt động, rain bị bỏ qua ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026] FIX #3 — Cảm biến nước raw=0 → hiển thị dưới 15%
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: firmware/NexoraGarden/NexoraGarden.ino
+       apps/nexora-garden/server/websocket.ts
+GitHub commit: (xem commit mới nhất)
+
+Vấn đề:
+  - Cảm biến mức nước bị thiếu khúc đáy vật lý
+  - Khi nước xuống tới đó: raw = 0 → hiển thị 0% hoặc lỗi (SAI)
+  - Cần: raw=0 → báo thấp (dưới 15%) thay vì 0%/lỗi
+
+Đã sửa trong firmware (updateWater):
+  - if (raw == 0): mapped = 10  (thay vì 0)
+  - Ngưỡng cảnh báo: waterPercent <= 15 (thay vì < 10)
+  - Tin nhắn: "duoi 15%" (thay vì "duoi 10%")
+
+Đã sửa TFT (drawMainScreen):
+  - } else if (waterPercent <= 15) {  → hiển thị "THAP X%"
+
+Đã sửa server (websocket.ts):
+  - if (water === 0) water = 10;  (trước khi xử lý spike)
+  - Ngưỡng cảnh báo: water <= 15 (thay vì <= 10)
+
+Kết quả: raw=0 → TFT hiển thị "THAP 10%", server log cảnh báo ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THÔNG TIN QUAN TRỌNG ĐỂ TIẾP TỤC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GitHub repo   : khang26042012/Nexora (branch main)
+GitHub token  : [xem replit.md — không lưu vào file push GitHub]
+Push method   : Git Tree API (1 blob → 1 tree → 1 commit → update ref)
+                KHÔNG dùng Contents API (nhiều commit = nhiều Render deploy)
+
+Files quan trọng:
+  firmware/NexoraGarden/NexoraGarden.ino  — ESP32 code
+  apps/nexora-garden/server/websocket.ts  — WebSocket + sensor logic
+  apps/nexora-garden/server/telegram.ts   — Bot Telegram
+  apps/nexora-garden/server/db.ts         — SQLite schema + queries
+  apps/nexora-garden/server/routes.ts     — REST API endpoints
+
+Workflows đang chạy:
+  "Start application"              → Portfolio (port 21113)
+  "packages/api-server: API Server" → API + WebSocket (port 8080)
+
+Sau khi sửa server code: restart workflow "packages/api-server"
+Sau khi sửa firmware: push GitHub → Khang nạp lại vào ESP32
+
+================================================================

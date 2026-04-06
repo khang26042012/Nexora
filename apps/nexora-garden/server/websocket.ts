@@ -301,6 +301,9 @@ function handleMessage(
     let soil = Number(msg.soil ?? 0);
     let water = Number(msg.water ?? 0);
 
+    // Cảm biến nước bị thiếu khúc đáy: raw=0 → giữ 10% để hiển thị cảnh báo thấp
+    if (water === 0) water = 10;
+
     // Lọc spike đột biến — giữ giá trị cũ nếu nhảy quá lớn
     if (lastValidSoil >= 0 && soil > 0 && Math.abs(soil - lastValidSoil) > SPIKE_THRESHOLD) {
       logger.warn({ soil, lastValidSoil }, "Soil spike rejected");
@@ -420,8 +423,8 @@ function handleMessage(
       prevRain = rain;
     }
 
-    // Low water level
-    if (water <= 10 && water > 0) {
+    // Low water level (threshold 15% để phù hợp với cảm biến bị thiếu khúc đáy)
+    if (water <= 15 && water > 0) {
       broadcastLog("warn", `⚠️ Mực nước thấp: ${water}% — cần bổ sung nước!`);
     }
 

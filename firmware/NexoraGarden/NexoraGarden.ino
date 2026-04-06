@@ -432,16 +432,23 @@ void updateWater() {
   if (raw > 4090) { waterState.isError = true; waterPercent = 0; return; }
   waterState.isError = false;
   int mapped;
-  if (raw < WATER_RAW_EMPTY) mapped = 0;
-  else mapped = constrain(map(raw, WATER_RAW_EMPTY, WATER_RAW_FULL, 0, 100), 0, 100);
+  if (raw == 0) {
+    // Cảm biến bị thiếu khúc đáy → raw=0 nghĩa là nước đã xuống tới đó
+    // → giữ ở 10% để hiển thị cảnh báo thấp (dưới 15%)
+    mapped = 10;
+  } else if (raw < WATER_RAW_EMPTY) {
+    mapped = 0;
+  } else {
+    mapped = constrain(map(raw, WATER_RAW_EMPTY, WATER_RAW_FULL, 0, 100), 0, 100);
+  }
   if (!waterInitialized) { waterState.emaValue = (float)mapped; waterInitialized = true; }
   else waterState.emaValue = EMA_ALPHA_WATER * mapped + (1.0f - EMA_ALPHA_WATER) * waterState.emaValue;
   waterState.prevValue    = waterState.displayValue;
   waterState.displayValue = (int)round(waterState.emaValue);
   updateTrend(waterState, waterState.displayValue);
   waterPercent = waterState.displayValue;
-  if (waterPercent < 10) {
-    if (!lowWaterAlerted) { lowWaterAlerted = true; sendNotify("CANH BAO: Muc nuoc trong binh duoi 10%! Can bo sung nuoc."); }
+  if (waterPercent <= 15) {
+    if (!lowWaterAlerted) { lowWaterAlerted = true; sendNotify("CANH BAO: Muc nuoc trong binh duoi 15%! Can bo sung nuoc."); }
   } else { lowWaterAlerted = false; }
 }
 
@@ -453,7 +460,7 @@ void updateDHT() {
 }
 
 void handleFire() {
-  if (pumpState) { fireActive = false; fireAlerted = false; fireStartTime = 0; return; }
+  // Cảm biến lửa luôn hoạt động kể cả khi đang bơm
   bool fireNow = (digitalRead(FIRE_PIN) == LOW);
   if (fireNow) {
     if (!fireActive) { fireActive = true; fireStartTime = millis(); fireAlerted = false; }
@@ -465,6 +472,8 @@ void handleFire() {
 }
 
 void handleRain() {
+  // Khi bơm đang bật: bỏ qua cảm biến mưa (nước bơm bắn vào gây nhiễu)
+  if (pumpState) { rainAlerted = false; return; }
   bool rainNow = (digitalRead(RAIN_PIN) == LOW);
   if (rainNow && !rainAlerted) {
     sendNotify("Phat hien co nuoc tren cam bien, co the co mua!");
@@ -475,7 +484,8 @@ void handleRain() {
 }
 
 bool shouldSendData() {
-  bool rainNow = (digitalRead(RAIN_PIN) == LOW);
+  // Khi bơm bật: rain bị force false, bỏ qua thay đổi rain
+  bool rainNow = pumpState ? false : (digitalRead(RAIN_PIN) == LOW);
   bool fireNow = fireActive && fireAlerted;
   if (abs(soilPercent  - lastSentSoil)  >= SOIL_THRESHOLD)  return true;
   if (abs(waterPercent - lastSentWater) >= WATER_THRESHOLD)  return true;
@@ -488,7 +498,8 @@ bool shouldSendData() {
 
 void sendSensorData() {
   if (!wsConnected) return;
-  bool rainNow = (digitalRead(RAIN_PIN) == LOW);
+  // Khi bơm bật: cảm biến mưa bị nhiễu → gửi false để server không xử lý nhầm
+  bool rainNow = pumpState ? false : (digitalRead(RAIN_PIN) == LOW);
   bool fireNow = fireActive && fireAlerted;
   JsonDocument doc;
   doc["type"]  = "sensor"; doc["soil"]  = soilPercent;  doc["water"] = waterPercent;
@@ -640,7 +651,7 @@ void drawMainScreen() {
   tft.setCursor(5, 86);
   if (waterState.isError) {
     tft.setTextColor(C_RED, C_BLACK); tft.print("Nuoc: KHONG CO  ");
-  } else if (waterPercent < 10) {
+  } else if (waterPercent <= 15) {
     tft.setTextColor(C_RED, C_BLACK);
     char b[22]; snprintf(b, sizeof(b), "Nuoc: THAP %2d%%  ", waterPercent); tft.print(b);
   } else {
