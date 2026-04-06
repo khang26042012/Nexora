@@ -2,7 +2,7 @@ import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Youtube, ArrowLeft, Download, Search, Clock, User,
-  CheckCircle2, AlertCircle, Loader2, Film
+  CheckCircle2, AlertCircle, Film
 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -36,7 +36,7 @@ type VideoInfo = {
   thumbnail: string;
   duration: number;
   channel: string;
-  formats: { itag: string; quality: string; ext: string; size?: string }[];
+  formats: { itag: string; quality: string; ext: string; size?: string; url: string }[];
 };
 
 /* ── Main Component ── */
@@ -47,7 +47,6 @@ export function YtDownloader() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState<VideoInfo | null>(null);
   const [selectedItag, setSelectedItag] = useState("");
-  const [downloading, setDownloading] = useState(false);
 
   const handleFetch = async () => {
     if (!url.trim()) return;
@@ -73,32 +72,19 @@ export function YtDownloader() {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!info || !selectedItag) return;
-    setDownloading(true);
-
-    try {
-      const params = new URLSearchParams({
-        url,
-        itag: selectedItag,
-        title: info.title,
-      });
-      const res = await fetch(`${API_BASE}/api/yt/download?${params}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Lỗi khi tải video");
-      }
-      const blob = await res.blob();
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `${info.title}.mp4`;
-      link.click();
-      URL.revokeObjectURL(link.href);
-    } catch (e: any) {
-      setError(e.message ?? "Tải thất bại");
-    } finally {
-      setDownloading(false);
-    }
+    const fmt = info.formats.find(f => f.itag === selectedItag);
+    if (!fmt) return;
+    /* Mở URL Invidious proxy trực tiếp — trình duyệt tự tải xuống */
+    const link = document.createElement("a");
+    link.href = fmt.url;
+    link.download = `${info.title}.${fmt.ext}`;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -298,33 +284,20 @@ export function YtDownloader() {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleDownload}
-                disabled={downloading || !selectedItag}
+                disabled={!selectedItag}
                 className="w-full flex items-center justify-center gap-2.5 py-4 rounded-xl text-base font-bold text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  background: downloading
-                    ? "rgba(255,68,68,0.3)"
-                    : "linear-gradient(135deg, #ff4444 0%, #cc2222 100%)",
-                  boxShadow: downloading ? "none" : "0 8px 32px rgba(255,68,68,0.3)",
+                  background: "linear-gradient(135deg, #ff4444 0%, #cc2222 100%)",
+                  boxShadow: "0 8px 32px rgba(255,68,68,0.3)",
                 }}
               >
-                {downloading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Đang tải xuống... (có thể mất vài phút)
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5" />
-                    Tải xuống
-                  </>
-                )}
+                <Download className="w-5 h-5" />
+                Tải xuống
               </motion.button>
 
-              {downloading && (
-                <p className="text-center text-xs mt-3" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  Server đang xử lý video, vui lòng chờ và không đóng trang
-                </p>
-              )}
+              <p className="text-center text-xs mt-3" style={{ color: "rgba(255,255,255,0.3)" }}>
+                Video sẽ mở trong tab mới · nhấn tải xuống trong trình duyệt nếu cần
+              </p>
             </motion.div>
           )}
         </AnimatePresence>

@@ -1,191 +1,117 @@
 import { Router } from "express";
-import { spawn, execSync } from "node:child_process";
-import path from "node:path";
-import fs from "node:fs";
-import os from "node:os";
-import crypto from "node:crypto";
 
 const router = Router();
 
-/* ── Tìm hoặc tải yt-dlp binary ────────────────────────────────────────── */
-let ytDlpPath: string | null = null;
+/* ── Danh sách Invidious instances (thử lần lượt nếu lỗi) ──────────── */
+const INVIDIOUS_INSTANCES = [
+  "https://invidious.privacyredirect.com",
+  "https://inv.nadeko.net",
+  "https://invidious.nerdvpn.de",
+  "https://yt.artemislena.eu",
+  "https://invidious.materialio.us",
+];
 
-async function getYtDlp(): Promise<string> {
-  if (ytDlpPath) return ytDlpPath;
-
-  // 1. Thử system yt-dlp (Nix / Ubuntu với yt-dlp cài sẵn)
-  try {
-    const p = execSync("which yt-dlp 2>/dev/null").toString().trim();
-    if (p) { ytDlpPath = p; return p; }
-  } catch {}
-
-  // 2. Download binary vào /tmp nếu chưa có (Render / server không có yt-dlp)
-  const tmpBin = path.join(os.tmpdir(), "yt-dlp");
-  if (fs.existsSync(tmpBin)) {
-    ytDlpPath = tmpBin;
-    return tmpBin;
+function extractVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/,
+    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m?.[1]) return m[1];
   }
+  return null;
+}
 
-  console.log("[yt-downloader] yt-dlp not found — downloading binary...");
-  await new Promise<void>((resolve, reject) => {
-    const curl = spawn("curl", [
-      "-L", "--silent", "--show-error",
-      "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp",
-      "-o", tmpBin,
-    ]);
-    curl.on("close", (code) => {
-      if (code === 0) {
-        fs.chmodSync(tmpBin, 0o755);
-        console.log("[yt-downloader] yt-dlp downloaded OK");
-        resolve();
-      } else {
-        reject(new Error("Tải yt-dlp binary thất bại"));
+async function fetchInvidious(videoId: string): Promise<any> {
+  const errors: string[] = [];
+  for (const base of INVIDIOUS_INSTANCES) {
+    try {
+      const res = await fetch(
+        `${base}/api/v1/videos/${videoId}?fields=title,videoThumbnails,lengthSeconds,author,formatStreams,adaptiveFormats`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (!res.ok) {
+        errors.push(`${base}: HTTP ${res.status}`);
+        continue;
       }
-    });
-    curl.on("error", reject);
-  });
-
-  ytDlpPath = tmpBin;
-  return tmpBin;
+      const data = await res.json();
+      // Gắn base URL vào data để dùng khi build proxy link
+      data._invidiousBase = base;
+      return data;
+    } catch (e: any) {
+      errors.push(`${base}: ${e.message}`);
+    }
+  }
+  throw new Error(`Tất cả Invidious instance đều lỗi: ${errors.join(" | ")}`);
 }
 
-/* ── Chạy yt-dlp ────────────────────────────────────────────────────────── */
-async function runYtDlp(args: string[]): Promise<string> {
-  const bin = await getYtDlp();
-  return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { env: process.env });
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
-    proc.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
-    proc.on("close", (code) => {
-      if (code === 0) resolve(stdout.trim());
-      else reject(new Error(stderr.trim() || `yt-dlp exited with code ${code}`));
-    });
-    proc.on("error", reject);
-  });
-}
-
-/* ── GET /api/yt/info?url=... ─────────────────────────────────────────── */
+/* ── GET /api/yt/info?url=... ──────────────────────────────────────── */
 router.get("/info", async (req, res) => {
   const url = String(req.query["url"] ?? "");
   if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
 
-  try {
-    const json = await runYtDlp([
-      "--dump-json",
-      "--no-playlist",
-      "--no-warnings",
-      "--extractor-args", "youtube:player_client=android,web",
-      url,
-    ]);
+  const videoId = extractVideoId(url);
+  if (!videoId) return res.status(400).json({ error: "Link YouTube không hợp lệ" });
 
-    const data = JSON.parse(json) as {
-      title: string;
-      thumbnail: string;
-      duration: number;
-      channel?: string;
-      uploader?: string;
-      formats?: {
-        format_id: string;
-        height?: number;
-        ext?: string;
-        filesize?: number;
-        vcodec?: string;
-      }[];
+  try {
+    const data = await fetchInvidious(videoId);
+    const base = data._invidiousBase as string;
+
+    /* Thumbnail tốt nhất */
+    const thumbnails: { quality: string; url: string }[] = data.videoThumbnails ?? [];
+    const thumb =
+      thumbnails.find((t) => t.quality === "maxresdefault")?.url ??
+      thumbnails.find((t) => t.quality === "hqdefault")?.url ??
+      thumbnails[0]?.url ?? "";
+
+    /* formatStreams = video + audio kết hợp (360p, 720p) */
+    type FmtStream = { itag: string; quality: string; type: string; container: string; url: string };
+    const fmtStreams: FmtStream[] = data.formatStreams ?? [];
+
+    const QUALITY_RANK: Record<string, number> = {
+      "1080p": 1080, "720p60": 720, "720p": 720,
+      "480p": 480, "360p": 360, "240p": 240, "144p": 144,
     };
 
-    const wantedHeights = [1080, 720, 480, 360];
     const seen = new Set<number>();
-    const formats: { itag: string; quality: string; ext: string; size?: string }[] = [];
+    const formats: { itag: string; quality: string; ext: string; url: string }[] = [];
 
-    for (const f of data.formats ?? []) {
-      if (!f.height || !wantedHeights.includes(f.height)) continue;
-      if (seen.has(f.height)) continue;
-      if (!f.vcodec || f.vcodec === "none") continue;
-      seen.add(f.height);
+    for (const f of fmtStreams) {
+      if (!f.type?.startsWith("video")) continue;
+      const rank = QUALITY_RANK[f.quality] ?? 0;
+      if (!rank || seen.has(rank)) continue;
+      seen.add(rank);
+
+      /* Dùng Invidious proxy URL để tải thẳng không cần server */
+      const proxyUrl = `${base}/latest_version?id=${videoId}&itag=${f.itag}&local=true`;
+
       formats.push({
-        itag: String(f.format_id),
-        quality: `${f.height}p`,
-        ext: f.ext ?? "mp4",
-        size: f.filesize
-          ? `${(f.filesize / 1024 / 1024).toFixed(1)} MB`
-          : undefined,
+        itag: f.itag,
+        quality: `${rank}p`,
+        ext: f.container ?? "mp4",
+        url: proxyUrl,
       });
     }
 
     if (formats.length === 0) {
-      formats.push({ itag: "bv+ba/best", quality: "Best", ext: "mp4" });
+      return res.status(500).json({ error: "Không tìm thấy định dạng video nào" });
     }
 
-    formats.sort((a, b) => {
-      const qa = parseInt(a.quality) || 9999;
-      const qb = parseInt(b.quality) || 9999;
-      return qb - qa;
-    });
+    formats.sort((a, b) => parseInt(b.quality) - parseInt(a.quality));
 
     return res.json({
       title: data.title,
-      thumbnail: data.thumbnail,
-      duration: data.duration,
-      channel: data.channel ?? data.uploader,
+      thumbnail: thumb,
+      duration: data.lengthSeconds,
+      channel: data.author,
       formats,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";
     return res.status(500).json({ error: msg });
-  }
-});
-
-/* ── GET /api/yt/download?url=...&itag=...&title=... ─────────────────── */
-router.get("/download", async (req, res) => {
-  const url = String(req.query["url"] ?? "");
-  const itag = String(req.query["itag"] ?? "bv+ba/best");
-  const title = String(req.query["title"] ?? "video").slice(0, 80);
-
-  if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
-
-  const uid = crypto.randomUUID();
-  const tmpDir = os.tmpdir();
-  const outPath = path.join(tmpDir, `nexora_yt_${uid}.mp4`);
-
-  const formatArg =
-    itag === "bv+ba/best"
-      ? "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
-      : `${itag}+bestaudio[ext=m4a]/${itag}+bestaudio/best`;
-
-  try {
-    await runYtDlp([
-      "--no-playlist",
-      "--no-warnings",
-      "--extractor-args", "youtube:player_client=android,web",
-      "-f", formatArg,
-      "--merge-output-format", "mp4",
-      "-o", outPath,
-      url,
-    ]);
-
-    if (!fs.existsSync(outPath)) {
-      return res.status(500).json({ error: "Tải về xong nhưng không tìm thấy file" });
-    }
-
-    const stat = fs.statSync(outPath);
-    const safeFilename = title.replace(/[^\w\s\-]/g, "_") + ".mp4";
-
-    res.setHeader("Content-Type", "video/mp4");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename*=UTF-8''${encodeURIComponent(safeFilename)}`
-    );
-    res.setHeader("Content-Length", stat.size);
-
-    const stream = fs.createReadStream(outPath);
-    stream.pipe(res);
-    stream.on("close", () => fs.unlink(outPath, () => {}));
-    stream.on("error", () => fs.unlink(outPath, () => {}));
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Lỗi khi tải video";
-    if (!res.headersSent) return res.status(500).json({ error: msg });
   }
 });
 
