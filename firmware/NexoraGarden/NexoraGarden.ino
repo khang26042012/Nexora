@@ -217,6 +217,7 @@ int8_t        tftPending     = -1;     // -1=không đổi, 0=tắt, 1=bật
 bool          tftForceRedraw = false;  // vẽ ngay lập tức
 unsigned long tftLastDraw    = 0;
 bool          tftWasOn       = true;   // phát hiện lúc tftOn vừa bị tắt
+unsigned long tftReinitAt    = 0;      // relay noise delay: reinit TFT sau 150ms
 
 // ─── FreeRTOS / WebSocket ─────────────────────────────────────────────────────
 WebSocketsClient webSocket;
@@ -516,7 +517,8 @@ void setPump(bool on) {
   } else {
     Serial.println("[Bom] TAT");
   }
-  tftForceRedraw = true;  // vẽ lại ngay khi bơm thay đổi (bật hoặc tắt)
+  // Relay click gây SPI noise → schedule reinit TFT sau 150ms thay vì force draw ngay
+  tftReinitAt = millis() + 150;
 }
 
 void handlePump() {
@@ -743,6 +745,7 @@ void manageTFT() {
       tftWasOn = false;
     }
     tftForceRedraw = false;
+    tftReinitAt    = 0;
     return;
   }
   // Vừa bật lại → force redraw
@@ -750,7 +753,30 @@ void manageTFT() {
     tftWasOn       = true;
     tftForceRedraw = true;
   }
+
   unsigned long now = millis();
+
+  // Relay noise reinit: sau relay click đợi 150ms → fillScreen + redraw
+  if (tftReinitAt != 0 && now >= tftReinitAt) {
+    tftReinitAt = 0;
+    tft.init();
+    tft.setRotation(0);
+    tft.fillScreen(C_BLACK);
+    tftForceRedraw = true;
+    tftLastDraw    = now;
+    Serial.println("[TFT] Reinit sau relay click");
+  }
+
+  // Watchdog: nếu TFT không vẽ > 2s → reinit để phục hồi nếu bị kẹt
+  if (tftReinitAt == 0 && (now - tftLastDraw > 2000)) {
+    tft.init();
+    tft.setRotation(0);
+    tft.fillScreen(C_BLACK);
+    tftForceRedraw = true;
+    tftLastDraw    = now;
+    Serial.println("[TFT] Watchdog reinit");
+  }
+
   bool shouldDraw = tftForceRedraw || (now - tftLastDraw >= 500);
   if (!shouldDraw) return;
   tftForceRedraw = false;
@@ -889,6 +915,7 @@ void setup() {
   // Khởi tạo TFT
   tftWasOn       = true;
   tftForceRedraw = true;
+  tftLastDraw    = millis();  // init để watchdog không trigger ngay lúc đầu
 
   triggerWeatherUpdate();
   lastWeather = millis();
