@@ -71,34 +71,72 @@ function getYtDlpBin(): Promise<string> {
   return _binCache;
 }
 
-/* ── Run yt-dlp ──────────────────────────────────────────────── */
-function ytDlpInfo(url: string): Promise<any> {
-  return new Promise(async (resolve, reject) => {
-    const bin = await getYtDlpBin();
-
-    const args = [
-      url,
-      "--dump-single-json",
-      "--no-warnings",
-      "--no-check-certificate",
-      "-f", "bestvideo*+bestaudio/bestvideo/bestaudio/best",
-    ];
-
-    if (hasCookies) {
-      args.push("--cookies", COOKIES_PATH);
-    }
-
+/* ── Run yt-dlp (1 attempt) ──────────────────────────────────── */
+function runYtDlp(bin: string, args: string[]): Promise<any> {
+  return new Promise((resolve, reject) => {
     execFile(bin, args, { maxBuffer: 10 * 1024 * 1024, timeout: 60_000 },
       (err, stdout, stderr) => {
         if (err) {
-          const msg = stderr || err.message;
-          return reject(new Error(msg.trim().split("\n").slice(-3).join(" | ")));
+          const msg = (stderr || err.message).trim().split("\n").slice(-3).join(" | ");
+          return reject(new Error(msg));
         }
-        try { resolve(JSON.parse(stdout)); }
+        const text = stdout.trim();
+        if (!text || text === "null") {
+          const errMsg = (stderr || "").trim().split("\n").slice(-2).join(" | ");
+          return reject(new Error(errMsg || "yt-dlp trả về null"));
+        }
+        try { resolve(JSON.parse(text)); }
         catch { reject(new Error("Lỗi parse JSON từ yt-dlp")); }
       }
     );
   });
+}
+
+/* ── Run yt-dlp với retry nhiều strategy ─────────────────────── */
+async function ytDlpInfo(url: string): Promise<any> {
+  const bin = await getYtDlpBin();
+
+  const baseArgs = [
+    "--dump-single-json",
+    "--no-warnings",
+    "--no-check-certificate",
+  ];
+  const cookieArgs = hasCookies ? ["--cookies", COOKIES_PATH] : [];
+
+  /* Strategy 1: web client mặc định (đầy đủ format nhất) */
+  try {
+    return await runYtDlp(bin, [
+      url, ...baseArgs,
+      "-f", "bestvideo*+bestaudio/bestvideo/bestaudio/best",
+      ...cookieArgs,
+    ]);
+  } catch (e1) {
+    const msg1 = (e1 as Error).message;
+
+    /* Strategy 2: android client (bypass datacenter bot-check, 360p combined) */
+    try {
+      return await runYtDlp(bin, [
+        url, ...baseArgs,
+        "-f", "bestvideo*+bestaudio/bestvideo/bestaudio/best",
+        "--extractor-args", "youtube:player_client=android",
+        ...cookieArgs,
+      ]);
+    } catch (e2) {
+      const msg2 = (e2 as Error).message;
+
+      /* Strategy 3: mobileapp + bỏ format selector (lấy bất kỳ) */
+      try {
+        return await runYtDlp(bin, [
+          url, ...baseArgs,
+          "--extractor-args", "youtube:player_client=android",
+          ...cookieArgs,
+        ]);
+      } catch (e3) {
+        /* Ném lỗi của strategy 1 (thường rõ nghĩa nhất) */
+        throw new Error(msg1 || msg2 || (e3 as Error).message);
+      }
+    }
+  }
 }
 
 function extractVideoId(url: string): string | null {
