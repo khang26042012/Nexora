@@ -13,6 +13,9 @@ const __dirname = path.dirname(__filename);
 
 const app: Express = express();
 
+// Trust Cloudflare proxy — để Express dùng đúng Host header từ X-Forwarded-Host
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
