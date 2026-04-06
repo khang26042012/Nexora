@@ -35,7 +35,8 @@ minimumReleaseAgeExclude:
   - stripe-replit-sync
 
 packages:
-  - artifacts/*
+  - apps/*
+  - packages/*
   - lib/*
   - lib/integrations/*
   - scripts
@@ -69,6 +70,7 @@ autoInstallPeers: false
 
 onlyBuiltDependencies:
   - '@swc/core'
+  - better-sqlite3
   - esbuild
   - msw
   - unrs-resolver
