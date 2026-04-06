@@ -515,8 +515,8 @@ void setPump(bool on) {
     Serial.println("[Bom] BAT");
   } else {
     Serial.println("[Bom] TAT");
-    tftForceRedraw = true;  // báo TFT manager vẽ lại ngay
   }
+  tftForceRedraw = true;  // vẽ lại ngay khi bơm thay đổi (bật hoặc tắt)
 }
 
 void handlePump() {
@@ -721,16 +721,16 @@ void drawMainScreen() {
     tft.print(b); }
 
   // Dòng 13: Progress bơm (khi đang bơm)
-  tft.setCursor(5, 218);
   if (pumpState) {
     unsigned long el = min((millis() - pumpStartTime) / 1000UL, 25UL);
+    tft.setCursor(5, 218);
     tft.setTextColor(el >= 20 ? C_ORANGE : C_CYAN, C_BLACK);
     char b[38]; snprintf(b, sizeof(b), "Tuoi: %2lus/25s  Muc tieu: dat>=%d%%    ",
                          el, PUMP_SOIL_OFF);
     tft.print(b);
   } else {
-    tft.setTextColor(C_BLACK, C_BLACK);
-    tft.print("                                      ");
+    // fillRect đảm bảo xóa sạch — không dùng setTextColor(black,black) tránh lỗi bg ignored
+    tft.fillRect(0, 215, 240, 14, C_BLACK);
   }
 }
 
