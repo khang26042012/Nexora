@@ -15,7 +15,7 @@ services:
   - type: web
     name: nexorax-api
     runtime: node
-    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" -o ./yt-dlp && chmod a+rx ./yt-dlp && pnpm --filter @workspace/nexora-garden run build && pnpm --filter @workspace/api-server run build
+    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @workspace/nexora-garden run build && pnpm --filter @workspace/api-server run build
     startCommand: node packages/api-server/dist/index.mjs
     envVars:
       - key: NODE_VERSION
