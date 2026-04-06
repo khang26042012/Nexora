@@ -81,10 +81,10 @@ async function ytDlpInfo(url: string): Promise<any> {
     url,
     "--dump-single-json",
     "--no-warnings",
-    "--no-call-home",
     "--no-check-certificate",
     "--prefer-free-formats",
-    "--youtube-skip-dash-manifest",
+    /* android client: bỏ qua bot check của YouTube trên datacenter IP */
+    "--extractor-args", "youtube:player_client=android,web",
   ], { maxBuffer: 50 * 1024 * 1024, timeout: 30000 });
 
   return JSON.parse(stdout);
@@ -113,7 +113,9 @@ router.get("/info", async (req, res) => {
   if (!videoId) return res.status(400).json({ error: "Link YouTube không hợp lệ" });
 
   try {
-    const info = await ytDlpInfo(url);
+    /* Dùng URL sạch (không có ?si= tracking params) */
+    const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const info = await ytDlpInfo(cleanUrl);
 
     const title    = info.title    ?? "Video";
     const channel  = info.uploader ?? "";
@@ -188,7 +190,7 @@ router.get("/stream", async (req, res) => {
 
   try {
     const bin = await getYtDlpBin();
-    const proc = execFile(bin, [url, "-f", fmt, "-o", "-", "--no-warnings", "--no-call-home"]);
+    const proc = execFile(bin, [url, "-f", fmt, "-o", "-", "--no-warnings", "--no-check-certificate", "--extractor-args", "youtube:player_client=android,web"]);
 
     res.setHeader("Content-Type", "video/mp4");
     res.setHeader("Content-Disposition", `attachment; filename="video_${height}p.mp4"`);
