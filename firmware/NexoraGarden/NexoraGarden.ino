@@ -212,22 +212,11 @@ bool          pumpPending    = false;
 unsigned long pumpPendingTime = 0;
 
 // ─── TFT ─────────────────────────────────────────────────────────────────────
-bool   tftOn       = true;
-int8_t tftPending  = -1;   // -1=không đổi, 0=tắt, 1=bật
-
-// State machine TFT — 5 màn hình riêng biệt
-enum TFTScreen : uint8_t {
-  SCR_OFF,        // màn hình tắt
-  SCR_PUMPING,    // đang bơm (manual / auto / admin)
-  SCR_PRE_WATER,  // chuẩn bị tưới (1.5s trước khi bơm tự động)
-  SCR_OFFLINE,    // WS mất kết nối (WiFi vẫn ok)
-  SCR_MAIN        // hiển thị sensor bình thường
-};
-
-TFTScreen     tftScreen     = SCR_MAIN;  // màn đang vẽ
-TFTScreen     tftPrevScreen = SCR_MAIN;  // màn trước — dùng để detect thay đổi
-unsigned long tftLastDraw   = 0;         // lần cuối vẽ
-bool          tftForceRedraw = false;    // yêu cầu vẽ ngay lập tức
+bool          tftOn          = true;   // bật/tắt qua server
+int8_t        tftPending     = -1;     // -1=không đổi, 0=tắt, 1=bật
+bool          tftForceRedraw = false;  // vẽ ngay lập tức
+unsigned long tftLastDraw    = 0;
+bool          tftWasOn       = true;   // phát hiện lúc tftOn vừa bị tắt
 
 // ─── FreeRTOS / WebSocket ─────────────────────────────────────────────────────
 WebSocketsClient webSocket;
@@ -605,362 +594,168 @@ void handlePump() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  TFT — STATE MACHINE
+//  TFT — MÀN HÌNH DUY NHẤT (luôn vẽ, không chuyển màn)
 // ═══════════════════════════════════════════════════════════════
-//
-//  Priority (cao → thấp):
-//    SCR_OFF       — tftOn = false
-//    SCR_PUMPING   — pumpState = true
-//    SCR_PRE_WATER — pumpPending = true (1.5s trước khi bơm)
-//    SCR_OFFLINE   — WS mất kết nối (WiFi vẫn ok)
-//    SCR_MAIN      — bình thường
-//
+//  - 1 màn duy nhất hiển thị sensor + pump + WS + thời tiết
+//  - setTextPadding(240) + bg C_BLACK đảm bảo mỗi dòng tự xóa in-place
+//  - Bơm bật/tắt: chỉ cập nhật dòng Bơm, không làm flicker màn
+//  - Chỉ dừng khi tftOn=false (nút server) hoặc mất điện
 // ─────────────────────────────────────────────────────────────────────────────
 
-TFTScreen determineTFTScreen() {
-  if (!tftOn)           return SCR_OFF;
-  if (pumpState)        return SCR_PUMPING;
-  if (pumpPending)      return SCR_PRE_WATER;
-  if (!wsConnected)     return SCR_OFFLINE;
-  return SCR_MAIN;
-}
-
-// ─── Vẽ màn hình chính (sensor data) ─────────────────────────────────────────
 void drawMainScreen() {
-  // Header — chỉ vẽ khi vừa chuyển vào màn này (đã clear trước đó)
   tft.setTextSize(2);
   tft.setTextPadding(240);
 
-  // Dòng 1: Tiêu đề + chấm WS (●)
+  // Dòng 1: Tiêu đề + chấm WS
   tft.setTextColor(C_CYAN, C_BLACK);
-  tft.setCursor(5, 5); tft.print(" NEXORA GARDEN");
-  // Chấm kết nối (góc phải)
-  tft.fillCircle(228, 12, 6, wsConnected ? C_LIME : C_RED);
-
-  tft.drawFastHLine(0, 27, 240, C_GREEN);
+  tft.setCursor(5, 2); tft.print(" NEXORA GARDEN");
+  tft.fillCircle(228, 10, 6, wsConnected ? C_LIME : C_RED);
+  tft.drawFastHLine(0, 21, 240, C_GREEN);
 
   // Dòng 2: Nhiệt độ
-  tft.setCursor(5, 35); tft.setTextColor(C_WHITE, C_BLACK);
+  tft.setCursor(5, 26); tft.setTextColor(C_WHITE, C_BLACK);
   if (localTemp == -999.0) tft.print("Nhiet: ---.-C  ");
   else { char b[22]; snprintf(b, sizeof(b), "Nhiet: %5.1f C  ", localTemp); tft.print(b); }
 
-  // Dòng 3: Độ ẩm không khí
-  tft.setCursor(5, 62); tft.setTextColor(C_WHITE, C_BLACK);
+  // Dòng 3: Độ ẩm KK
+  tft.setCursor(5, 46); tft.setTextColor(C_WHITE, C_BLACK);
   if (localHum == -999.0) tft.print("Am KK: ---.-%  ");
   else { char b[22]; snprintf(b, sizeof(b), "Am KK: %5.1f %%  ", localHum); tft.print(b); }
 
   // Dòng 4: Độ ẩm đất
-  tft.setCursor(5, 89);
+  tft.setCursor(5, 66);
   if (soilState.isError || soilPercent == 0) {
-    tft.setTextColor(C_RED, C_BLACK);
-    tft.print("Dat:  KHONG CO  ");
+    tft.setTextColor(C_RED, C_BLACK); tft.print("Dat:  KHONG CO  ");
   } else {
     uint16_t col = soilPercent <= PUMP_SOIL_ON ? C_ORANGE : C_GREEN;
     tft.setTextColor(col, C_BLACK);
-    const char* tr = soilState.trend == 1 ? " ^" : soilState.trend == -1 ? " v" : " -";
-    char b[22]; snprintf(b, sizeof(b), "Dat:  %3d %%%s    ", soilPercent, tr);
+    const char* tr = soilState.trend == 1 ? "^" : soilState.trend == -1 ? "v" : "-";
+    char b[22]; snprintf(b, sizeof(b), "Dat:  %3d %% %s    ", soilPercent, tr);
     tft.print(b);
   }
 
   // Dòng 5: Mức nước
-  tft.setCursor(5, 116);
+  tft.setCursor(5, 86);
   if (waterState.isError) {
-    tft.setTextColor(C_RED, C_BLACK);
-    tft.print("Nuoc: KHONG CO  ");
+    tft.setTextColor(C_RED, C_BLACK); tft.print("Nuoc: KHONG CO  ");
   } else if (waterPercent < 10) {
     tft.setTextColor(C_RED, C_BLACK);
-    tft.print("Nuoc: THAP <10% ");
+    char b[22]; snprintf(b, sizeof(b), "Nuoc: THAP %2d%%  ", waterPercent); tft.print(b);
   } else {
     tft.setTextColor(C_WHITE, C_BLACK);
-    char b[22]; snprintf(b, sizeof(b), "Nuoc: %3d %%     ", waterPercent);
-    tft.print(b);
+    char b[22]; snprintf(b, sizeof(b), "Nuoc: %3d %%      ", waterPercent); tft.print(b);
   }
 
   // Dòng 6: Gió
-  tft.setCursor(5, 143); tft.setTextColor(C_YELLOW, C_BLACK);
+  tft.setCursor(5, 106); tft.setTextColor(C_YELLOW, C_BLACK);
   { char b[22]; snprintf(b, sizeof(b), "Gio: %5.1f km/h  ", wind); tft.print(b); }
 
-  // Dòng 7: Giờ thực
-  tft.setCursor(5, 170); tft.setTextColor(C_BLUE, C_BLACK);
+  // Dòng 7: Trạng thái bơm (inline)
+  tft.setCursor(5, 126);
+  if (pumpState) {
+    if (adminActive)        { tft.setTextColor(C_ORANGE, C_BLACK); tft.print("Bom: BAT [ADMIN] "); }
+    else if (pumpAutoActive){ tft.setTextColor(C_LIME,   C_BLACK); tft.print("Bom: BAT [AUTO]  "); }
+    else                    { tft.setTextColor(C_CYAN,   C_BLACK); tft.print("Bom: BAT [TAY]   "); }
+  } else if (pumpPending) {
+    bool bl = (millis() / 400) % 2;
+    tft.setTextColor(bl ? C_GREEN : C_LIME, C_BLACK);
+    tft.print("Bom: CHO TUOI...");
+  } else if (pumpLocked) {
+    tft.setTextColor(C_GRAY, C_BLACK); tft.print("Bom: TAT [KHOA]  ");
+  } else {
+    tft.setTextColor(C_DIMWHITE, C_BLACK); tft.print("Bom: TAT         ");
+  }
+
+  // Dòng 8: Giờ thực
+  tft.setCursor(5, 146); tft.setTextColor(C_BLUE, C_BLACK);
   struct tm ti;
   if (getLocalTime(&ti, 0)) {
     char b[22]; snprintf(b, sizeof(b), "Gio: %02d:%02d:%02d    ", ti.tm_hour, ti.tm_min, ti.tm_sec);
     tft.print(b);
   } else { tft.print("Gio: --:--:--   "); }
 
-  // Dòng 8: Status bar (lửa / mưa / khóa / admin)
-  tft.drawFastHLine(0, 196, 240, C_GRAY);
-  tft.setTextSize(1); tft.setTextPadding(0);
-  tft.setCursor(5, 202);
+  tft.drawFastHLine(0, 166, 240, C_GRAY);
 
+  // ── Phần dưới size=1 ──────────────────────────────────────────────────────
+  tft.setTextSize(1);
+  tft.setTextPadding(240);
+
+  // Dòng 9: WS + WiFi
+  bool wifiOk = (WiFi.status() == WL_CONNECTED);
+  tft.setCursor(5, 170);
+  tft.setTextColor(wsConnected ? C_LIME : C_RED, C_BLACK);
+  char wsBuf[38]; snprintf(wsBuf, sizeof(wsBuf), "%-18s%-18s",
+    wsConnected ? "WS: ONLINE" : "WS: OFFLINE",
+    wifiOk      ? "WiFi: OK"   : "WiFi: MAT KET NOI");
+  tft.print(wsBuf);
+
+  // Dòng 10: Fire / Rain / Admin / Khóa
+  tft.setCursor(5, 182);
   bool rainNow = (digitalRead(RAIN_PIN) == LOW);
-  // Build status string
-  char status[40] = "";
-  if (adminActive)       strcat(status, "[ADMIN] ");
-  if (pumpLocked)        strcat(status, "[KHOA] ");
-  if (fireActive)        { tft.setTextColor(C_RED, C_BLACK); }
-  else if (rainNow)      { tft.setTextColor(C_BLUE, C_BLACK); }
-  else                   { tft.setTextColor(C_GRAY, C_BLACK); }
-  if (fireActive)        strcat(status, "CANH BAO LUA!");
-  else if (rainNow)      strcat(status, "CO MUA");
-
-  // Pad to clear old content
-  char padded[40];
-  snprintf(padded, sizeof(padded), "%-37s", status);
+  char status[42] = "";
+  if (adminActive)              strcat(status, "[ADMIN] ");
+  if (pumpLocked && !pumpState) strcat(status, "[KHOA] ");
+  if (fireActive)   { strcat(status, "CANH BAO LUA!"); tft.setTextColor(C_RED,  C_BLACK); }
+  else if (rainNow) { strcat(status, "CO MUA");         tft.setTextColor(C_BLUE, C_BLACK); }
+  else              { tft.setTextColor(C_GRAY, C_BLACK); }
+  if (!fireActive && !rainNow && !adminActive && !(pumpLocked && !pumpState))
+    strcat(status, "Binh thuong");
+  char padded[42]; snprintf(padded, sizeof(padded), "%-37s", status);
   tft.print(padded);
 
-  // Dòng 9: Bơm gần đây
-  tft.setCursor(5, 218); tft.setTextColor(C_DIMWHITE, C_BLACK);
+  // Dòng 11: Bơm gần đây
+  tft.setCursor(5, 194); tft.setTextColor(C_DIMWHITE, C_BLACK);
   if (lastPumpEpoch == 0) {
-    tft.print("Bom gan day: Chua co      ");
+    tft.print("Bom gan day: Chua co           ");
   } else {
-    struct tm pt;
-    localtime_r(&lastPumpEpoch, &pt);
-    char b[36];
-    snprintf(b, sizeof(b), "Bom gan day: %02d:%02d %02d/%02d  ",
-             pt.tm_hour, pt.tm_min, pt.tm_mday, pt.tm_mon + 1);
-    tft.print(b);
-  }
-}
-
-// ─── Vẽ màn hình đang bơm ────────────────────────────────────────────────────
-void drawPumpScreen() {
-  unsigned long elapsed = (millis() - pumpStartTime) / 1000;
-  elapsed = min(elapsed, (unsigned long)25);
-
-  tft.setTextPadding(240);
-
-  // Tiêu đề
-  tft.setTextSize(2);
-  tft.setTextColor(C_CYAN, C_BLACK);
-  tft.setCursor(10, 10); tft.print("DANG TUOI CAY  ");
-
-  tft.drawFastHLine(0, 33, 240, C_CYAN);
-
-  // Chế độ bơm
-  tft.setTextSize(1);
-  tft.setCursor(5, 42);
-  if (adminActive)       { tft.setTextColor(C_ORANGE, C_BLACK); tft.print("Che do: ADMIN (bat buoc)  "); }
-  else if (pumpAutoActive) { tft.setTextColor(C_GREEN,  C_BLACK); tft.print("Che do: TU DONG          "); }
-  else                    { tft.setTextColor(C_YELLOW, C_BLACK); tft.print("Che do: THU CONG          "); }
-
-  // Độ ẩm đất (live, đọc trực tiếp khi bơm)
-  tft.setTextSize(2);
-  tft.setCursor(5, 60);
-  if (soilState.isError || soilPercent == 0) {
-    tft.setTextColor(C_RED, C_BLACK); tft.print("Dat: KHONG CO  ");
-  } else {
-    uint16_t col = soilPercent >= PUMP_SOIL_OFF ? C_LIME : C_CYAN;
-    tft.setTextColor(col, C_BLACK);
-    char b[22]; snprintf(b, sizeof(b), "Dat: %3d %%        ", soilPercent);
+    struct tm pt; localtime_r(&lastPumpEpoch, &pt);
+    char b[36]; snprintf(b, sizeof(b), "Bom gan day: %02d:%02d  %02d/%02d          ",
+                         pt.tm_hour, pt.tm_min, pt.tm_mday, pt.tm_mon + 1);
     tft.print(b);
   }
 
-  // Thời gian đã bơm
-  tft.setCursor(5, 88); tft.setTextColor(C_WHITE, C_BLACK);
-  { char b[22]; snprintf(b, sizeof(b), "Thoi gian: %2lus    ", elapsed); tft.print(b); }
+  // Dòng 12: Thời tiết
+  tft.setCursor(5, 206); tft.setTextColor(C_GRAY, C_BLACK);
+  { char b[38]; snprintf(b, sizeof(b), "TT: %.0fC  Am:%d%%  Mua:%d%%  Gio:%.0fkm/h  ",
+                         tempC, humidity, rainChance, wind);
+    tft.print(b); }
 
-  // Progress bar (25s timer visual)
-  int barW = map(min(elapsed, (unsigned long)25), 0, 25, 0, 210);
-  uint16_t barCol = elapsed >= 20 ? C_ORANGE : C_CYAN;
-  tft.fillRoundRect(15, 115, 210, 14, 4, C_GRAY);      // nền
-  if (barW > 0)
-    tft.fillRoundRect(15, 115, barW, 14, 4, barCol);   // thanh tiến trình
-  // khung
-  tft.drawRoundRect(14, 114, 212, 16, 4, C_DIMWHITE);
-
-  // Label thanh
-  tft.setTextSize(1); tft.setCursor(5, 135);
-  tft.setTextColor(C_GRAY, C_BLACK);
-  { char b[20]; snprintf(b, sizeof(b), "0s              25s"); tft.print(b); }
-
-  // Ngưỡng tắt
-  tft.setCursor(5, 150); tft.setTextColor(C_DIMWHITE, C_BLACK);
-  tft.print("Dung khi dat >= 70% hoac het 25s  ");
-
-  // Mức nước (vẫn hiển thị khi bơm vì cảm biến độc lập)
-  tft.setCursor(5, 168);
-  if (waterPercent < 10) {
-    tft.setTextColor(C_RED, C_BLACK);
-    char b[24]; snprintf(b, sizeof(b), "Nuoc: THAP %3d %%   ", waterPercent); tft.print(b);
-  } else {
-    tft.setTextColor(C_DIMWHITE, C_BLACK);
-    char b[24]; snprintf(b, sizeof(b), "Nuoc: %3d %%         ", waterPercent); tft.print(b);
-  }
-
-  // Giờ
-  tft.setCursor(5, 192); tft.setTextColor(C_BLUE, C_BLACK);
-  struct tm ti;
-  if (getLocalTime(&ti, 0)) {
-    char b[22]; snprintf(b, sizeof(b), "Gio: %02d:%02d:%02d    ", ti.tm_hour, ti.tm_min, ti.tm_sec);
-    tft.print(b);
-  } else { tft.print("Gio: --:--:--   "); }
-}
-
-// ─── Vẽ màn hình chuẩn bị tưới (pre_water) ───────────────────────────────────
-void drawPreWaterScreen() {
-  unsigned long waitedMs  = millis() - pumpPendingTime;
-  unsigned long remainMs  = (waitedMs >= 1500) ? 0 : (1500 - waitedMs);
-  float         remainSec = remainMs / 1000.0f;
-
-  tft.setTextPadding(240);
-  tft.setTextSize(2);
-
-  // Nhấp nháy dựa theo thời gian
-  bool blink = (millis() / 400) % 2;
-  uint16_t titleCol = blink ? C_GREEN : C_LIME;
-
-  tft.setTextColor(titleCol, C_BLACK);
-  tft.setCursor(5, 25); tft.print("CHUAN BI TUOI  ");
-
-  tft.drawFastHLine(0, 50, 240, C_GREEN);
-
-  // Độ ẩm đất hiện tại
-  tft.setCursor(5, 70); tft.setTextColor(C_ORANGE, C_BLACK);
-  { char b[22]; snprintf(b, sizeof(b), "Dat: %3d %%         ", soilPercent); tft.print(b); }
-
-  // Đếm ngược
-  tft.setCursor(5, 100); tft.setTextColor(C_YELLOW, C_BLACK);
-  if (remainSec > 0) {
-    char b[28]; snprintf(b, sizeof(b), "Bat bom trong: %.1f s  ", remainSec);
+  // Dòng 13: Progress bơm (khi đang bơm)
+  tft.setCursor(5, 218);
+  if (pumpState) {
+    unsigned long el = min((millis() - pumpStartTime) / 1000UL, 25UL);
+    tft.setTextColor(el >= 20 ? C_ORANGE : C_CYAN, C_BLACK);
+    char b[38]; snprintf(b, sizeof(b), "Tuoi: %2lus/25s  Muc tieu: dat>=%d%%    ",
+                         el, PUMP_SOIL_OFF);
     tft.print(b);
   } else {
-    tft.print("Dang bat bom...   ");
+    tft.setTextColor(C_BLACK, C_BLACK);
+    tft.print("                                      ");
   }
-
-  // Ghi chú
-  tft.setTextSize(1); tft.setTextColor(C_GRAY, C_BLACK);
-  tft.setCursor(5, 138); tft.print("(tu dong - do am dat <= 30%)  ");
 }
 
-// ─── Vẽ màn hình offline (WS mất kết nối) ────────────────────────────────────
-void drawOfflineScreen() {
-  bool blink = (millis() / 600) % 2;
-
-  tft.setTextPadding(240);
-  tft.setTextSize(2);
-
-  // Tiêu đề
-  uint16_t titleCol = blink ? C_RED : C_ORANGE;
-  tft.setTextColor(titleCol, C_BLACK);
-  tft.setCursor(5, 15); tft.print("MAT KET NOI    ");
-
-  tft.drawFastHLine(0, 38, 240, C_RED);
-
-  tft.setTextSize(1); tft.setCursor(5, 50);
-  tft.setTextColor(C_GRAY, C_BLACK); tft.print("Dang thu ket noi lai...  ");
-
-  // Hiển thị sensor cuối cùng (mờ đi)
-  tft.setTextSize(2); tft.setTextColor(C_DIMWHITE, C_BLACK);
-
-  tft.setCursor(5, 72);
-  if (localTemp == -999.0) tft.print("Nhiet: ---.-C  ");
-  else { char b[22]; snprintf(b, sizeof(b), "Nhiet: %5.1f C  ", localTemp); tft.print(b); }
-
-  tft.setCursor(5, 99);
-  if (localHum == -999.0) tft.print("Am KK: ---.-%  ");
-  else { char b[22]; snprintf(b, sizeof(b), "Am KK: %5.1f %%  ", localHum); tft.print(b); }
-
-  tft.setCursor(5, 126);
-  if (soilState.isError) { tft.print("Dat:  KHONG CO  "); }
-  else { char b[22]; snprintf(b, sizeof(b), "Dat:  %3d %%       ", soilPercent); tft.print(b); }
-
-  tft.setCursor(5, 153);
-  if (waterState.isError) { tft.print("Nuoc: KHONG CO  "); }
-  else if (waterPercent < 10) { tft.print("Nuoc: THAP <10% "); }
-  else { char b[22]; snprintf(b, sizeof(b), "Nuoc: %3d %%       ", waterPercent); tft.print(b); }
-
-  // Giờ
-  tft.setCursor(5, 185); tft.setTextColor(C_BLUE, C_BLACK);
-  struct tm ti;
-  if (getLocalTime(&ti, 0)) {
-    char b[22]; snprintf(b, sizeof(b), "Gio: %02d:%02d:%02d    ", ti.tm_hour, ti.tm_min, ti.tm_sec);
-    tft.print(b);
-  } else { tft.print("Gio: --:--:--   "); }
-
-  // WiFi indicator
-  tft.setTextSize(1); tft.setCursor(5, 212);
-  tft.setTextColor(C_GRAY, C_BLACK);
-  bool wifiOk = (WiFi.status() == WL_CONNECTED);
-  tft.print(wifiOk ? "WiFi: OK" : "WiFi: KHONG CO  ");
-}
-
-// ─── TFT Manager — gọi từ loop() ─────────────────────────────────────────────
+// ─── TFT Manager ─────────────────────────────────────────────────────────────
 void manageTFT() {
-  tftScreen = determineTFTScreen();
-  unsigned long now = millis();
-
-  // Phát hiện thay đổi screen → clear thông minh (chỉ xóa vùng riêng của màn cũ)
-  bool screenChanged = (tftScreen != tftPrevScreen);
-  if (screenChanged) {
-    if (tftScreen == SCR_OFF) {
+  // Vừa bị tắt → xóa màn 1 lần rồi dừng
+  if (!tftOn) {
+    if (tftWasOn) {
       tft.fillScreen(C_BLACK);
-    } else {
-      // In-place transition: mỗi drawXxx dùng setTextPadding(240) + bg C_BLACK → tự xóa ngang.
-      // Chỉ cần xóa thêm các vùng đồ họa (progress bar) hoặc vùng màn cũ vẽ thấp hơn màn mới.
-
-      if (tftPrevScreen == SCR_PUMPING) {
-        // Progress bar + label + "Dung khi" + water (y=108..178): đồ họa, setTextPadding không xóa
-        tft.fillRect(0, 108, 240, 70, C_BLACK);
-        // Mức nước và giờ của pump (y=168..208) được SCR_MAIN/OFFLINE/PRE_WATER ghi đè qua text bg
-      } else if (tftPrevScreen == SCR_MAIN) {
-        if (tftScreen == SCR_PUMPING) {
-          // Pump kết thúc tại y~208 (giờ y=192 size=2 cao 16px)
-          // Main có separator y=196, status y=202, last_pump y=218 — vùng y=210..240 pump không ghi đè
-          tft.fillRect(0, 210, 240, 30, C_BLACK);
-        } else if (tftScreen == SCR_PRE_WATER) {
-          // Pre_water chỉ vẽ đến y~148 — vùng y=148..240 của main cần xóa
-          tft.fillRect(0, 148, 240, 92, C_BLACK);
-        }
-        // MAIN→OFFLINE: offline vẽ đến y~220, main đến y~226 → xóa phần cuối
-        else if (tftScreen == SCR_OFFLINE) {
-          tft.fillRect(0, 220, 240, 20, C_BLACK);
-        }
-      } else if (tftPrevScreen == SCR_OFFLINE) {
-        if (tftScreen == SCR_PUMPING) {
-          // Offline có wifi text y=212 (size=1 cao 8px) → y=212..220, pump không đến
-          tft.fillRect(0, 210, 240, 30, C_BLACK);
-        } else if (tftScreen == SCR_PRE_WATER) {
-          // Pre_water chỉ đến y~148, offline có y=153,185,212 phía dưới
-          tft.fillRect(0, 148, 240, 92, C_BLACK);
-        }
-      } else if (tftPrevScreen == SCR_PRE_WATER) {
-        if (tftScreen == SCR_MAIN || tftScreen == SCR_OFFLINE || tftScreen == SCR_PUMPING) {
-          // Pre_water chỉ vẽ đến y~148 — màn mới bắt đầu từ y=5..15, sẽ ghi đè hết
-          // Không cần xóa thêm gì
-        }
-      }
-
-      tftForceRedraw = true;
+      tftWasOn = false;
     }
-    tftPrevScreen = tftScreen;
-    tftLastDraw   = 0;
+    tftForceRedraw = false;
+    return;
   }
-
-  if (tftScreen == SCR_OFF) return;
-
-  // Tần suất vẽ lại
-  uint16_t drawInterval;
-  switch (tftScreen) {
-    case SCR_PRE_WATER: drawInterval = 100; break;  // nhanh vì có đếm ngược + nhấp nháy
-    case SCR_OFFLINE:   drawInterval = 400; break;  // nhấp nháy
-    case SCR_PUMPING:   drawInterval = 500; break;  // cập nhật thời gian
-    default:            drawInterval = 500; break;  // SCR_MAIN
+  // Vừa bật lại → force redraw
+  if (!tftWasOn) {
+    tftWasOn       = true;
+    tftForceRedraw = true;
   }
-
-  bool shouldDraw = tftForceRedraw || (now - tftLastDraw >= drawInterval);
+  unsigned long now = millis();
+  bool shouldDraw = tftForceRedraw || (now - tftLastDraw >= 500);
   if (!shouldDraw) return;
-
   tftForceRedraw = false;
   tftLastDraw    = now;
-
-  switch (tftScreen) {
-    case SCR_MAIN:      drawMainScreen();      break;
-    case SCR_PUMPING:   drawPumpScreen();      break;
-    case SCR_PRE_WATER: drawPreWaterScreen();  break;
-    case SCR_OFFLINE:   drawOfflineScreen();   break;
-    default: break;
-  }
+  drawMainScreen();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1009,7 +804,7 @@ void printSerial() {
   const char* tr[] = {"v", "-", "^"};
   Serial.println("========= NEXORA GARDEN =========");
   Serial.printf("  [WS]    : %s\n", wsConnected ? "Ket noi" : "Mat ket noi");
-  Serial.printf("  [TFT]   : %s | Screen: %d\n", tftOn ? "ON" : "OFF", (int)tftScreen);
+  Serial.printf("  [TFT]   : %s\n", tftOn ? "ON" : "OFF");
   Serial.printf("  [Dat]   : %d %% %s %s\n", soilPercent,  tr[soilState.trend+1],  soilState.isError  ? "[LOI]" : "");
   Serial.printf("  [Nuoc]  : %d %% %s %s\n", waterPercent, tr[waterState.trend+1], waterState.isError ? "[LOI]" : "");
   if (localTemp == -999.0) Serial.println("  [Nhiet] : Dang do...");
@@ -1091,9 +886,8 @@ void setup() {
   tft.fillScreen(C_BLACK);
   updateSoil(); updateWater(); updateDHT();
 
-  // Khởi tạo TFT state machine
-  tftPrevScreen  = SCR_MAIN;
-  tftScreen      = SCR_MAIN;
+  // Khởi tạo TFT
+  tftWasOn       = true;
   tftForceRedraw = true;
 
   triggerWeatherUpdate();
