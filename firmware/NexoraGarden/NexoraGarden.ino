@@ -25,7 +25,7 @@ public:
     {
       auto cfg = _bus_instance.config();
       cfg.spi_host  = VSPI_HOST; cfg.spi_mode    = 0;
-      cfg.freq_write= 20000000;  cfg.freq_read    = 8000000;
+      cfg.freq_write= 40000000;  cfg.freq_read    = 16000000;
       cfg.pin_sclk  = 18;        cfg.pin_mosi     = 23;
       cfg.pin_miso  = -1;        cfg.pin_dc       = 2;
       _bus_instance.config(cfg); _panel_instance.setBus(&_bus_instance);
@@ -892,18 +892,11 @@ void setup() {
 
   dht.begin();
 
-  // TFT khởi tạo — retry 3 lần phòng nguồn adapter chưa ổn định
-  bool tftOk = false;
-  for (int i = 0; i < 3 && !tftOk; i++) {
-    delay(150);
-    tft.init();
-    tft.setRotation(0);
-    tft.fillScreen(C_BLACK);
-    // Kiểm tra đơn giản: vẽ 1 pixel rồi đọc lại màu
-    tft.drawPixel(0, 0, C_WHITE);
-    tftOk = true; // LovyanGFX không có readPixel dễ dùng → coi init là ok nếu không crash
-    Serial.printf("[TFT] Init attempt %d: %s\n", i+1, tftOk ? "OK" : "FAIL");
-  }
+  // TFT khởi tạo — delay thêm để nguồn adapter ổn định trước khi SPI init
+  delay(300);
+  tft.init();
+  tft.setRotation(0);
+  tft.fillScreen(C_BLACK);
   tft.setTextColor(C_WHITE); tft.setTextSize(2);
   tft.setCursor(30, 100); tft.println("Dang ket noi...");
 
