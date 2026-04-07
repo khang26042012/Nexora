@@ -115,14 +115,15 @@ async function getYtDlpBin(): Promise<string> {
 kickLatestDownload();
 
 /* ── Format selector theo quality ───────────────────────────────
- *  Chỉ dùng combined format (video+audio trong 1 stream) — không cần ffmpeg
- *  Render không có ffmpeg → KHÔNG dùng bestvideo+bestaudio (cần merge)
+ *  Không filter ext=mp4 vì android client hay trả webm/other
+ *  Không dùng bestvideo+bestaudio (cần ffmpeg merge, Render không có)
+ *  Dùng combined format (video+audio trong 1 stream) hoặc best bất kỳ
  * ──────────────────────────────────────────────────────────────── */
 const QUALITY_FORMAT: Record<string, string> = {
-  best:  "best[ext=mp4]/best",
-  "720p":"best[height<=720][ext=mp4]/best[height<=720]",
-  "480p":"best[height<=480][ext=mp4]/best[height<=480]",
-  "360p":"best[height<=360][ext=mp4]/best[height<=360]",
+  best:  "best",
+  "720p":"best[height<=720]/best[height<=800]/best",
+  "480p":"best[height<=480]/best[height<=540]/best",
+  "360p":"best[height<=360]/best[height<=480]/best",
 };
 
 /* ── Base yt-dlp args ────────────────────────────────────────── */
