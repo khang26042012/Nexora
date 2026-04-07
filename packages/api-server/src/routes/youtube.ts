@@ -25,53 +25,94 @@ function setupCookies() {
 
 const hasCookies = setupCookies();
 
-/* ── Binary locator ──────────────────────────────────────────── */
-let _binCache: Promise<string> | null = null;
+/* ── Binary locator + auto-updater ──────────────────────────────
+ *  Ưu tiên: /tmp/yt-dlp-latest (luôn download mới nhất khi khởi động)
+ *  Fallback: binary trong node_modules (có thể cũ)
+ *  Download chạy background → không block request đầu
+ * ──────────────────────────────────────────────────────────────── */
+const LATEST_BIN  = "/tmp/yt-dlp-latest";
+const GH_RELEASE  = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 
-function getYtDlpBin(): Promise<string> {
-  if (_binCache) return _binCache;
-  _binCache = (async () => {
-    const candidates = [
-      ...(() => {
-        try {
-          const base = path.join(process.cwd(), "node_modules/.pnpm");
-          return fs.readdirSync(base)
-            .filter(d => d.startsWith("yt-dlp-exec"))
-            .map(d => path.join(base, d, "node_modules/yt-dlp-exec/bin/yt-dlp"));
-        } catch { return []; }
-      })(),
-      path.join(process.cwd(), "node_modules/yt-dlp-exec/bin/yt-dlp"),
-      "/tmp/yt-dlp",
-    ];
-
-    for (const p of candidates) {
-      if (fs.existsSync(p)) {
-        fs.chmodSync(p, "755");
-        return p;
-      }
-    }
-
-    /* auto-download từ GitHub nếu không có */
-    return new Promise<string>((resolve, reject) => {
-      const dest = "/tmp/yt-dlp";
-      const url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
-      const file = fs.createWriteStream(dest);
-      const download = (u: string) => https.get(u, res => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          return download(res.headers.location!);
-        }
-        res.pipe(file);
-        file.on("finish", () => {
-          file.close();
-          fs.chmodSync(dest, "755");
-          resolve(dest);
-        });
-      }).on("error", reject);
-      download(url);
-    });
-  })();
-  return _binCache;
+function findNodeModulesBin(): string | null {
+  const candidates = [
+    ...(() => {
+      try {
+        const base = path.join(process.cwd(), "node_modules/.pnpm");
+        return fs.readdirSync(base)
+          .filter(d => d.startsWith("yt-dlp-exec"))
+          .map(d => path.join(base, d, "node_modules/yt-dlp-exec/bin/yt-dlp"));
+      } catch { return []; }
+    })(),
+    path.join(process.cwd(), "node_modules/yt-dlp-exec/bin/yt-dlp"),
+    "/tmp/yt-dlp",
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) { fs.chmodSync(p, "755"); return p; }
+  }
+  return null;
 }
+
+function downloadLatestYtDlp(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const tmp = LATEST_BIN + ".tmp";
+    const file = fs.createWriteStream(tmp);
+    const get = (u: string) => https.get(u, { timeout: 30_000 }, res => {
+      if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
+        res.resume(); // bỏ qua body, follow redirect
+        return get(res.headers.location);
+      }
+      if (res.statusCode !== 200) {
+        res.resume();
+        file.destroy();
+        return reject(new Error(`GitHub HTTP ${res.statusCode}`));
+      }
+      res.pipe(file);
+      file.on("finish", () => {
+        try {
+          fs.renameSync(tmp, LATEST_BIN);
+          fs.chmodSync(LATEST_BIN, "755");
+          console.log("[yt-dlp] latest binary ready:", LATEST_BIN);
+          resolve(LATEST_BIN);
+        } catch(e) { reject(e); }
+      });
+    }).on("error", (e) => { file.destroy(); reject(e); });
+    get(GH_RELEASE);
+  });
+}
+
+/* Resolve bin: trả về ngay (node_modules hoặc cached latest),
+   đồng thời kick download latest ở background nếu chưa có    */
+let _latestReady: string | null = null;
+let _downloadPromise: Promise<string> | null = null;
+
+function kickLatestDownload() {
+  if (_latestReady || _downloadPromise) return;
+  _downloadPromise = downloadLatestYtDlp()
+    .then(p => { _latestReady = p; _downloadPromise = null; return p; })
+    .catch(e => { console.warn("[yt-dlp] background download failed:", e.message); _downloadPromise = null; return ""; });
+}
+
+async function getYtDlpBin(): Promise<string> {
+  /* Nếu đã có latest → dùng luôn */
+  if (_latestReady && fs.existsSync(_latestReady)) return _latestReady;
+
+  /* Nếu download đang chạy và node_modules bin tồn tại → dùng node_modules tạm */
+  const nmBin = findNodeModulesBin();
+
+  /* Kick background download nếu chưa có */
+  kickLatestDownload();
+
+  if (nmBin) return nmBin;
+
+  /* Không có gì → chờ download */
+  if (_downloadPromise) return _downloadPromise;
+
+  /* Fallback: download đồng bộ */
+  return downloadLatestYtDlp();
+}
+
+/* Kick ngay khi module load */
+kickLatestDownload();
 
 /* ── Format selector theo quality ───────────────────────────── */
 const QUALITY_FORMAT: Record<string, string> = {
