@@ -25,13 +25,33 @@ function setupCookies() {
 
 const hasCookies = setupCookies();
 
-/* ── Binary locator + auto-updater ──────────────────────────────
- *  Ưu tiên: /tmp/yt-dlp-latest (luôn download mới nhất khi khởi động)
- *  Fallback: binary trong node_modules (có thể cũ)
- *  Download chạy background → không block request đầu
- * ──────────────────────────────────────────────────────────────── */
-const LATEST_BIN  = "/tmp/yt-dlp-latest";
-const GH_RELEASE  = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
+/* ── Generic file downloader (follow redirects) ─────────────── */
+function downloadFile(url: string, dest: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tmp = dest + ".tmp";
+    const file = fs.createWriteStream(tmp);
+    const get = (u: string) => https.get(u, { timeout: 60_000 }, res => {
+      if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
+        res.resume();
+        return get(res.headers.location);
+      }
+      if (res.statusCode !== 200) {
+        res.resume(); file.destroy();
+        return reject(new Error(`HTTP ${res.statusCode} for ${u}`));
+      }
+      res.pipe(file);
+      file.on("finish", () => {
+        try { fs.renameSync(tmp, dest); resolve(); }
+        catch(e) { reject(e); }
+      });
+    }).on("error", (e) => { file.destroy(); reject(e); });
+    get(url);
+  });
+}
+
+/* ── yt-dlp binary ───────────────────────────────────────────── */
+const LATEST_BIN = "/tmp/yt-dlp-latest";
+const GH_YT_DLP  = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 
 function findNodeModulesBin(): string | null {
   const candidates = [
@@ -52,81 +72,121 @@ function findNodeModulesBin(): string | null {
   return null;
 }
 
-function downloadLatestYtDlp(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const tmp = LATEST_BIN + ".tmp";
-    const file = fs.createWriteStream(tmp);
-    const get = (u: string) => https.get(u, { timeout: 30_000 }, res => {
-      if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
-        res.resume(); // bỏ qua body, follow redirect
-        return get(res.headers.location);
-      }
-      if (res.statusCode !== 200) {
-        res.resume();
-        file.destroy();
-        return reject(new Error(`GitHub HTTP ${res.statusCode}`));
-      }
-      res.pipe(file);
-      file.on("finish", () => {
-        try {
-          fs.renameSync(tmp, LATEST_BIN);
-          fs.chmodSync(LATEST_BIN, "755");
-          console.log("[yt-dlp] latest binary ready:", LATEST_BIN);
-          resolve(LATEST_BIN);
-        } catch(e) { reject(e); }
-      });
-    }).on("error", (e) => { file.destroy(); reject(e); });
-    get(GH_RELEASE);
-  });
-}
+let _ytdlpReady: string | null = null;
+let _ytdlpPromise: Promise<string> | null = null;
 
-/* Resolve bin: trả về ngay (node_modules hoặc cached latest),
-   đồng thời kick download latest ở background nếu chưa có    */
-let _latestReady: string | null = null;
-let _downloadPromise: Promise<string> | null = null;
-
-function kickLatestDownload() {
-  if (_latestReady || _downloadPromise) return;
-  _downloadPromise = downloadLatestYtDlp()
-    .then(p => { _latestReady = p; _downloadPromise = null; return p; })
-    .catch(e => { console.warn("[yt-dlp] background download failed:", e.message); _downloadPromise = null; return ""; });
+function kickYtDlpDownload() {
+  if (_ytdlpReady || _ytdlpPromise) return;
+  _ytdlpPromise = downloadFile(GH_YT_DLP, LATEST_BIN)
+    .then(() => {
+      fs.chmodSync(LATEST_BIN, "755");
+      console.log("[yt-dlp] ready:", LATEST_BIN);
+      _ytdlpReady = LATEST_BIN; _ytdlpPromise = null;
+      return LATEST_BIN;
+    })
+    .catch(e => {
+      console.warn("[yt-dlp] download failed:", e.message);
+      _ytdlpPromise = null; return "";
+    });
 }
 
 async function getYtDlpBin(): Promise<string> {
-  /* Nếu đã có latest → dùng luôn */
-  if (_latestReady && fs.existsSync(_latestReady)) return _latestReady;
-
-  /* Nếu download đang chạy và node_modules bin tồn tại → dùng node_modules tạm */
+  if (_ytdlpReady && fs.existsSync(_ytdlpReady)) return _ytdlpReady;
   const nmBin = findNodeModulesBin();
-
-  /* Kick background download nếu chưa có */
-  kickLatestDownload();
-
+  kickYtDlpDownload();
   if (nmBin) return nmBin;
+  if (_ytdlpPromise) return _ytdlpPromise;
+  return downloadFile(GH_YT_DLP, LATEST_BIN).then(() => {
+    fs.chmodSync(LATEST_BIN, "755");
+    _ytdlpReady = LATEST_BIN;
+    return LATEST_BIN;
+  });
+}
 
-  /* Không có gì → chờ download */
-  if (_downloadPromise) return _downloadPromise;
+/* ── ffmpeg static binary ────────────────────────────────────────
+ *  Render không có ffmpeg → tự download static binary từ GitHub
+ *  Download chạy background; trong thời gian chờ dùng format không cần ffmpeg
+ * ──────────────────────────────────────────────────────────────── */
+const FFMPEG_BIN = "/tmp/yt-ffmpeg";
+const FFMPEG_TAR = "/tmp/yt-ffmpeg.tar.xz";
+/* yt-dlp FFmpeg Builds — static linux64 ~40MB */
+const FFMPEG_URL = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz";
 
-  /* Fallback: download đồng bộ */
-  return downloadLatestYtDlp();
+let _ffmpegReady: string | null = null;
+let _ffmpegDownloading = false;
+
+function kickFfmpegDownload() {
+  if (_ffmpegReady || _ffmpegDownloading) return;
+
+  /* Nếu đã có binary từ lần chạy trước (ephemeral fs) */
+  if (fs.existsSync(FFMPEG_BIN)) {
+    try { fs.chmodSync(FFMPEG_BIN, "755"); _ffmpegReady = FFMPEG_BIN; console.log("[ffmpeg] cached:", FFMPEG_BIN); return; } catch {}
+  }
+
+  _ffmpegDownloading = true;
+  console.log("[ffmpeg] downloading static binary (~40MB)…");
+
+  downloadFile(FFMPEG_URL, FFMPEG_TAR)
+    .then(() => new Promise<void>((resolve, reject) => {
+      /* Extract ffmpeg binary from tarball */
+      execFile("tar", [
+        "-xJf", FFMPEG_TAR,
+        "-C", "/tmp",
+        "--wildcards", "--no-anchored", "*/ffmpeg",
+        "--strip-components=2",   /* ffmpeg-master-…/bin/ffmpeg → /tmp/ffmpeg */
+      ], { timeout: 120_000 }, (err) => err ? reject(err) : resolve());
+    }))
+    .then(() => {
+      try { fs.unlinkSync(FFMPEG_TAR); } catch {}
+      /* binary đặt tại /tmp/ffmpeg sau khi extract */
+      const extracted = "/tmp/ffmpeg";
+      if (fs.existsSync(extracted)) {
+        fs.renameSync(extracted, FFMPEG_BIN);
+        fs.chmodSync(FFMPEG_BIN, "755");
+        _ffmpegReady = FFMPEG_BIN;
+        _ffmpegDownloading = false;
+        console.log("[ffmpeg] ready:", FFMPEG_BIN);
+      } else {
+        throw new Error("ffmpeg binary not found after extract");
+      }
+    })
+    .catch(e => {
+      console.warn("[ffmpeg] download/extract failed:", e.message);
+      _ffmpegDownloading = false;
+      try { fs.unlinkSync(FFMPEG_TAR); } catch {}
+    });
 }
 
 /* Kick ngay khi module load */
-kickLatestDownload();
-console.log("[yt-router] v8 loaded — itag22/18 combined format, cookies:", hasCookies);
+kickYtDlpDownload();
+kickFfmpegDownload();
+console.log(`[yt-router] v9 loaded — cookies:${hasCookies} ffmpeg_cached:${fs.existsSync(FFMPEG_BIN)}`);
 
-/* ── Format selector theo quality ───────────────────────────────
- *  Ưu tiên itag 22 (720p mp4) và 18 (360p mp4) — combined, không cần ffmpeg
- *  Fallback: best[vcodec^=avc] = h264 combined (nếu có)
- *  Fallback cuối: best (bất kỳ combined nào)
- *  KHÔNG dùng bestvideo+bestaudio: cần ffmpeg, Render không có
+/* ── Format selector theo quality & ffmpeg availability ─────────
+ *  Nếu có ffmpeg: bestvideo+bestaudio/best — chất lượng cao nhất
+ *  Nếu chưa có:  22/18/best (combined không cần ffmpeg) — fallback
  * ──────────────────────────────────────────────────────────────── */
-const QUALITY_FORMAT: Record<string, string> = {
-  best:  "22/18/best[vcodec^=avc][acodec!~=none]/best",
-  "720p":"22/best[height<=720][vcodec^=avc][acodec!~=none]/18/best[height<=720]/best",
-  "480p":"best[height<=480][vcodec^=avc][acodec!~=none]/18/best[height<=480]/best",
-  "360p":"18/best[height<=360][vcodec^=avc][acodec!~=none]/best[height<=360]/best",
-};
+function getFormatSelector(quality: string): string {
+  if (_ffmpegReady) {
+    /* ffmpeg có sẵn → dùng adaptive streams, tự merge */
+    const fmts: Record<string, string> = {
+      best:  "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+      "720p":"bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/22/best[height<=720]/best",
+      "480p":"bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/18/best[height<=480]/best",
+      "360p":"bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/18/best[height<=360]/best",
+    };
+    return fmts[quality] ?? fmts["best"]!;
+  } else {
+    /* ffmpeg chưa sẵn → dùng combined formats không cần merge */
+    const fmts: Record<string, string> = {
+      best:  "22/18/best[acodec!=none][vcodec!=none]/best",
+      "720p":"22/best[height<=720][acodec!=none][vcodec!=none]/18/best[height<=720]/best",
+      "480p":"best[height<=480][acodec!=none][vcodec!=none]/18/best[height<=480]/best",
+      "360p":"18/best[height<=360][acodec!=none][vcodec!=none]/best[height<=360]/best",
+    };
+    return fmts[quality] ?? fmts["best"]!;
+  }
+}
 
 /* ── Base yt-dlp args ────────────────────────────────────────── */
 function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[] {
@@ -135,23 +195,22 @@ function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[]
     "--no-check-certificate",
     "--socket-timeout", "15",
     "--no-playlist",
-    /* --ignore-no-formats-error: chỉ dùng cho /info (metadata), KHÔNG dùng cho download
-       vì sẽ khiến yt-dlp exit 0 khi không có format → không tạo file → khó detect lỗi */
     ...(opts?.download ? [] : ["--ignore-no-formats-error"]),
+    ...(opts?.download && _ffmpegReady ? ["--ffmpeg-location", _ffmpegReady, "--merge-output-format", "mp4"] : []),
     ...(hasCookies ? ["--cookies", COOKIES_PATH] : []),
     ...(opts?.extraArgs ?? []),
   ];
 }
 
-/* ── Thử nhiều player_client — android trước vì bypass datacenter IP tốt nhất ── */
+/* ── Thử nhiều player_client ────────────────────────────────── */
 const YT_CLIENT_STRATEGIES = [
-  ["--extractor-args", "youtube:player_client=android"],           // bypass bot-check datacenter
+  [],                                                               // default web — có itag 22/18 nếu có cookies
+  ["--extractor-args", "youtube:player_client=android"],           // bypass datacenter IP
   ["--extractor-args", "youtube:player_client=tv_embedded"],
   ["--extractor-args", "youtube:player_client=mweb"],
-  [],                                                               // default (web) — fallback cuối
 ];
 
-/* ── Helper: chạy yt-dlp một lần với args nhất định ───────── */
+/* ── Helper: chạy yt-dlp ─────────────────────────────────────── */
 function runYtDlp(bin: string, args: string[], timeout = 35_000): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(bin, args, { maxBuffer: 8 * 1024 * 1024, timeout },
@@ -166,7 +225,7 @@ function runYtDlp(bin: string, args: string[], timeout = 35_000): Promise<string
   });
 }
 
-/* ── Helper: lỗi có nên retry client khác không ─────────────── */
+/* ── Helper: lỗi có nên retry không ─────────────────────────── */
 function isRetryableErr(msg: string): boolean {
   return msg.includes("format") || msg.includes("No video")
     || msg.includes("player_client") || msg.includes("Requested")
@@ -174,10 +233,7 @@ function isRetryableErr(msg: string): boolean {
     || msg.includes("Unavailable") || msg.includes("This video");
 }
 
-/* ── GET /api/yt/info?url=... ────────────────────────────────
- *  Thử lần lượt nhiều yt-dlp client strategies cho YouTube
- *  Chỉ trả success khi video CÓ format tải được (formats.length > 0)
- * ─────────────────────────────────────────────────────────── */
+/* ── GET /api/yt/info?url=... ──────────────────────────────── */
 router.get("/info", async (req, res) => {
   const url = String(req.query["url"] ?? "").trim();
   if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
@@ -188,18 +244,12 @@ router.get("/info", async (req, res) => {
 
     for (const extraArgs of YT_CLIENT_STRATEGIES) {
       try {
-        const args = [
-          url,
-          "--dump-single-json",
-          "--skip-download",
-          ...baseArgs({ extraArgs }),
-        ];
+        const args = [url, "--dump-single-json", "--skip-download", ...baseArgs({ extraArgs })];
         const stdout = await runYtDlp(bin, args, 22_000);
         let data: any;
         try { data = JSON.parse(stdout); }
         catch { throw new Error("Không parse được JSON từ yt-dlp"); }
 
-        /* Video không có format tải được → thử client khác */
         const formats: any[] = data.formats ?? [];
         const hasDownloadable = formats.some(f => f.url && !f.url.startsWith("manifest"));
         if (!hasDownloadable) {
@@ -237,12 +287,7 @@ router.get("/info", async (req, res) => {
   }
 });
 
-/* ── GET /api/yt/download?url=...&quality=best|720p|480p|360p
- *  1. Thử lần lượt các player_client strategies (giống /info)
- *  2. yt-dlp tải xuống file /tmp/yt_xxxx.mp4
- *  3. Server pipe file về browser
- *  → Không bị timeout / stream break như approach pipe trực tiếp
- * ─────────────────────────────────────────────────────────── */
+/* ── GET /api/yt/download?url=...&quality=best|720p|480p|360p ── */
 router.get("/download", async (req, res) => {
   const url     = String(req.query["url"]     ?? "").trim();
   const quality = String(req.query["quality"] ?? "best").trim();
@@ -250,17 +295,14 @@ router.get("/download", async (req, res) => {
 
   if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
 
-  const fmt = QUALITY_FORMAT[quality] ?? QUALITY_FORMAT["best"]!;
-  /* Fallback rộng hơn: nếu format chính không có thì lấy bất kỳ */
-  const fmtWithFallback = `${fmt}/best`;
+  const fmt = getFormatSelector(quality);
 
   const tmpFile = `/tmp/yt_${Date.now()}_${Math.random().toString(36).slice(2)}.%(ext)s`;
 
-  const cleanup = (ext?: string) => {
-    /* Xóa file bất kể ext là gì */
+  const cleanup = () => {
     const base = tmpFile.replace(".%(ext)s", "");
     try {
-      for (const e of ["mp4","webm","mkv","m4a","mp3","part",ext ?? ""].filter(Boolean)) {
+      for (const e of ["mp4","webm","mkv","m4a","mp3","part"]) {
         const p = `${base}.${e}`;
         if (fs.existsSync(p)) fs.unlinkSync(p);
       }
@@ -276,9 +318,11 @@ router.get("/download", async (req, res) => {
         const args = [
           url,
           "-o", tmpFile,
-          "-f", fmtWithFallback,
+          "-f", fmt,
           ...baseArgs({ extraArgs, download: true }),
         ];
+
+        console.log(`[yt-download] client=${extraArgs[1] ?? "web"} fmt=${fmt.slice(0,40)} ffmpeg=${!!_ffmpegReady}`);
 
         await new Promise<void>((resolve, reject) => {
           execFile(bin, args, { timeout: 180_000 }, (err, _stdout, stderr) => {
@@ -289,15 +333,15 @@ router.get("/download", async (req, res) => {
           });
         });
 
-        /* Tìm file đã tải (ext có thể khác mp4) */
+        /* Tìm file đã tải */
         const base = tmpFile.replace(".%(ext)s", "");
         const actualFile = ["mp4","webm","mkv","m4a","mp3"]
           .map(e => `${base}.${e}`)
           .find(p => fs.existsSync(p));
 
         if (!actualFile) {
-          lastErr = "No video formats found"; // trigger retry với client tiếp theo
-          continue; // luôn thử client tiếp theo khi không có file
+          lastErr = "No video formats found";
+          continue;
         }
 
         const stat = fs.statSync(actualFile);
@@ -312,13 +356,14 @@ router.get("/download", async (req, res) => {
 
         const stream = fs.createReadStream(actualFile);
         stream.pipe(res);
-        stream.on("end",   () => cleanup(ext));
-        stream.on("error", () => cleanup(ext));
-        req.on("close",    () => cleanup(ext));
-        return; /* Thành công → thoát vòng lặp */
+        stream.on("end",   () => cleanup());
+        stream.on("error", () => cleanup());
+        req.on("close",    () => cleanup());
+        return;
 
       } catch (e: any) {
         lastErr = e.message ?? "Lỗi không xác định";
+        console.warn(`[yt-download] failed client=${extraArgs[1] ?? "web"}:`, lastErr.slice(0, 120));
         if (!isRetryableErr(lastErr)) break;
       }
     }
