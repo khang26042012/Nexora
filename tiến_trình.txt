@@ -5,6 +5,40 @@
 ================================================================
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 9] FIX — YtDownloader v13: format selector + tv_embedded first
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: packages/api-server/src/routes/youtube.ts (v13)
+
+Vấn đề từ ảnh chụp:
+  - "Requested format is not available" khi download
+  - Info (/info) OK nhưng download fail
+  - Nguyên nhân: format selector dùng [ext=mp4]+[ext=m4a] quá strict
+    → ios/tv_embedded client có format khác codec → không match
+
+Fix đã làm:
+  1. Đổi format selector sang yt-dlp shorthand "bv*+ba/b":
+     - bv* = best video (any codec) + ba = best audio / b = fallback
+     - Tương thích với MỌI client (ios, tv_embedded, android)
+     - Thêm --format-sort ext:mp4:m4a để ưu tiên mp4 khi có thể
+  2. Đổi strategy order: tv_embedded đầu tiên (KHÔNG cần PO token)
+     - tv_embedded → android → ios → mweb
+     - Thêm tv_embedded + player_skip=webpage,configs làm fallback
+  3. Fix bug: bv* trong block comment gây lỗi build esbuild (dùng // comment)
+
+Tests PASSED:
+  - /api/yt/info Rick Astley → title ✅
+  - /api/yt/download 720p → HTTP 200 | 21MB ✅
+  - /api/yt/download best (4K) → HTTP 200 | 243MB ✅
+
+Lưu ý: video E_IQMXRMV3Y (Câu Cá Vạn Cần) bị geo-restrict
+  → chỉ xem được từ Vietnam IP, server US (Replit/Render) không tải được
+  → đây là giới hạn của nền tảng, không phải bug code
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [07/04/2026 session 9] FIX — YtDownloader v12: PO Token fix cho YouTube 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

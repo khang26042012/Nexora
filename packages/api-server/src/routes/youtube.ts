@@ -264,7 +264,7 @@ function kickFfmpegDownload() {
 /* Khởi tạo khi module load */
 if (!_ytdlpReady) kickYtDlpDownload();
 initFfmpeg();
-console.log(`[yt-router] v12 loaded — cookies:${hasCookies} ffmpeg:${_ffmpegReady ?? "loading..."} (2026: PO-token-free clients)`);
+console.log(`[yt-router] v13 loaded — cookies:${hasCookies} ffmpeg:${_ffmpegReady ?? "loading..."} (2026: tv_embedded+player_skip, bv*/ba/b)`);
 
 /* ── Platform detection ──────────────────────────────────────── */
 function isYouTube(url: string): boolean {
@@ -275,25 +275,27 @@ function isYouTube(url: string): boolean {
 }
 
 /* ── Format selector theo quality & ffmpeg availability ─────────
- *  Nếu có ffmpeg: bestvideo+bestaudio — chất lượng cao nhất
- *  Nếu chưa có:  combined formats 22/18 — không cần ffmpeg
+ *  Dùng yt-dlp shorthand "bv*+ba/b" - tương thích với MỌI client
+ *  (ios, tv_embedded, android không dùng [ext=mp4]/[ext=m4a] cứng)
+ *  --format-sort trong baseArgs ưu tiên mp4/m4a tự động
  * ──────────────────────────────────────────────────────────────── */
 function getFormatSelector(quality: string): string {
   if (_ffmpegReady) {
+    // bv* = best video (any codec), ba = best audio, /b = fallback best combined
     const fmts: Record<string, string> = {
-      best:  "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
-      "720p":"bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/22/best[height<=720]/best",
-      "480p":"bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/18/best[height<=480]/best",
-      "360p":"bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/18/best[height<=360]/best",
+      best:  "bv*+ba/b",
+      "720p":"bv*[height<=720]+ba/b[height<=720]/b",
+      "480p":"bv*[height<=480]+ba/b[height<=480]/b",
+      "360p":"bv*[height<=360]+ba/b[height<=360]/b",
     };
     return fmts[quality] ?? fmts["best"]!;
   } else {
-    /* ffmpeg chưa sẵn → dùng combined formats (360p/720p max) */
+    /* Không có ffmpeg → chỉ dùng combined format (video+audio trong 1 stream) */
     const fmts: Record<string, string> = {
-      best:  "22/18/best[acodec!=none][vcodec!=none]/best",
-      "720p":"22/best[height<=720][acodec!=none][vcodec!=none]/18/best[height<=720]/best",
-      "480p":"best[height<=480][acodec!=none][vcodec!=none]/18/best[height<=480]/best",
-      "360p":"18/best[height<=360][acodec!=none][vcodec!=none]/best[height<=360]/best",
+      best:  "b[vcodec!=none][acodec!=none]/b",
+      "720p":"b[height<=720][vcodec!=none][acodec!=none]/b[height<=720]/b",
+      "480p":"b[height<=480][vcodec!=none][acodec!=none]/b[height<=480]/b",
+      "360p":"b[height<=360][vcodec!=none][acodec!=none]/b[height<=360]/b",
     };
     return fmts[quality] ?? fmts["best"]!;
   }
@@ -306,6 +308,8 @@ function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[]
     "--no-check-certificate",
     "--socket-timeout", "20",
     "--no-playlist",
+    /* Ưu tiên mp4/m4a khi có lựa chọn */
+    "--format-sort", "ext:mp4:m4a",
     ...(opts?.download ? [] : ["--ignore-no-formats-error"]),
     ...(opts?.download && _ffmpegReady ? ["--ffmpeg-location", _ffmpegReady, "--merge-output-format", "mp4"] : []),
     ...(hasCookies ? ["--cookies", COOKIES_PATH] : []),
@@ -315,20 +319,22 @@ function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[]
 
 /* ── YouTube player_client strategies ───────────────────────────
  *  2026: YouTube bắt PO Token cho web client trên datacenter IP.
- *  Clients KHÔNG cần PO Token: ios, tv_embedded, android, mweb
+ *  Clients KHÔNG cần PO Token: tv_embedded, android, ios, mweb
  *
- *  Strategy 1: multi-client trong 1 lệnh (nhanh nhất, yt-dlp tự chọn)
- *  Strategy 2: ios đơn (reliable nhất, không cần PO token)
- *  Strategy 3: tv_embedded (không cần PO token, không cần sign-in)
- *  Strategy 4: android (bypass datacenter IP check)
- *  Strategy 5: mweb + web_embedded (fallback cuối)
+ *  player_skip=webpage,configs → bỏ qua webpage load = tránh PO token trigger
+ *
+ *  Strategy 1: tv_embedded (KHÔNG cần PO token, reliable nhất 2026)
+ *  Strategy 2: tv_embedded + player_skip (thêm skip để nhanh hơn)
+ *  Strategy 3: android (bypass datacenter IP)
+ *  Strategy 4: ios
+ *  Strategy 5: mweb fallback
  * ──────────────────────────────────────────────────────────── */
 const YT_CLIENT_STRATEGIES = [
-  ["--extractor-args", "youtube:player_client=ios,tv_embedded,android"],
-  ["--extractor-args", "youtube:player_client=ios"],
   ["--extractor-args", "youtube:player_client=tv_embedded"],
+  ["--extractor-args", "youtube:player_client=tv_embedded;player_skip=webpage,configs"],
   ["--extractor-args", "youtube:player_client=android"],
-  ["--extractor-args", "youtube:player_client=mweb,web_embedded"],
+  ["--extractor-args", "youtube:player_client=ios"],
+  ["--extractor-args", "youtube:player_client=mweb"],
 ];
 
 /* ── Non-YouTube: single attempt, no player_client tricks ────── */
