@@ -29,6 +29,7 @@ const PLATFORMS = [
 /* ── Chất lượng ── */
 const QUALITIES = [
   { label: "Tốt nhất", value: "best",  color: "#a78bfa" },
+  { label: "1080p",    value: "1080p", color: "#60a5fa" },
   { label: "720p",     value: "720p",  color: "#34d399" },
   { label: "480p",     value: "480p",  color: "#fbbf24" },
   { label: "360p",     value: "360p",  color: "#94a3b8" },
@@ -42,6 +43,8 @@ type VideoInfo = {
   platform: string;
   ffmpegAvailable?: boolean;
   qualityNote?: string | null;
+  availableQualities?: string[];
+  maxQuality?: string;
 };
 
 async function fetchVideoInfo(url: string): Promise<VideoInfo> {
@@ -79,6 +82,8 @@ export function YtDownloader() {
     try {
       const result = await fetchVideoInfo(trimmed);
       setInfo(result);
+      // Tự động chọn quality tốt nhất có sẵn
+      if (result.maxQuality) setQuality(result.maxQuality === "360p" ? "360p" : "best");
     } catch (e: any) {
       setError(e.message ?? "Không lấy được thông tin video");
     } finally {
@@ -123,6 +128,9 @@ export function YtDownloader() {
       setDlLoading(false);
     }
   };
+
+  /* Danh sách quality có sẵn — fallback là tất cả nếu server cũ không trả */
+  const available = info?.availableQualities ?? QUALITIES.map(q => q.value);
 
   return (
     <div className="min-h-screen" style={{ background: "#020008" }}>
@@ -329,31 +337,63 @@ export function YtDownloader() {
 
               {/* Quality Selection */}
               <div className="mb-4">
-                <p className="text-xs font-semibold mb-3 tracking-wider uppercase"
-                  style={{ color: "rgba(255,255,255,0.35)" }}>
-                  Chọn chất lượng
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold tracking-wider uppercase"
+                    style={{ color: "rgba(255,255,255,0.35)" }}>
+                    Chọn chất lượng
+                  </p>
+                  {info.maxQuality && (
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      Cao nhất: <span style={{ color: "#34d399" }}>
+                        {QUALITIES.find(q => q.value === info.maxQuality)?.label ?? info.maxQuality}
+                      </span>
+                    </p>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {QUALITIES.map(q => {
                     const active = quality === q.value;
+                    const isAvail = available.includes(q.value);
                     return (
                       <motion.button
                         key={q.value}
-                        whileTap={{ scale: 0.94 }}
-                        onClick={() => setQuality(q.value)}
+                        whileTap={isAvail ? { scale: 0.94 } : {}}
+                        onClick={() => isAvail && setQuality(q.value)}
+                        disabled={!isAvail}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200"
                         style={{
-                          background: active ? `${q.color}18` : "rgba(255,255,255,0.04)",
-                          border: active ? `1px solid ${q.color}55` : "1px solid rgba(255,255,255,0.08)",
-                          color: active ? q.color : "rgba(255,255,255,0.5)",
+                          background: !isAvail
+                            ? "rgba(255,255,255,0.02)"
+                            : active
+                            ? `${q.color}18`
+                            : "rgba(255,255,255,0.04)",
+                          border: !isAvail
+                            ? "1px solid rgba(255,255,255,0.04)"
+                            : active
+                            ? `1px solid ${q.color}55`
+                            : "1px solid rgba(255,255,255,0.08)",
+                          color: !isAvail
+                            ? "rgba(255,255,255,0.18)"
+                            : active
+                            ? q.color
+                            : "rgba(255,255,255,0.5)",
+                          cursor: isAvail ? "pointer" : "not-allowed",
                         }}
                       >
                         <Film className="w-3.5 h-3.5" />
                         {q.label}
+                        {!isAvail && (
+                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.18)", fontWeight: 400 }}>
+                            —
+                          </span>
+                        )}
                       </motion.button>
                     );
                   })}
                 </div>
+                <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>
+                  Nút mờ = video không có chất lượng đó
+                </p>
               </div>
 
               {/* Download Button */}

@@ -410,6 +410,23 @@ router.get("/info", async (req, res) => {
           continue;
         }
 
+        /* ── Xác định quality nào có sẵn từ formats ─────────────── */
+        const heights = formats
+          .filter((f: any) => f.url && !f.url.startsWith("manifest") && f.height)
+          .map((f: any) => f.height as number);
+        const maxHeight = heights.length > 0 ? Math.max(...heights) : 0;
+
+        const availableQualities: string[] = ["360p"]; // 360p luôn có
+        if (maxHeight >= 480) availableQualities.unshift("480p");
+        if (maxHeight >= 720) availableQualities.unshift("720p");
+        if (maxHeight >= 1080) availableQualities.unshift("1080p");
+        availableQualities.unshift("best"); // best luôn có đầu tiên
+
+        const maxQuality = maxHeight >= 1080 ? "best"
+          : maxHeight >= 720  ? "720p"
+          : maxHeight >= 480  ? "480p"
+          : "360p";
+
         return res.json({
           title:     data.title         ?? "Unknown",
           thumbnail: data.thumbnail      ?? "",
@@ -417,7 +434,8 @@ router.get("/info", async (req, res) => {
           channel:   data.channel        ?? data.uploader ?? "Unknown",
           platform:  data.extractor_key  ?? "Unknown",
           ffmpegAvailable: !!_ffmpegReady,
-          /* Hiển thị hint khi chất lượng bị giới hạn vì chưa có ffmpeg */
+          availableQualities,
+          maxQuality,
           qualityNote: _ffmpegReady ? null : "Chất lượng giới hạn ở 360p/720p (ffmpeg đang tải hoặc không có sẵn)",
         });
       } catch (e: any) {
