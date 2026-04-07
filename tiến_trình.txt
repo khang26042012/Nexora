@@ -1,8 +1,44 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 07/04/2026 (session 9)
+  Cập nhật: 07/04/2026 (session 10)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 10] FIX — YtDownloader v14: Geo-block diagnosis + hướng dẫn cookies
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Nguyên nhân lỗi video Việt Nam được xác nhận:
+  - YouTube dùng IP-based geo-restriction (không phải header-based)
+  - `--geo-bypass-country VN` chỉ set X-Forwarded-For header → YouTube bỏ qua
+  - Server đặt tại Mỹ (Replit/Render) → YouTube trả "Video unavailable" cho video VN
+  - Kiểm tra: Rick Astley ✅, Sơn Tùng / Câu Cá Vạn Cần ❌ từ server Mỹ
+  - Test tất cả clients (tv_embedded, android, ios, mweb) → đều fail như nhau
+
+Giải pháp duy nhất (không có VPN/proxy VN):
+  YOUTUBE_COOKIES từ tài khoản Google VN của Khang
+  → YouTube phục vụ theo region của account, không theo server IP
+
+Fix đã làm (v14 → cùng version, chỉ cải thiện UX):
+  1. Backend: error message "GEO_BLOCKED: ..." thay vì generic "Video không tải được..."
+     - Cả /info và /download endpoints
+  2. Frontend YtDownloader.tsx: detect error.includes("GEO_BLOCKED")
+     → Hiện hướng dẫn step-by-step cài YOUTUBE_COOKIES:
+       1. Cài Chrome extension "Get cookies.txt LOCALLY"
+       2. Mở youtube.com đã đăng nhập tài khoản Google VN
+       3. Export cookies → copy nội dung file
+       4. Render.com → Settings → Environment → thêm YOUTUBE_COOKIES
+  3. Backend đã có cookies handler từ trước:
+     - Đọc env YOUTUBE_COOKIES → ghi /tmp/yt-cookies.txt
+     - Truyền --cookies /tmp/yt-cookies.txt cho yt-dlp
+
+Trạng thái:
+  - Non-VN videos (Rick Astley, etc.): tải tốt ✅
+  - Video VN: cần YOUTUBE_COOKIES, UI hiện hướng dẫn rõ ràng ✅
+  - Replit: set Secret YOUTUBE_COOKIES khi có cookies
+  - Render (production): set Environment Variable YOUTUBE_COOKIES
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [07/04/2026 session 9] FIX — YtDownloader v13: format selector + tv_embedded first

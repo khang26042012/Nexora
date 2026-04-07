@@ -264,7 +264,7 @@ function kickFfmpegDownload() {
 /* Khởi tạo khi module load */
 if (!_ytdlpReady) kickYtDlpDownload();
 initFfmpeg();
-console.log(`[yt-router] v13 loaded — cookies:${hasCookies} ffmpeg:${_ffmpegReady ?? "loading..."} (2026: tv_embedded+player_skip, bv*/ba/b)`);
+console.log(`[yt-router] v14 loaded — cookies:${hasCookies} ffmpeg:${_ffmpegReady ?? "loading..."} (geo-bypass:VN, tv_embedded, bv*+ba/b)`);
 
 /* ── Platform detection ──────────────────────────────────────── */
 function isYouTube(url: string): boolean {
@@ -302,7 +302,7 @@ function getFormatSelector(quality: string): string {
 }
 
 /* ── Base yt-dlp args ────────────────────────────────────────── */
-function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[] {
+function baseArgs(opts?: { extraArgs?: string[]; download?: boolean; geoBypass?: boolean }): string[] {
   return [
     "--no-warnings",
     "--no-check-certificate",
@@ -310,6 +310,8 @@ function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[]
     "--no-playlist",
     /* Ưu tiên mp4/m4a khi có lựa chọn */
     "--format-sort", "ext:mp4:m4a",
+    /* Geo-bypass Vietnam — gửi X-Forwarded-For header VN IP */
+    "--geo-bypass-country", "VN",
     ...(opts?.download ? [] : ["--ignore-no-formats-error"]),
     ...(opts?.download && _ffmpegReady ? ["--ffmpeg-location", _ffmpegReady, "--merge-output-format", "mp4"] : []),
     ...(hasCookies ? ["--cookies", COOKIES_PATH] : []),
@@ -417,7 +419,7 @@ router.get("/info", async (req, res) => {
       || lastErr.includes("cookies") || lastErr.includes("confirm");
 
     if (isUnavailable) {
-      return res.status(500).json({ error: "Video không tải được từ server (có thể bị geo-block, IP block, hoặc cần đăng nhập)" });
+      return res.status(500).json({ error: "GEO_BLOCKED: Video bị giới hạn theo vùng — server đặt ở Mỹ nên không tải được video Việt Nam. Cần set YOUTUBE_COOKIES từ tài khoản YouTube của bạn để bypass." });
     }
     const hint = isBotCheck ? " | Cần set YOUTUBE_COOKIES để bypass bot-check." : "";
     return res.status(500).json({ error: `yt-dlp: ${lastErr}${hint}` });
@@ -524,7 +526,7 @@ router.get("/download", async (req, res) => {
       || lastErr.includes("cookies") || lastErr.includes("confirm");
 
     let msg = isUnavail
-      ? "Video không tải được từ server (geo-block, IP block, hoặc cần đăng nhập)"
+      ? "GEO_BLOCKED: Video bị giới hạn theo vùng — server đặt ở Mỹ nên không tải được video Việt Nam. Cần set YOUTUBE_COOKIES từ tài khoản YouTube của bạn để bypass."
       : `yt-dlp: ${lastErr}`;
     if (isBotCheck) msg += " | Cần set YOUTUBE_COOKIES để bypass.";
 

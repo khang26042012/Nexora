@@ -252,13 +252,23 @@ export function YtDownloader() {
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span className="whitespace-pre-line break-all">{error}</span>
               </div>
-              {(error.includes("Sign in") || error.includes("bot") || error.includes("cookies")) && (
-                <div className="mt-3 pt-3 text-xs space-y-1"
+              {(error.includes("Sign in") || error.includes("bot") || error.includes("cookies") || error.includes("GEO_BLOCKED") || error.includes("giới hạn") || error.includes("geo")) && (
+                <div className="mt-3 pt-3 text-xs space-y-1.5"
                   style={{ borderTop: "1px solid rgba(239,68,68,0.2)", color: "rgba(255,255,255,0.5)" }}>
-                  <p className="font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Fix YouTube bot check:</p>
-                  <p>1. Cài <span className="font-mono" style={{ color: "#fbbf24" }}>"Get cookies.txt LOCALLY"</span> trên Chrome</p>
-                  <p>2. Mở YouTube → export cookies</p>
-                  <p>3. Set <span className="font-mono" style={{ color: "#fbbf24" }}>YOUTUBE_COOKIES</span> trên Render</p>
+                  <p className="font-semibold" style={{ color: "rgba(255,255,255,0.8)" }}>
+                    {error.includes("GEO_BLOCKED") ? "Fix video Việt Nam (geo-block):" : "Fix YouTube bot check:"}
+                  </p>
+                  <p>1. Cài extension <span className="font-mono px-1 py-0.5 rounded" style={{ color: "#fbbf24", background: "rgba(251,191,36,0.1)" }}>"Get cookies.txt LOCALLY"</span> trên Chrome</p>
+                  <p>2. Truy cập <span style={{ color: "rgba(255,255,255,0.7)" }}>youtube.com</span> (đã đăng nhập tài khoản Google VN)</p>
+                  <p>3. Click icon extension → <span style={{ color: "rgba(255,255,255,0.7)" }}>Export</span> → copy toàn bộ nội dung file</p>
+                  <p>4. Vào Render.com → Settings → Environment → thêm variable:</p>
+                  <p className="pl-3">
+                    Key: <span className="font-mono px-1 py-0.5 rounded" style={{ color: "#a78bfa", background: "rgba(167,139,250,0.1)" }}>YOUTUBE_COOKIES</span>{" "}
+                    Value: <span style={{ color: "rgba(255,255,255,0.5)" }}>dán nội dung file cookies</span>
+                  </p>
+                  <p className="pt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+                    Sau khi set cookies, server sẽ dùng tài khoản YouTube VN của bạn → bypass geo-block.
+                  </p>
                 </div>
               )}
             </motion.div>
