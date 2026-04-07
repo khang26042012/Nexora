@@ -423,7 +423,7 @@ export async function initTelegramBot() {
     updateSystemState({ alert_enabled: 1 });
     bot!.sendMessage(
       msg.chat.id,
-      `🔔 Chủ nhân ơi, mình đã bật cảnh báo rồi ạ!`,
+      `🔔 Chủ nhân ơi, mình đã <b>bật thông báo tự động</b> rồi ạ!\n\nTừ giờ server sẽ tự gửi tin khi:\n• ESP32 kết nối / mất kết nối\n• Phát hiện lửa\n• Cảnh báo từ cảm biến\n• Bơm tự động hoạt động`,
       { parse_mode: "HTML" }
     );
   });
@@ -433,7 +433,7 @@ export async function initTelegramBot() {
     updateSystemState({ alert_enabled: 0 });
     bot!.sendMessage(
       msg.chat.id,
-      `🔕 Chủ nhân ơi, mình đã tắt cảnh báo rồi ạ!`,
+      `🔕 Chủ nhân ơi, mình đã <b>tắt thông báo tự động</b> rồi ạ!\n\nServer sẽ <b>không tự gửi bất kỳ tin nào</b> cho đến khi dùng /alert_on để bật lại.\n\n(Các lệnh thủ công như /status, /pump_on,... vẫn hoạt động bình thường)`,
       { parse_mode: "HTML" }
     );
   });

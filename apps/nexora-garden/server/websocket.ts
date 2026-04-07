@@ -88,6 +88,13 @@ export function initWebSocket(
   server: Server,
   sendTelegram: (msg: string) => void
 ) {
+  // Wrapper: chỉ gửi Telegram nếu alert_enabled = 1
+  // Dùng cho mọi auto-message (connect, disconnect, fire, pre_water, notify)
+  // Không ảnh hưởng đến các lệnh Telegram do user chủ động gửi
+  function alertSend(msg: string) {
+    const state = getSystemState();
+    if (state.alert_enabled) sendTelegram(msg);
+  }
   // Use a SINGLE WebSocketServer with no path restriction.
   // Two separate WebSocketServers on the same HTTP server both listen to the
   // `upgrade` event. When the first handles /ws, the second also fires,
@@ -101,7 +108,7 @@ export function initWebSocket(
     if (pathname === "/ws-browser" || pathname === "/NexoraGarden/ws-browser") {
       handleBrowserConnection(ws);
     } else if (pathname === "/ws" || pathname === "/NexoraGarden/ws") {
-      handleEsp32Connection(ws, req, sendTelegram);
+      handleEsp32Connection(ws, req, alertSend);
     } else {
       // Unknown path — close cleanly
       ws.close(1008, "Unknown path");
@@ -432,10 +439,7 @@ function handleMessage(
     const message = String(msg.message ?? "");
     if (!message) return;
     broadcastLog("warn", `📢 ESP32: ${message}`);
-    const state = getSystemState();
-    if (state.alert_enabled) {
-      sendTelegram(`🔔 <b>ESP32 thông báo:</b>\n${message}`);
-    }
+    sendTelegram(`🔔 <b>ESP32 thông báo:</b>\n${message}`);
   } else if (msg.type === "pre_water") {
     logger.info("ESP32 sent pre_water signal — broadcasting to browsers and Telegram");
     broadcastToBrowsers({ type: "pre_water" });
