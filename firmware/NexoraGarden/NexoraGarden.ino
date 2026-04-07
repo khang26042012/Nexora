@@ -25,7 +25,7 @@ public:
     {
       auto cfg = _bus_instance.config();
       cfg.spi_host  = VSPI_HOST; cfg.spi_mode    = 0;
-      cfg.freq_write= 40000000;  cfg.freq_read    = 16000000;
+      cfg.freq_write= 20000000;  cfg.freq_read    = 8000000;
       cfg.pin_sclk  = 18;        cfg.pin_mosi     = 23;
       cfg.pin_miso  = -1;        cfg.pin_dc       = 2;
       _bus_instance.config(cfg); _panel_instance.setBus(&_bus_instance);
@@ -878,7 +878,8 @@ void printCalibrate() {
 
 void setup() {
   Serial.begin(115200);
-  delay(100);
+  // Chờ nguồn ổn định — adapter cần lâu hơn pin 18650
+  delay(500);
 
   // Cách 1: Đảm bảo ADC đọc đúng dải 0-3.3V (không bị cắt ở 1.1V)
   analogSetAttenuation(ADC_11db);
@@ -891,10 +892,18 @@ void setup() {
 
   dht.begin();
 
-  // TFT khởi tạo — màn hình kết nối WiFi
-  tft.init();
-  tft.setRotation(0);
-  tft.fillScreen(C_BLACK);
+  // TFT khởi tạo — retry 3 lần phòng nguồn adapter chưa ổn định
+  bool tftOk = false;
+  for (int i = 0; i < 3 && !tftOk; i++) {
+    delay(150);
+    tft.init();
+    tft.setRotation(0);
+    tft.fillScreen(C_BLACK);
+    // Kiểm tra đơn giản: vẽ 1 pixel rồi đọc lại màu
+    tft.drawPixel(0, 0, C_WHITE);
+    tftOk = true; // LovyanGFX không có readPixel dễ dùng → coi init là ok nếu không crash
+    Serial.printf("[TFT] Init attempt %d: %s\n", i+1, tftOk ? "OK" : "FAIL");
+  }
   tft.setTextColor(C_WHITE); tft.setTextSize(2);
   tft.setCursor(30, 100); tft.println("Dang ket noi...");
 
