@@ -140,12 +140,12 @@ function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[]
   ];
 }
 
-/* ── Thử nhiều player_client — default trước, rồi mới fallback ── */
+/* ── Thử nhiều player_client — android trước vì bypass datacenter IP tốt nhất ── */
 const YT_CLIENT_STRATEGIES = [
-  [],                                                               // default (web)
+  ["--extractor-args", "youtube:player_client=android"],           // bypass bot-check datacenter
   ["--extractor-args", "youtube:player_client=tv_embedded"],
-  ["--extractor-args", "youtube:player_client=android"],
   ["--extractor-args", "youtube:player_client=mweb"],
+  [],                                                               // default (web) — fallback cuối
 ];
 
 /* ── Helper: chạy yt-dlp một lần với args nhất định ───────── */
