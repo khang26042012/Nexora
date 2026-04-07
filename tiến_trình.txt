@@ -1,8 +1,85 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 06/04/2026 (session 5)
+  Cập nhật: 06/04/2026 (session 6)
 ================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 6] FEAT — Thêm WiFi hotspot thuyết trình
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: firmware/NexoraGarden/NexoraGarden.ino
+GitHub commit: 2457774b05033dba9673716568aa8dc87d5b1ac0
+
+Thêm WiFi "phantrongkhangg" / "26042012khang" vào đầu danh sách (ưu tiên cao nhất)
+NUM_WIFI: 3 → 4
+
+ESP32 cần nạp firmware: CÓ
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 6] FIX FIRMWARE — 7 lỗi ESP32 (quét toàn bộ)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: firmware/NexoraGarden/NexoraGarden.ino
+GitHub commit: 68f764a48e66f9f82a7aef8b060a8c40a11fc6d1
+
+Fix 1 — handlePump() dùng map() sai:
+  - Đổi từ map(raw, SOIL_RAW_DRY, SOIL_RAW_WET, 0, 100) sang multiPointMap(raw)
+  - liveSoil giờ nhất quán với soilPercent hiển thị → bơm dừng đúng thời điểm
+
+Fix 2 — Admin OFF → bơm tự bật ngay:
+  - Thêm pumpLocked = true + cooldown 10 phút sau khi tắt admin mode
+  - Tránh auto-pump trigger ngay khi đất còn khô
+
+Fix 3 — Lửa không gửi server trong 3 giây đầu:
+  - Đổi fireNow = fireActive (thay vì fireActive && fireAlerted)
+  - Dashboard nhận fire=true ngay lập tức; 3s debounce chỉ cho notify Telegram
+
+Fix 4 — WebSocket heartbeat 1 retry (dễ disconnect loop):
+  - Đổi enableHeartbeat(15000, 8000, 1) → enableHeartbeat(15000, 8000, 2)
+  - 2 retry: chịu được 1 lần pong chậm, tránh reconnect loop
+  - Vẫn detect server chết sau ~46s (watchdog 3 phút vẫn hoạt động)
+
+Fix 5 — getMedian() chia cho 0 nếu n < 5:
+  - Thêm guard: if (n < 5) return arr[n/2];
+
+Fix 7 — Biến lastCal global dư thừa khi CALIBRATE_MODE:
+  - Xóa global unsigned long lastCal = 0; (chỉ giữ static local trong printCalibrate)
+
+Fix 8 — liveSoil dùng multiPointMap:
+  - Đã xử lý cùng Fix 1
+
+ESP32 cần nạp firmware: CÓ
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[06/04/2026 session 6] SETUP — Khởi động lại Replit environment
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → 730 packages (reused từ cache, done in 25s)
+  2. Rebuild better-sqlite3 native binary:
+     - npm install -g node-gyp --prefix=/tmp/gyp-install
+     - node-gyp configure + build tại better-sqlite3
+     → better_sqlite3.node ✅
+  3. Restart workflow "packages/api-server: API Server" → RUNNING ✅
+  4. Restart workflow "Start application" (Portfolio) → RUNNING ✅
+
+Kết quả:
+  - API Server (port 8080): RUNNING ✅
+  - WebSocket /ws và /ws-browser: sẵn sàng ✅
+  - SQLite DB initialized ✅
+  - Portfolio: RUNNING ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt
+
+Lưu ý mỗi khi env reset:
+  1. pnpm install --ignore-scripts
+  2. cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     /tmp/gyp-install/bin/node-gyp configure && /tmp/gyp-install/bin/node-gyp build
+
+ESP32 cần nạp firmware: KHÔNG
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

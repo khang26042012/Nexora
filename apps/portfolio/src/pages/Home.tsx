@@ -1,5 +1,6 @@
 import { Navigation } from "@/components/navigation";
 import { ThreeScene } from "@/components/ThreeScene";
+import { ThreeAbout, ThreeProjects, ThreeContact } from "@/components/ThreeSections";
 import {
   motion, useMotionValue, useSpring, AnimatePresence, useInView,
 } from "framer-motion";
@@ -451,7 +452,7 @@ export function Home() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
             className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
             <motion.p className="text-[10px] font-mono tracking-widest uppercase mb-2" style={{ color: "rgba(160,120,255,0.4)" }}>
-              Kéo để xoay · Vuốt xuống
+              Di chuột để lái · Vuốt xuống
             </motion.p>
             <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}>
               <ChevronDown className="w-5 h-5" style={{ color: "rgba(255,255,255,0.2)" }} />
@@ -474,8 +475,9 @@ export function Home() {
       </section>
 
       {/* ── SKILLS ── */}
-      <section id="gioi-thieu" className="py-20 md:py-28 px-4 sm:px-6">
-        <div className="max-w-5xl mx-auto">
+      <section id="gioi-thieu" className="py-20 md:py-28 px-4 sm:px-6 relative overflow-hidden">
+        <ThreeAbout className="absolute inset-0 z-0 opacity-40" />
+        <div className="max-w-5xl mx-auto relative z-10">
           <SectionTitle label="Kỹ Năng" title={<>Vũ Khí Công Nghệ</>} />
           <div className="grid md:grid-cols-2 gap-x-12 gap-y-6">
             {skillsData.map((s, i) => <SkillBar key={s.label} {...s} delay={i * 0.08} />)}
@@ -519,8 +521,9 @@ export function Home() {
       <SpaceDivider />
 
       {/* ── PROJECTS ── */}
-      <section id="du-an" className="py-20 md:py-28 px-4 sm:px-6">
-        <div className="max-w-5xl mx-auto">
+      <section id="du-an" className="py-20 md:py-28 px-4 sm:px-6 relative overflow-hidden">
+        <ThreeProjects className="absolute inset-0 z-0 opacity-35" />
+        <div className="max-w-5xl mx-auto relative z-10">
           <SectionTitle label="Dự Án" title={<>Những Gì Tôi Xây Dựng</>} />
           <div className="grid md:grid-cols-3 gap-6">
             {projects.map((p, i) => <ProjectCard key={p.id} project={p} i={i} />)}
@@ -531,8 +534,9 @@ export function Home() {
       <SpaceDivider />
 
       {/* ── CONTACT ── */}
-      <section id="lien-he" className="py-20 md:py-28 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto">
+      <section id="lien-he" className="py-20 md:py-28 px-4 sm:px-6 relative overflow-hidden">
+        <ThreeContact className="absolute inset-0 z-0 opacity-50" />
+        <div className="max-w-4xl mx-auto relative z-10">
           <SectionTitle label="Liên Hệ" title={<>Kết Nối Với Tôi</>} />
           <Reveal>
             <p className="text-white/50 mb-10 max-w-lg text-sm md:text-base leading-relaxed">

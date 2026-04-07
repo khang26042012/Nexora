@@ -1,5 +1,5 @@
 import { useRef, useMemo, useEffect, useState, Component, useCallback } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 /* ─── WebGL check ─── */
@@ -18,317 +18,160 @@ class ErrBound extends Component<{ children: React.ReactNode; fallback: React.Re
 }
 
 const isMobile = () => typeof window !== "undefined" && window.innerWidth < 768;
+const N_STARS   = () => (isMobile() ? 900 : 2000);
 
 /* ═══════════════════════════════════════════════════════
-   GALAXY — spiral arms
+   WARP STREAKS — stars rushing toward camera
 ═══════════════════════════════════════════════════════ */
-function Galaxy() {
-  const groupRef = useRef<THREE.Group>(null!);
-  const COUNT = isMobile() ? 8000 : 16000;
-  const ARMS = 4;
+function WarpStreaks({ drag }: { drag: React.MutableRefObject<{ x: number; y: number }> }) {
+  const N = N_STARS();
 
-  const { positions, colors } = useMemo(() => {
-    const positions = new Float32Array(COUNT * 3);
-    const colors    = new Float32Array(COUNT * 3);
+  /* star state: [x, y, z, baseSpeed]  ×N */
+  const starData = useMemo(() => {
+    const d = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) initStar(d, i, true);
+    return d;
+  }, [N]);
 
-    const armColors = [
-      [0.55, 0.35, 1.0],   // violet
-      [0.2,  0.6,  1.0],   // cyan-blue
-      [1.0,  0.4,  0.7],   // pink
-      [0.35, 0.8,  0.9],   // teal
-    ];
-
-    for (let i = 0; i < COUNT; i++) {
-      const arm    = Math.floor(Math.random() * ARMS);
-      const t      = Math.random();
-      const radius = 1.5 + t * 14;
-      const spin   = radius * 0.4;
-      const angle  = (arm / ARMS) * Math.PI * 2 + spin + (Math.random() - 0.5) * 1.2;
-      const spread = Math.max(0.2, (1 - t) * 2.5 + 0.3);
-
-      positions[i * 3]     = Math.cos(angle) * radius + (Math.random() - 0.5) * spread;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * spread * 0.3;
-      positions[i * 3 + 2] = Math.sin(angle) * radius + (Math.random() - 0.5) * spread;
-
-      const [r, g, b] = armColors[arm];
-      const mixCenter  = Math.max(0, 1 - radius / 8);
-      const brightness = 0.5 + Math.random() * 0.5;
-      colors[i * 3]     = (r * (1 - mixCenter) + 1.0 * mixCenter) * brightness;
-      colors[i * 3 + 1] = (g * (1 - mixCenter) + 0.95 * mixCenter) * brightness;
-      colors[i * 3 + 2] = (b * (1 - mixCenter) + 0.85 * mixCenter) * brightness;
-    }
-    return { positions, colors };
-  }, []);
-
+  /* line-segment geometry: 2 vertices per star */
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    g.setAttribute("color",    new THREE.BufferAttribute(colors, 3));
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(N * 6), 3));
+    g.setAttribute("color",    new THREE.BufferAttribute(new Float32Array(N * 6), 3));
     return g;
-  }, [positions, colors]);
+  }, [N]);
 
-  useFrame((_, dt) => {
-    if (!groupRef.current) return;
-    groupRef.current.rotation.y += dt * 0.025;
+  function initStar(d: Float32Array, i: number, spread = false) {
+    const hw = 18, hh = 11;
+    d[i*4]   = (Math.random() - 0.5) * hw * 2;
+    d[i*4+1] = (Math.random() - 0.5) * hh * 2;
+    d[i*4+2] = spread ? -(Math.random() * 280 + 20) : -(200 + Math.random() * 120);
+    d[i*4+3] = 0.6 + Math.random() * 1.8;
+  }
+
+  const lastT = useRef(0);
+  const camTilt = useRef({ x: 0, y: 0 });
+
+  useFrame((state) => {
+    const t  = state.clock.elapsedTime;
+    const dt = Math.min(t - lastT.current, 0.05);
+    lastT.current = t;
+
+    /* smooth camera tilt from drag */
+    camTilt.current.x += (drag.current.x * 3 - camTilt.current.x) * 0.04;
+    camTilt.current.y += (drag.current.y * 2 - camTilt.current.y) * 0.04;
+    state.camera.position.x = camTilt.current.x + Math.sin(t * 0.07) * 0.5;
+    state.camera.position.y = camTilt.current.y + Math.sin(t * 0.05) * 0.3;
+    state.camera.lookAt(0, 0, 0);
+
+    /* warp speed pulse: slow → fast → slow cycle */
+    const warp = 2.8 + Math.sin(t * 0.18) * 1.4 + Math.sin(t * 0.55) * 0.6;
+
+    const pos = geo.getAttribute("position") as THREE.BufferAttribute;
+    const col = geo.getAttribute("color")    as THREE.BufferAttribute;
+
+    for (let i = 0; i < N; i++) {
+      let x   = starData[i*4];
+      let y   = starData[i*4+1];
+      let z   = starData[i*4+2];
+      const v = starData[i*4+3];
+
+      /* acceleration: faster closer to camera */
+      const prox  = Math.max(0, 1 + z / 200);   // 0=far, ~1=near
+      const speed = v * warp * (1 + prox * prox * 4);
+      const dz    = speed * dt * 60;
+      const newZ  = z + dz;
+      starData[i*4+2] = newZ;
+
+      /* perspective spread: stars appear to spread outward */
+      const ps = Math.max(1, -z / 160);
+      const sx = x * ps, sy = y * ps;
+
+      /* stretch length proportional to speed */
+      const stretch = Math.max(0.4, dz * 1.8 + prox * 1.5);
+
+      /* tail → head */
+      pos.setXYZ(i*2,   sx, sy, z);          // tail
+      pos.setXYZ(i*2+1, sx, sy, newZ + stretch); // head
+
+      /* brightness: dim & blue far, bright & white near */
+      const br   = Math.min(1, prox * 2.8 + 0.08);
+      const cool = Math.max(0, 0.6 - prox * 0.6); // blue tint far away
+      col.setXYZ(i*2,   br * 0.2, br * 0.25,        br * (0.5 + cool * 0.5)); // tail dim
+      col.setXYZ(i*2+1, br,       br * (0.94 + cool * 0.06), br);              // head bright
+
+      if (newZ > 14) initStar(starData, i);
+    }
+
+    pos.needsUpdate = true;
+    col.needsUpdate = true;
   });
 
   return (
-    <group ref={groupRef}>
-      <points geometry={geo}>
-        <pointsMaterial
-          size={isMobile() ? 0.045 : 0.035}
-          vertexColors
-          sizeAttenuation
-          transparent
-          opacity={0.92}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </points>
-    </group>
+    <lineSegments geometry={geo}>
+      <lineBasicMaterial vertexColors transparent opacity={1} depthWrite={false} blending={THREE.AdditiveBlending} />
+    </lineSegments>
   );
 }
 
 /* ═══════════════════════════════════════════════════════
-   BACKGROUND STARS
+   DISTANT STAR FIELD — static dim background
 ═══════════════════════════════════════════════════════ */
-function BackgroundStars() {
+function StarField() {
   const geo = useMemo(() => {
-    const N = isMobile() ? 1500 : 3000;
+    const N   = isMobile() ? 600 : 1200;
     const pos = new Float32Array(N * 3);
     const col = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi   = Math.acos(2 * Math.random() - 1);
-      const r     = 60 + Math.random() * 40;
-      pos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-      const v = 0.5 + Math.random() * 0.5;
-      const tint = Math.random();
-      col[i * 3]     = tint > 0.7 ? v * 0.8 : v;
-      col[i * 3 + 1] = tint > 0.7 ? v * 0.85 : v * 0.95;
-      col[i * 3 + 2] = tint < 0.3 ? v * 0.8 : v;
+      const r     = 80 + Math.random() * 60;
+      pos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+      pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i*3+2] = r * Math.cos(phi);
+      const v = 0.2 + Math.random() * 0.3;
+      col[i*3]   = v * 0.6; col[i*3+1] = v * 0.7; col[i*3+2] = v;
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     g.setAttribute("color",    new THREE.BufferAttribute(col, 3));
     return g;
   }, []);
-
   return (
     <points geometry={geo}>
-      <pointsMaterial size={1.2} vertexColors sizeAttenuation={false} transparent opacity={0.75} depthWrite={false} />
+      <pointsMaterial size={1.0} vertexColors sizeAttenuation={false} transparent opacity={0.6} depthWrite={false} />
     </points>
   );
 }
 
 /* ═══════════════════════════════════════════════════════
-   PLANET with rings
+   WARP GLOW — central lens flare / tunnel glow
 ═══════════════════════════════════════════════════════ */
-function Planet() {
-  const groupRef = useRef<THREE.Group>(null!);
-
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const t = state.clock.elapsedTime;
-    groupRef.current.rotation.y = t * 0.08;
-    groupRef.current.rotation.x = Math.sin(t * 0.05) * 0.08;
-  });
-
-  return (
-    <group ref={groupRef} position={[22, 5, -30]}>
-      <mesh>
-        <sphereGeometry args={[3.2, 48, 48]} />
-        <meshBasicMaterial color="#3a1f6e" />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[3.3, 48, 48]} />
-        <meshBasicMaterial color="#5c2fa0" transparent opacity={0.35} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      {/* glow halo */}
-      <mesh>
-        <sphereGeometry args={[4.5, 32, 32]} />
-        <meshBasicMaterial color="#7c4fff" transparent opacity={0.06} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      {/* ring */}
-      <mesh rotation={[Math.PI / 2.5, 0.3, 0]}>
-        <torusGeometry args={[6.2, 0.55, 3, 80]} />
-        <meshBasicMaterial color="#8b6bff" transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-      <mesh rotation={[Math.PI / 2.5, 0.3, 0]}>
-        <torusGeometry args={[7.5, 0.3, 3, 80]} />
-        <meshBasicMaterial color="#60a0ff" transparent opacity={0.12} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
-   SMALL ORBITING MOONS
-═══════════════════════════════════════════════════════ */
-function OrbitingMoons() {
-  const moonsData = useMemo(() => [
-    { radius: 28, speed: 0.12, size: 0.8, color: "#38bdf8", yOffset: 3,  tilt: 0.3 },
-    { radius: 38, speed: 0.07, size: 1.2, color: "#a78bfa", yOffset: -4, tilt: -0.4 },
-    { radius: 18, speed: 0.22, size: 0.5, color: "#f472b6", yOffset: 1,  tilt: 0.6 },
-  ], []);
-
-  const refs = useRef<THREE.Group[]>([]);
-
+function WarpGlow() {
+  const meshRef = useRef<THREE.Mesh>(null!);
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    moonsData.forEach((m, i) => {
-      if (!refs.current[i]) return;
-      refs.current[i].position.x = Math.cos(t * m.speed) * m.radius;
-      refs.current[i].position.z = Math.sin(t * m.speed) * m.radius;
-      refs.current[i].position.y = m.yOffset + Math.sin(t * m.speed * 2 + m.tilt) * 2;
-    });
+    if (!meshRef.current) return;
+    const mat = meshRef.current.material as THREE.MeshBasicMaterial;
+    mat.opacity = 0.04 + Math.sin(t * 0.3) * 0.025 + Math.sin(t * 0.7) * 0.01;
   });
-
   return (
-    <group>
-      {moonsData.map((m, i) => (
-        <group key={i} ref={(el) => { if (el) refs.current[i] = el; }}>
-          <mesh>
-            <sphereGeometry args={[m.size, 16, 16]} />
-            <meshBasicMaterial color={m.color} />
-          </mesh>
-          <mesh>
-            <sphereGeometry args={[m.size * 2.2, 16, 16]} />
-            <meshBasicMaterial color={m.color} transparent opacity={0.06} blending={THREE.AdditiveBlending} depthWrite={false} />
-          </mesh>
-        </group>
-      ))}
-    </group>
+    <mesh ref={meshRef} position={[0, 0, -5]}>
+      <planeGeometry args={[60, 40]} />
+      <meshBasicMaterial color="#3060ff" transparent opacity={0.04} depthWrite={false} blending={THREE.AdditiveBlending} />
+    </mesh>
   );
-}
-
-/* ═══════════════════════════════════════════════════════
-   NEBULA dust
-═══════════════════════════════════════════════════════ */
-function Nebula() {
-  const clouds = useMemo(() => [
-    { n: 300, cx: -12, cy: 3, cz: -8,  s: 18, r: 0.4, g: 0.1, b: 0.9 },
-    { n: 250, cx:  15, cy: -2, cz: -12, s: 16, r: 0.1, g: 0.5, b: 0.9 },
-    { n: 200, cx:   2, cy:  5, cz: -6,  s: 14, r: 0.9, g: 0.2, b: 0.6 },
-  ], []);
-
-  return (
-    <group>
-      {clouds.map((c, idx) => {
-        const geo = new THREE.BufferGeometry();
-        const pos = new Float32Array(c.n * 3);
-        const col = new Float32Array(c.n * 3);
-        for (let i = 0; i < c.n; i++) {
-          pos[i*3]   = c.cx + (Math.random()-0.5)*c.s;
-          pos[i*3+1] = c.cy + (Math.random()-0.5)*c.s*0.4;
-          pos[i*3+2] = c.cz + (Math.random()-0.5)*c.s*0.3;
-          const v = 0.2 + Math.random()*0.8;
-          col[i*3]   = c.r*v; col[i*3+1] = c.g*v; col[i*3+2] = c.b*v;
-        }
-        geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-        geo.setAttribute("color",    new THREE.BufferAttribute(col, 3));
-        return (
-          <points key={idx} geometry={geo}>
-            <pointsMaterial size={isMobile() ? 0.55 : 0.7} vertexColors sizeAttenuation transparent opacity={0.14} depthWrite={false} blending={THREE.AdditiveBlending} />
-          </points>
-        );
-      })}
-    </group>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
-   SHOOTING STARS
-═══════════════════════════════════════════════════════ */
-function ShootingStars() {
-  const COUNT = 6;
-  const state = useRef(Array.from({ length: COUNT }, () => ({ x:0,y:0,z:0,vx:0,vy:0,life:0,maxLife:0,active:false })));
-  const geo = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(COUNT*3), 3));
-    g.setAttribute("color",    new THREE.BufferAttribute(new Float32Array(COUNT*3), 3));
-    return g;
-  }, []);
-
-  useFrame(() => {
-    const pos = geo.getAttribute("position") as THREE.BufferAttribute;
-    const col = geo.getAttribute("color")    as THREE.BufferAttribute;
-    for (let i = 0; i < COUNT; i++) {
-      const s = state.current[i];
-      if (!s.active) {
-        if (Math.random() < 0.003) {
-          s.active = true; s.x = (Math.random()-0.5)*40; s.y = 12+Math.random()*8; s.z = -15-Math.random()*10;
-          const ang = -0.3-Math.random()*0.4; const spd = 18+Math.random()*18;
-          s.vx = Math.cos(ang)*spd; s.vy = Math.sin(ang)*spd;
-          s.life = 0; s.maxLife = 0.4+Math.random()*0.4;
-        }
-      } else {
-        s.life += 0.016; s.x += s.vx*0.016; s.y += s.vy*0.016;
-        if (s.life >= s.maxLife) s.active = false;
-      }
-      const alpha = s.active ? Math.sin((s.life/s.maxLife)*Math.PI)*0.9 : 0;
-      pos.setXYZ(i, s.x, s.y, s.z); col.setXYZ(i, alpha, alpha*0.9, alpha);
-    }
-    pos.needsUpdate = true; col.needsUpdate = true;
-  });
-
-  return (
-    <points geometry={geo}>
-      <pointsMaterial size={2.5} vertexColors sizeAttenuation={false} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
-    </points>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
-   CAMERA CONTROLLER — drag + auto rotate
-═══════════════════════════════════════════════════════ */
-function CameraController({ drag }: { drag: React.MutableRefObject<{ x: number; y: number; isDragging: boolean }> }) {
-  const { camera } = useThree();
-  const autoRotAngle = useRef(0);
-  const camY   = useRef(0);
-  const camX   = useRef(0);
-  const targetY = useRef(0);
-  const targetX = useRef(0);
-
-  useFrame((_, dt) => {
-    autoRotAngle.current += dt * 0.018;
-
-    if (drag.current.isDragging) {
-      targetX.current = drag.current.x * 18;
-      targetY.current = drag.current.y * 10;
-    } else {
-      targetX.current += (0 - targetX.current) * dt * 0.8;
-      targetY.current += (0 - targetY.current) * dt * 0.8;
-    }
-
-    camX.current += (targetX.current - camX.current) * 0.06;
-    camY.current += (targetY.current - camY.current) * 0.06;
-
-    const baseAngle = autoRotAngle.current;
-    const dist = 28;
-    camera.position.x = Math.sin(baseAngle) * dist + camX.current;
-    camera.position.z = Math.cos(baseAngle) * dist;
-    camera.position.y = 8 + camY.current;
-    camera.lookAt(0, 0, 0);
-  });
-  return null;
 }
 
 /* ═══════════════════════════════════════════════════════
    SCENE
 ═══════════════════════════════════════════════════════ */
-function Scene({ drag }: { drag: React.MutableRefObject<{ x: number; y: number; isDragging: boolean }> }) {
+function Scene({ drag }: { drag: React.MutableRefObject<{ x: number; y: number }> }) {
   return (
     <>
-      <CameraController drag={drag} />
-      <BackgroundStars />
-      <Galaxy />
-      <Nebula />
-      <Planet />
-      <OrbitingMoons />
-      <ShootingStars />
+      <StarField />
+      <WarpGlow />
+      <WarpStreaks drag={drag} />
     </>
   );
 }
@@ -338,60 +181,38 @@ function Scene({ drag }: { drag: React.MutableRefObject<{ x: number; y: number; 
 ═══════════════════════════════════════════════════════ */
 export function ThreeScene({ className }: { className?: string }) {
   const [canUseWebGL, setCanUseWebGL] = useState<boolean | null>(null);
-  const drag = useRef({ x: 0, y: 0, isDragging: false });
-  const lastTouch = useRef({ x: 0, y: 0 });
+  const drag = useRef({ x: 0, y: 0 });
 
   useEffect(() => { setCanUseWebGL(webglOk()); }, []);
 
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    drag.current.isDragging = true;
-    drag.current.x = (e.clientX / window.innerWidth  - 0.5) * 2;
-    drag.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
-  }, []);
   const onMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!drag.current.isDragging) return;
     drag.current.x = (e.clientX / window.innerWidth  - 0.5) * 2;
-    drag.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
-  }, []);
-  const onMouseUp = useCallback(() => { drag.current.isDragging = false; }, []);
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    drag.current.isDragging = true;
-    lastTouch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    drag.current.x = (e.touches[0].clientX / window.innerWidth  - 0.5) * 2;
-    drag.current.y = (e.touches[0].clientY / window.innerHeight - 0.5) * 2;
+    drag.current.y = -(e.clientY / window.innerHeight - 0.5) * 2;
   }, []);
   const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!drag.current.isDragging) return;
     drag.current.x = (e.touches[0].clientX / window.innerWidth  - 0.5) * 2;
-    drag.current.y = (e.touches[0].clientY / window.innerHeight - 0.5) * 2;
+    drag.current.y = -(e.touches[0].clientY / window.innerHeight - 0.5) * 2;
   }, []);
-  const onTouchEnd = useCallback(() => { drag.current.isDragging = false; }, []);
 
-  if (canUseWebGL === null) return (
-    <div className={className} style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, #0d0820 0%, #020008 100%)" }} />
+  const fallback = (
+    <div className={className} style={{ background: "radial-gradient(ellipse at 50% 50%, #03001a 0%, #000008 100%)" }} />
   );
-  if (!canUseWebGL) return (
-    <div className={className} style={{ background: "radial-gradient(ellipse 70% 60% at 50% 50%, #0d0820 0%, #020008 100%)" }} />
-  );
+
+  if (canUseWebGL === null) return fallback;
+  if (!canUseWebGL)         return fallback;
 
   return (
     <div
       className={className}
-      style={{ cursor: "grab", overflow: "hidden", maxWidth: "100%", touchAction: "pan-y" }}
-      onMouseDown={onMouseDown}
+      style={{ overflow: "hidden", maxWidth: "100%", touchAction: "pan-y" }}
       onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-      onMouseLeave={onMouseUp}
-      onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
     >
       <ErrBound fallback={null}>
         <Canvas
-          camera={{ position: [0, 8, 28], fov: 65 }}
+          camera={{ position: [0, 0, 14], fov: 70 }}
           gl={{ antialias: false, alpha: false, powerPreference: "high-performance" }}
-          style={{ background: "radial-gradient(ellipse at 50% 50%, #0d0820 0%, #040010 50%, #000005 100%)" }}
+          style={{ background: "radial-gradient(ellipse at 50% 30%, #050018 0%, #010008 45%, #000003 100%)" }}
           dpr={[1, isMobile() ? 1.5 : 2]}
         >
           <Scene drag={drag} />
