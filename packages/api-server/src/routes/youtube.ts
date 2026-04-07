@@ -113,17 +113,19 @@ async function getYtDlpBin(): Promise<string> {
 
 /* Kick ngay khi module load */
 kickLatestDownload();
+console.log("[yt-router] v8 loaded — itag22/18 combined format, cookies:", hasCookies);
 
 /* ── Format selector theo quality ───────────────────────────────
- *  Không filter ext=mp4 vì android client hay trả webm/other
- *  Không dùng bestvideo+bestaudio (cần ffmpeg merge, Render không có)
- *  Dùng combined format (video+audio trong 1 stream) hoặc best bất kỳ
+ *  Ưu tiên itag 22 (720p mp4) và 18 (360p mp4) — combined, không cần ffmpeg
+ *  Fallback: best[vcodec^=avc] = h264 combined (nếu có)
+ *  Fallback cuối: best (bất kỳ combined nào)
+ *  KHÔNG dùng bestvideo+bestaudio: cần ffmpeg, Render không có
  * ──────────────────────────────────────────────────────────────── */
 const QUALITY_FORMAT: Record<string, string> = {
-  best:  "best",
-  "720p":"best[height<=720]/best[height<=800]/best",
-  "480p":"best[height<=480]/best[height<=540]/best",
-  "360p":"best[height<=360]/best[height<=480]/best",
+  best:  "22/18/best[vcodec^=avc][acodec!~=none]/best",
+  "720p":"22/best[height<=720][vcodec^=avc][acodec!~=none]/18/best[height<=720]/best",
+  "480p":"best[height<=480][vcodec^=avc][acodec!~=none]/18/best[height<=480]/best",
+  "360p":"18/best[height<=360][vcodec^=avc][acodec!~=none]/best[height<=360]/best",
 };
 
 /* ── Base yt-dlp args ────────────────────────────────────────── */
