@@ -1,6 +1,6 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Youtube, ArrowUpRight, Sparkles, Lock } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -8,15 +8,15 @@ import { useLocation } from "wouter";
 const TOOLS = [
   {
     id: "yt-downloader",
-    icon: Youtube,
-    iconColor: "#ff4444",
-    iconBg: "rgba(255,68,68,0.12)",
-    iconBorder: "rgba(255,68,68,0.2)",
-    glowColor: "rgba(255,68,68,0.15)",
-    name: "YouTube Downloader",
-    desc: "Tải video YouTube chất lượng cao — hỗ trợ 1080p, 720p, 480p. Chỉ cần dán link là xong.",
+    icon: Video,
+    iconColor: "#a78bfa",
+    iconBg: "rgba(124,58,237,0.12)",
+    iconBorder: "rgba(124,58,237,0.25)",
+    glowColor: "rgba(124,58,237,0.18)",
+    name: "Video Downloader",
+    desc: "Tải video đa nền tảng — YouTube, TikTok, Instagram, Facebook & 1000+ trang khác. Chọn chất lượng, tải ngay.",
     tag: "Video",
-    tagColor: "#ff4444",
+    tagColor: "#a78bfa",
     available: true,
     route: "/tool/yt-downloader",
   },

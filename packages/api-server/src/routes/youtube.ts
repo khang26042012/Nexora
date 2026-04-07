@@ -82,18 +82,41 @@ const QUALITY_FORMAT: Record<string, string> = {
 };
 
 /* ── Base yt-dlp args ────────────────────────────────────────── */
-function baseArgs(): string[] {
+function baseArgs(opts?: { extraArgs?: string[] }): string[] {
   return [
     "--no-warnings",
     "--no-check-certificate",
-    "--extractor-args", "youtube:player_client=tv_embedded",
     ...(hasCookies ? ["--cookies", COOKIES_PATH] : []),
+    ...(opts?.extraArgs ?? []),
   ];
 }
 
+/* ── Thử nhiều player_client cho YouTube nếu thất bại ──────── */
+const YT_CLIENT_STRATEGIES = [
+  [],                                                              // default
+  ["--extractor-args", "youtube:player_client=tv_embedded"],
+  ["--extractor-args", "youtube:player_client=web"],
+  ["--extractor-args", "youtube:player_client=android"],
+  ["--extractor-args", "youtube:player_client=mweb"],
+];
+
+/* ── Helper: chạy yt-dlp một lần với args nhất định ───────── */
+function runYtDlp(bin: string, args: string[], timeout = 35_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(bin, args, { maxBuffer: 8 * 1024 * 1024, timeout },
+      (err, stdout, stderr) => {
+        if (err) {
+          const raw = (stderr || err.message || "").trim();
+          return reject(new Error(raw.split("\n").filter(Boolean).slice(-4).join(" | ")));
+        }
+        resolve(stdout.trim());
+      }
+    );
+  });
+}
+
 /* ── GET /api/yt/info?url=... ────────────────────────────────
- *  Chỉ lấy title, thumbnail, duration, channel, platform
- *  Không cần biết format — chất lượng chọn ở /download
+ *  Thử lần lượt nhiều yt-dlp client strategies cho YouTube
  * ─────────────────────────────────────────────────────────── */
 router.get("/info", async (req, res) => {
   const url = String(req.query["url"] ?? "").trim();
@@ -101,38 +124,45 @@ router.get("/info", async (req, res) => {
 
   try {
     const bin = await getYtDlpBin();
-    const args = [
-      url,
-      "--dump-single-json",
-      "--skip-download",
-      ...baseArgs(),
-    ];
+    let lastErr = "";
 
-    const data = await new Promise<any>((resolve, reject) => {
-      execFile(bin, args, { maxBuffer: 5 * 1024 * 1024, timeout: 30_000 },
-        (err, stdout, stderr) => {
-          if (err) {
-            return reject(new Error((stderr || err.message).trim().split("\n").slice(-3).join(" | ")));
-          }
-          try { resolve(JSON.parse(stdout.trim())); }
-          catch { reject(new Error("Không parse được JSON từ yt-dlp")); }
-        }
-      );
-    });
+    for (const extraArgs of YT_CLIENT_STRATEGIES) {
+      try {
+        const args = [
+          url,
+          "--dump-single-json",
+          "--skip-download",
+          ...baseArgs({ extraArgs }),
+        ];
+        const stdout = await runYtDlp(bin, args, 35_000);
+        let data: any;
+        try { data = JSON.parse(stdout); }
+        catch { throw new Error("Không parse được JSON từ yt-dlp"); }
 
-    return res.json({
-      title:     data.title    ?? "Unknown",
-      thumbnail: data.thumbnail ?? "",
-      duration:  data.duration  ?? 0,
-      channel:   data.channel   ?? data.uploader ?? "Unknown",
-      platform:  data.extractor_key ?? "Unknown",
-    });
+        return res.json({
+          title:     data.title         ?? "Unknown",
+          thumbnail: data.thumbnail      ?? "",
+          duration:  data.duration       ?? 0,
+          channel:   data.channel        ?? data.uploader ?? "Unknown",
+          platform:  data.extractor_key  ?? "Unknown",
+        });
+      } catch (e: any) {
+        lastErr = e.message ?? "Lỗi không xác định";
+        /* Nếu lỗi không liên quan đến format/client → stop ngay */
+        const isRetryable = lastErr.includes("format") || lastErr.includes("player_client")
+          || lastErr.includes("Requested") || lastErr.includes("Failed to extract");
+        if (!isRetryable) break;
+      }
+    }
+
+    const isBotCheck = lastErr.includes("Sign in") || lastErr.includes("bot")
+      || lastErr.includes("cookies") || lastErr.includes("confirm");
+    const hint = isBotCheck ? " | Cần set YOUTUBE_COOKIES để bypass bot-check." : "";
+    return res.status(500).json({ error: `yt-dlp: ${lastErr}${hint}` });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";
-    const isBotCheck = msg.includes("Sign in") || msg.includes("bot") || msg.includes("cookies");
-    const hint = isBotCheck ? " | Set YOUTUBE_COOKIES để bypass." : "";
-    return res.status(500).json({ error: `yt-dlp: ${msg}${hint}` });
+    return res.status(500).json({ error: `Lỗi server: ${msg}` });
   }
 });
 
