@@ -1,8 +1,128 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 06/04/2026 (session 6)
+  Cập nhật: 07/04/2026 (session 8)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 8] FIX — YtDownloader v11: code review fixes, Task #1 HOÀN THÀNH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: packages/api-server/src/routes/youtube.ts (v11)
+File: apps/portfolio/src/pages/tools/YtDownloader.tsx (qualityNote UI)
+
+Các vấn đề từ code review đã fix:
+
+  1. Thêm `web_creator` và `mediaconnect` vào YT_CLIENT_STRATEGIES
+     - Tổng 7 strategies: [], android, ios, tv_embedded, web_creator, mediaconnect, mweb
+     - mediaconnect test: 31 formats returned ✅
+
+  2. Thêm hasTar() check trước khi extract ffmpeg
+     - Nếu `tar` không có → log warning + return sớm
+     - Không còn crash lúc extract
+
+  3. Thêm qualityNote vào /api/yt/info response
+     - Khi _ffmpegReady = null: qualityNote = "Chất lượng giới hạn ở 360p/720p..."
+     - Frontend YtDownloader.tsx hiển thị warning amber khi có qualityNote
+
+  4. downloadWithRetry() — retry/backoff cho yt-dlp binary download
+     - 3 lần thử: ngay lập tức → 5s → 15s
+     - Log rõ ràng mỗi lần retry
+
+Non-YouTube platform test:
+  - Streamable.com: HTTP 200 | 3.0MB | video/mp4 ✅
+  - TikTok/Instagram/Twitter: blocked by datacenter IP (expected, out of scope)
+
+End-to-end tests PASSED:
+  - YouTube 360p: HTTP 200 | 9.17MB | video/mp4 ✅
+  - Streamable (non-YT): HTTP 200 | 3.04MB | video/mp4 ✅
+  - /api/yt/info qualityNote field: null when ffmpeg available ✅
+
+Task #1 (Fix tool tải video đa nền tảng) — HOÀN THÀNH
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 7] FIX — YtDownloader v10: native ffmpeg, multi-platform, binary validation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: packages/api-server/src/routes/youtube.ts
+GitHub commit: 6f03f0258fcf32b38b1a0b74073b14a131affc35
+
+Vấn đề gốc rễ:
+  - _ffmpegReady luôn null vì code chỉ tìm /tmp/yt-ffmpeg
+  - Replit có ffmpeg native (v6.1.2) trong PATH nhưng không được detect
+  - → getFormatSelector() luôn dùng combined formats (max 360p/720p itag 22)
+  - Multi-platform (TikTok, Twitter) bị loop qua 4 YouTube player_client strategies không cần thiết
+  - isBinUsable() chưa có → dùng binary hỏng không biết
+
+Fix đã làm:
+  1. findNativeFfmpeg() — tìm ffmpeg từ PATH (which ffmpeg) + common paths
+     - Replit: /nix/store/.../bin/ffmpeg → set _ffmpegReady ngay, KHÔNG download 40MB
+     - Render: không có native → kickFfmpegDownload() như cũ (fallback)
+  2. initFfmpeg() thay kickFfmpegDownload() — gọi lúc startup, ưu tiên native
+  3. isBinUsable() — chạy yt-dlp --version để validate binary trước khi dùng
+     - Tránh dùng binary sai arch hoặc corrupt
+  4. isYouTube(url) — tách platform detection
+     - YouTube → YT_CLIENT_STRATEGIES (5 strategies: web, android, tv_embedded, ios, mweb)
+     - Non-YouTube (TikTok, Twitter, etc.) → NON_YT_STRATEGIES (1 attempt)
+  5. Thêm ios client vào YT_CLIENT_STRATEGIES
+  6. Download timeout: 300_000ms (5 phút) cho file lớn
+  7. Cleanup thêm .tmp files
+  8. /api/yt/info response thêm trường ffmpegAvailable
+
+Kết quả test trực tiếp trên Replit:
+  - /api/yt/info Rick Astley → title ✅ thumbnail ✅ ffmpegAvailable:true ✅
+  - /api/yt/download 360p → HTTP 200, 8.8MB, video/mp4 ✅
+  - /api/yt/download 720p (ffmpeg merge) → HTTP 200, 21MB, video/mp4 ✅
+  - /api/yt/download best (4K) → HTTP 200, 233MB, video/mp4 ✅
+
+Ghi chú môi trường:
+  - Replit: ffmpeg native → high quality ngay lập tức, không cần download
+  - Render: không có ffmpeg native → download 40MB static binary (background, 2-3 phút)
+    Trong thời gian chờ: combined formats (360p/720p itag 22/18) vẫn hoạt động
+  - TikTok/Instagram: bị block datacenter IP (Replit & Render) → lỗi IP block là expected
+  - YouTube: hoạt động hoàn toàn, không cần cookies trên Replit hiện tại
+
+YOUTUBE_COOKIES Secret (nếu cần khi YouTube bắt đầu block):
+  1. Cài extension "Get cookies.txt LOCALLY" trên Chrome
+  2. Đăng nhập YouTube → export cookies.txt
+  3. Set Secret YOUTUBE_COOKIES = nội dung file (plain text hoặc base64)
+  4. Restart API Server
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 7] SETUP — Migration sang Replit environment mới
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → 730 packages (done in 35.5s)
+  2. npm install -g node-gyp --prefix=/tmp/gyp-install
+  3. Rebuild better-sqlite3 native binary:
+     - cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     - /tmp/gyp-install/bin/node-gyp configure && build
+     → better_sqlite3.node ✅
+  4. Restart workflow "Start application" (Portfolio port 21113) → RUNNING ✅
+  5. Tạo + start workflow "packages/api-server: API Server":
+     - Lệnh: PORT=8080 pnpm --filter @workspace/api-server run dev
+     → RUNNING ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - WebSocket /ws và /ws-browser: sẵn sàng ✅
+  - SQLite DB initialized ✅
+  - yt-dlp binary: ready ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt (cần set trong Secrets)
+
+Lưu ý mỗi khi env reset:
+  1. pnpm install --ignore-scripts
+  2. npm install -g node-gyp --prefix=/tmp/gyp-install
+  3. cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     /tmp/gyp-install/bin/node-gyp configure && /tmp/gyp-install/bin/node-gyp build
+
+ESP32 cần nạp firmware: KHÔNG
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

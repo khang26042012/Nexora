@@ -40,6 +40,8 @@ type VideoInfo = {
   duration: number;
   channel: string;
   platform: string;
+  ffmpegAvailable?: boolean;
+  qualityNote?: string | null;
 };
 
 async function fetchVideoInfo(url: string): Promise<VideoInfo> {
@@ -305,6 +307,14 @@ export function YtDownloader() {
                     <span className="text-xs">{info.channel}</span>
                   </div>
                 </div>
+
+                {/* Quality limitation warning when ffmpeg not available */}
+                {info.qualityNote && (
+                  <div className="mx-5 mb-4 px-3 py-2 rounded-lg text-xs text-amber-300"
+                    style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                    ⚠ {info.qualityNote}
+                  </div>
+                )}
               </div>
 
               {/* Quality Selection */}
