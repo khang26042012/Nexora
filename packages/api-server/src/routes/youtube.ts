@@ -114,12 +114,15 @@ async function getYtDlpBin(): Promise<string> {
 /* Kick ngay khi module load */
 kickLatestDownload();
 
-/* ── Format selector theo quality ───────────────────────────── */
+/* ── Format selector theo quality ───────────────────────────────
+ *  Chỉ dùng combined format (video+audio trong 1 stream) — không cần ffmpeg
+ *  Render không có ffmpeg → KHÔNG dùng bestvideo+bestaudio (cần merge)
+ * ──────────────────────────────────────────────────────────────── */
 const QUALITY_FORMAT: Record<string, string> = {
-  best:  "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-  "720p":"bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
-  "480p":"bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]",
-  "360p":"bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]",
+  best:  "best[ext=mp4]/best",
+  "720p":"best[height<=720][ext=mp4]/best[height<=720]",
+  "480p":"best[height<=480][ext=mp4]/best[height<=480]",
+  "360p":"best[height<=360][ext=mp4]/best[height<=360]",
 };
 
 /* ── Base yt-dlp args ────────────────────────────────────────── */
@@ -237,7 +240,6 @@ router.get("/download", async (req, res) => {
       url,
       "-o", tmpFile,
       "-f", fmt,
-      "--merge-output-format", "mp4",
       ...baseArgs(),
     ];
 

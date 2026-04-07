@@ -65,6 +65,7 @@ export function YtDownloader() {
   const [info, setInfo]         = useState<VideoInfo | null>(null);
   const [quality, setQuality]   = useState("best");
   const [dlReady, setDlReady]   = useState(false);
+  const [dlLoading, setDlLoading] = useState(false);
 
   const handleFetch = async () => {
     const trimmed = url.trim();
@@ -83,22 +84,42 @@ export function YtDownloader() {
     }
   };
 
-  const handleDownload = () => {
-    if (!info || !url.trim()) return;
-    setDlReady(true);
-    const params = new URLSearchParams({
-      url:     url.trim(),
-      quality: quality,
-      title:   info.title,
-    });
-    const link = document.createElement("a");
-    link.href = `/api/yt/download?${params.toString()}`;
-    link.download = "";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    // Reset sau 3s để cho phép tải lại
-    setTimeout(() => setDlReady(false), 3000);
+  const handleDownload = async () => {
+    if (!info || !url.trim() || dlLoading) return;
+    setDlLoading(true);
+    setDlReady(false);
+    setError("");
+    try {
+      const params = new URLSearchParams({
+        url:     url.trim(),
+        quality: quality,
+        title:   info.title,
+      });
+      const res = await fetch(`/api/yt/download?${params.toString()}`, {
+        signal: AbortSignal.timeout(300_000),
+      });
+      if (!res.ok) {
+        let msg = `Lỗi ${res.status}`;
+        try { const b = await res.json(); if (b?.error) msg = b.error; } catch {}
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const safeTitle = info.title.replace(/[^\w\s\-\(\)\[\]]/g, "").trim().slice(0, 80) || "video";
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${safeTitle}_${quality}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+      setDlReady(true);
+      setTimeout(() => setDlReady(false), 3000);
+    } catch (e: any) {
+      if (e?.name !== "AbortError") setError(e.message ?? "Không tải được video");
+    } finally {
+      setDlLoading(false);
+    }
   };
 
   return (
@@ -319,11 +340,13 @@ export function YtDownloader() {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleDownload}
-                disabled={dlReady}
+                disabled={dlReady || dlLoading}
                 className="w-full flex items-center justify-center gap-2.5 py-4 rounded-xl text-base font-bold text-white transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 style={{
                   background: dlReady
                     ? "linear-gradient(135deg, #059669 0%, #047857 100%)"
+                    : dlLoading
+                    ? "linear-gradient(135deg, #5b21b6 0%, #4c1d95 100%)"
                     : "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)",
                   boxShadow: dlReady
                     ? "0 8px 32px rgba(5,150,105,0.25)"
@@ -331,7 +354,9 @@ export function YtDownloader() {
                 }}
               >
                 {dlReady
-                  ? <><CheckCircle2 className="w-5 h-5" />Đang tải xuống...</>
+                  ? <><CheckCircle2 className="w-5 h-5" />Tải xong!</>
+                  : dlLoading
+                  ? <><Loader2 className="w-5 h-5 animate-spin" />Đang tải xuống...</>
                   : <><Download className="w-5 h-5" />Tải xuống {QUALITIES.find(q => q.value === quality)?.label}</>
                 }
               </motion.button>
