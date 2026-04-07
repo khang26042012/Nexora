@@ -766,7 +766,7 @@ void manageTFT() {
 
   unsigned long now = millis();
 
-  // Relay noise reinit: sau relay click đợi 150ms → fillScreen + redraw
+  // Relay noise reinit: sau relay click đợi 150ms → init + fillScreen, return để loop tiếp theo mới draw
   if (tftReinitAt != 0 && now >= tftReinitAt) {
     tftReinitAt = 0;
     tft.init();
@@ -775,16 +775,16 @@ void manageTFT() {
     tftForceRedraw = true;
     tftLastDraw    = now;
     Serial.println("[TFT] Reinit sau relay click");
+    return;  // Cho LCD ổn định trước khi vẽ lại (loop tiếp theo sẽ draw)
   }
 
-  // Watchdog: nếu TFT không vẽ > 2s → reinit để phục hồi nếu bị kẹt
-  if (tftReinitAt == 0 && (now - tftLastDraw > 2000)) {
-    tft.init();
-    tft.setRotation(0);
+  // Watchdog: nếu TFT không vẽ > 5s → force fillScreen + redraw (KHÔNG reinit — tránh SPI glitch)
+  if (tftReinitAt == 0 && (now - tftLastDraw > 5000)) {
     tft.fillScreen(C_BLACK);
     tftForceRedraw = true;
     tftLastDraw    = now;
-    Serial.println("[TFT] Watchdog reinit");
+    Serial.println("[TFT] Watchdog force redraw");
+    return;  // Cho LCD ổn định, loop tiếp theo vẽ lại
   }
 
   bool shouldDraw = tftForceRedraw || (now - tftLastDraw >= 500);
