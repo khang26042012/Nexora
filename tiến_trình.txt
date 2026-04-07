@@ -494,3 +494,9 @@ Kết quả test:
 ESP32 cần nạp firmware: KHÔNG
 
 ================================================================
+
+---
+[2026-04-07] Redesign Hero hoàn toàn theo ảnh tham khảo:
+- ThreeScene.tsx v4: Stars 3 layer (8000+), NebulaClouds gaussian (5 clusters/màu), AuroraRibbons sine-wave, FloatingOrbs 3 orbs, CameraController parallax - FIX useMemo trong map
+- Home.tsx Hero: Ambient CSS glow orbs (4 orbs), Mountain silhouette SVG 2 lớp có glow line, Crystal formations SVG 3 cụm (cyan/blue/purple) với SVG filter glow, Floor gradient, Text glow shadows, Button shadow nổi bật
+- Page background: linear-gradient tím sâu thay solid

@@ -381,19 +381,94 @@ function SpaceDivider() {
 ═══════════════════════════════════════════════════════ */
 export function Home() {
   return (
-    <div className="min-h-screen selection:bg-violet-500/30" style={{ background: "#020008", color: "white", overflowX: "hidden", width: "100%", maxWidth: "100vw" }}>
+    <div className="min-h-screen selection:bg-violet-500/30" style={{ background: "linear-gradient(180deg, #04000f 0%, #060014 30%, #07001a 60%, #05000e 100%)", color: "white", overflowX: "hidden", width: "100%", maxWidth: "100vw" }}>
       <CursorGlow />
       <Navigation />
 
       {/* ── HERO ── */}
       <section id="trang-chu" className="relative min-h-screen flex items-center justify-center pt-20 px-4 sm:px-6 overflow-hidden">
-        <ThreeScene className="absolute inset-0 z-0" style={{ cursor: "grab" } as React.CSSProperties} />
 
-        {/* overlay gradient for text readability */}
-        <div className="absolute inset-0 z-[1] pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 60% 55% at 50% 50%, rgba(2,0,8,0.45) 0%, rgba(2,0,8,0.2) 60%, transparent 100%)" }} />
+        {/* Three.js nebula + stars background */}
+        <ThreeScene className="absolute inset-0 z-0" />
 
-        <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center text-center gap-7 sm:gap-9">
+        {/* ── Ambient glow orbs (CSS) ── */}
+        <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
+          <div className="absolute" style={{ top: "10%", left: "15%", width: 520, height: 520, borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(110,40,220,0.28) 0%, rgba(80,20,180,0.12) 40%, transparent 70%)",
+            filter: "blur(40px)", transform: "translateZ(0)" }} />
+          <div className="absolute" style={{ top: "20%", right: "10%", width: 400, height: 400, borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(30,80,255,0.22) 0%, rgba(20,60,200,0.10) 40%, transparent 70%)",
+            filter: "blur(40px)" }} />
+          <div className="absolute" style={{ bottom: "30%", left: "5%", width: 300, height: 300, borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(180,20,220,0.18) 0%, transparent 70%)",
+            filter: "blur(30px)" }} />
+          <div className="absolute" style={{ top: "55%", right: "20%", width: 260, height: 260, borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(0,180,255,0.14) 0%, transparent 70%)",
+            filter: "blur(25px)" }} />
+        </div>
+
+        {/* ── Mountain silhouette layers ── */}
+        <div className="absolute bottom-0 left-0 right-0 z-[2] pointer-events-none">
+          {/* Far mountains */}
+          <svg viewBox="0 0 1440 220" preserveAspectRatio="none" className="w-full" style={{ height: "clamp(100px,22vw,220px)" }}>
+            <path d="M0,220 L0,160 L60,110 L120,145 L200,80 L280,120 L360,60 L430,95 L510,45 L580,90 L650,50 L720,88 L790,40 L860,75 L940,30 L1010,65 L1080,28 L1150,60 L1220,38 L1290,70 L1370,50 L1440,80 L1440,220 Z"
+              fill="rgba(18,0,50,0.75)" />
+            {/* Glow on far mountains */}
+            <path d="M0,165 L60,112 L120,147 L200,82 L280,122 L360,62 L430,97 L510,47 L580,92 L650,52 L720,90 L790,42 L860,77 L940,32 L1010,67 L1080,30 L1150,62 L1220,40 L1290,72 L1370,52 L1440,82"
+              fill="none" stroke="rgba(100,40,200,0.25)" strokeWidth="1.5" />
+          </svg>
+          {/* Near mountains */}
+          <svg viewBox="0 0 1440 180" preserveAspectRatio="none" className="w-full" style={{ height: "clamp(80px,18vw,180px)", marginTop: "-2px" }}>
+            <path d="M0,180 L0,140 L80,100 L150,130 L230,75 L320,115 L400,55 L470,90 L540,40 L620,75 L690,25 L770,65 L840,20 L920,55 L990,15 L1060,50 L1140,20 L1210,55 L1290,25 L1360,60 L1440,35 L1440,180 Z"
+              fill="rgba(10,0,30,0.90)" />
+            <path d="M0,142 L80,102 L150,132 L230,77 L320,117 L400,57 L470,92 L540,42 L620,77 L690,27 L770,67 L840,22 L920,57 L990,17 L1060,52 L1140,22 L1210,57 L1290,27 L1360,62 L1440,37"
+              fill="none" stroke="rgba(120,60,255,0.20)" strokeWidth="1" />
+          </svg>
+          {/* Foreground floor */}
+          <div style={{ height: 32, background: "linear-gradient(to bottom, rgba(6,0,18,0.95), #04000f)", marginTop: "-2px" }} />
+
+          {/* ── Crystal formations ── */}
+          <svg viewBox="0 0 1440 160" preserveAspectRatio="none" className="absolute bottom-0 w-full" style={{ height: "clamp(60px,14vw,160px)" }}>
+            {/* Left crystal cluster */}
+            <g filter="url(#crystalGlow)">
+              <polygon points="80,160 95,80 110,160" fill="rgba(0,200,255,0.55)" />
+              <polygon points="100,160 118,50 136,160" fill="rgba(20,160,255,0.60)" />
+              <polygon points="130,160 143,90 156,160" fill="rgba(0,180,220,0.45)" />
+              <polygon points="60,160 72,105 84,160"  fill="rgba(40,140,255,0.40)" />
+            </g>
+            {/* Center crystal cluster */}
+            <g filter="url(#crystalGlow)">
+              <polygon points="660,160 678,55 696,160" fill="rgba(160,40,255,0.55)" />
+              <polygon points="690,160 710,30 730,160" fill="rgba(120,0,255,0.65)" />
+              <polygon points="724,160 739,70 754,160" fill="rgba(180,60,255,0.50)" />
+              <polygon points="640,160 654,85 668,160" fill="rgba(100,20,220,0.45)" />
+            </g>
+            {/* Right crystal cluster */}
+            <g filter="url(#crystalGlow)">
+              <polygon points="1280,160 1295,75 1310,160" fill="rgba(0,220,200,0.55)" />
+              <polygon points="1305,160 1323,45 1341,160" fill="rgba(0,180,255,0.62)" />
+              <polygon points="1335,160 1348,88 1361,160" fill="rgba(20,160,220,0.48)" />
+              <polygon points="1360,160 1370,110 1380,160" fill="rgba(40,200,255,0.38)" />
+            </g>
+            <defs>
+              <filter id="crystalGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+          </svg>
+
+          {/* Floor glow under crystals */}
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: 40,
+            background: "linear-gradient(to top, rgba(0,120,255,0.08), rgba(100,0,255,0.06), transparent)" }} />
+        </div>
+
+        {/* Bottom text-safe gradient */}
+        <div className="absolute inset-0 z-[3] pointer-events-none"
+          style={{ background: "radial-gradient(ellipse 70% 50% at 50% 45%, rgba(4,0,15,0.55) 0%, rgba(4,0,12,0.25) 55%, transparent 100%)" }} />
+
+        {/* ── Content ── */}
+        <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center text-center gap-7 sm:gap-9" style={{ paddingBottom: "clamp(80px,20vw,200px)" }}>
           <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}>
             <AvatarOrb />
@@ -402,21 +477,23 @@ export function Home() {
           <div className="space-y-3">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-mono tracking-wider"
-              style={{ background: "rgba(100,60,255,0.12)", border: "1px solid rgba(130,80,255,0.28)", color: "#a78bfa" }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+              style={{ background: "rgba(100,40,255,0.15)", border: "1px solid rgba(160,100,255,0.35)", color: "#c4a0ff" }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#a060ff", boxShadow: "0 0 8px #a060ff" }} />
               THCS Vĩnh Hòa · 2026
             </motion.div>
 
             <motion.h1 initial={{ y: 32, opacity: 0, filter: "blur(10px)" }} animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
               transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight text-white">
+              className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight"
+              style={{ color: "#f0e8ff", textShadow: "0 0 60px rgba(160,80,255,0.4), 0 2px 30px rgba(80,0,180,0.3)" }}>
               <GlitchText text="Phan Trọng Khang" />
             </motion.h1>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5 }}
-              className="flex items-center justify-center gap-2 text-lg md:text-2xl text-white/60">
+              className="flex items-center justify-center gap-2 text-lg md:text-2xl"
+              style={{ color: "rgba(200,170,255,0.75)" }}>
               <motion.div animate={{ rotate: [0, 12, -12, 0] }} transition={{ duration: 3.5, repeat: Infinity }}>
-                <Zap className="w-5 h-5 text-violet-400" />
+                <Zap className="w-5 h-5" style={{ color: "#b060ff" }} />
               </motion.div>
               <TypewriterTitle />
             </motion.div>
@@ -424,7 +501,8 @@ export function Home() {
 
           <motion.p initial={{ y: 20, opacity: 0, filter: "blur(4px)" }} animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
             transition={{ duration: 0.7, delay: 0.45 }}
-            className="max-w-xl text-base md:text-lg text-white/50 leading-relaxed">
+            className="max-w-xl text-base md:text-lg leading-relaxed"
+            style={{ color: "rgba(180,150,255,0.6)" }}>
             Người điều khiển và sản xuất phần mềm bằng AI · Prompt Master · Kiến tạo tương lai từ hôm nay
           </motion.p>
 
@@ -432,30 +510,35 @@ export function Home() {
             className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
             <motion.a href="#du-an"
               onClick={(e) => { e.preventDefault(); document.querySelector("#du-an")?.scrollIntoView({ behavior: "smooth" }); }}
-              whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.97 }}
-              className="px-8 py-4 rounded-full font-semibold flex items-center justify-center gap-2 text-sm md:text-base text-white"
-              style={{ background: "linear-gradient(135deg,#6030e0,#9060ff)", boxShadow: "0 0 36px rgba(100,50,220,0.35)" }}>
+              whileHover={{ scale: 1.06, y: -3 }} whileTap={{ scale: 0.97 }}
+              className="px-8 py-4 rounded-full font-bold flex items-center justify-center gap-2 text-sm md:text-base text-white"
+              style={{
+                background: "linear-gradient(135deg, #7020d0, #a040ff, #6020c0)",
+                boxShadow: "0 0 40px rgba(140,40,255,0.50), 0 4px 20px rgba(100,20,200,0.40), inset 0 1px 0 rgba(255,255,255,0.15)",
+              }}>
               Xem Dự Án
-              <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+              <motion.span animate={{ x: [0, 5, 0] }} transition={{ duration: 1.4, repeat: Infinity }}>
                 <ArrowRight className="w-4 h-4" />
               </motion.span>
             </motion.a>
             <motion.a href="#lien-he"
               onClick={(e) => { e.preventDefault(); document.querySelector("#lien-he")?.scrollIntoView({ behavior: "smooth" }); }}
-              whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.06, y: -3 }} whileTap={{ scale: 0.97 }}
               className="px-8 py-4 rounded-full font-semibold flex items-center justify-center text-sm md:text-base"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.65)" }}>
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(180,120,255,0.30)",
+                color: "rgba(210,180,255,0.80)",
+                boxShadow: "0 0 20px rgba(120,40,255,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+              }}>
               Liên Hệ
             </motion.a>
           </motion.div>
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
-            <motion.p className="text-[10px] font-mono tracking-widest uppercase mb-2" style={{ color: "rgba(160,120,255,0.4)" }}>
-              Di chuột để lái · Vuốt xuống
-            </motion.p>
-            <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}>
-              <ChevronDown className="w-5 h-5" style={{ color: "rgba(255,255,255,0.2)" }} />
+            className="absolute bottom-[clamp(100px,18vw,180px)] left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+            <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
+              <ChevronDown className="w-5 h-5" style={{ color: "rgba(180,120,255,0.35)" }} />
             </motion.div>
           </motion.div>
         </div>
