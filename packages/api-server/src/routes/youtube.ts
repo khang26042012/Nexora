@@ -14,13 +14,16 @@ const COOKIES_PATH = "/tmp/yt-cookies.txt";
 
 function setupCookies() {
   const raw = process.env["YOUTUBE_COOKIES"];
-  if (!raw) return false;
-  try {
-    const decoded = raw.startsWith("# Netscape") ? raw
-      : Buffer.from(raw, "base64").toString("utf8");
-    fs.writeFileSync(COOKIES_PATH, decoded, { mode: 0o600 });
-    return true;
-  } catch { return false; }
+  if (raw) {
+    try {
+      const decoded = raw.startsWith("# Netscape") ? raw
+        : Buffer.from(raw, "base64").toString("utf8");
+      fs.writeFileSync(COOKIES_PATH, decoded, { mode: 0o600 });
+      return true;
+    } catch { return false; }
+  }
+  // Fallback: file đã có sẵn ở /tmp (do agent copy trực tiếp)
+  return fs.existsSync(COOKIES_PATH);
 }
 
 const hasCookies = setupCookies();
@@ -301,13 +304,23 @@ function getFormatSelector(quality: string): string {
   }
 }
 
-/* ── Base yt-dlp args ────────────────────────────────────────── */
+/* ── Tìm Node.js binary để yt-dlp dùng làm JS runtime ────────── */
+function findNodeBin(): string | null {
+  try {
+    const p = execFileSync("which", ["node"], { encoding: "utf8" }).trim();
+    return p || null;
+  } catch { return null; }
+}
+const NODE_BIN = findNodeBin();
+
 function baseArgs(opts?: { extraArgs?: string[]; download?: boolean; geoBypass?: boolean }): string[] {
   return [
     "--no-warnings",
     "--no-check-certificate",
     "--socket-timeout", "20",
     "--no-playlist",
+    /* JS runtime cho yt-dlp 2026+ (cần để decipher YouTube) */
+    ...(NODE_BIN ? ["--js-runtimes", `node:${NODE_BIN}`] : []),
     /* Ưu tiên mp4/m4a khi có lựa chọn */
     "--format-sort", "ext:mp4:m4a",
     /* Geo-bypass Vietnam — gửi X-Forwarded-For header VN IP */
