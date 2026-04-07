@@ -127,18 +127,20 @@ function baseArgs(opts?: { extraArgs?: string[] }): string[] {
   return [
     "--no-warnings",
     "--no-check-certificate",
-    "--socket-timeout", "15",      // fail nhanh nếu mạng bị block
-    "--no-playlist",               // không xử lý playlist
+    "--socket-timeout", "15",
+    "--no-playlist",
+    "--ignore-no-formats-error",   // không crash khi client không có format
     ...(hasCookies ? ["--cookies", COOKIES_PATH] : []),
     ...(opts?.extraArgs ?? []),
   ];
 }
 
-/* ── Thử nhiều player_client cho YouTube nếu thất bại ──────── */
+/* ── Thử nhiều player_client — default trước, rồi mới fallback ── */
 const YT_CLIENT_STRATEGIES = [
-  ["--extractor-args", "youtube:player_client=tv_embedded"],     // thường thành công nhất
-  [],                                                              // default
+  [],                                                               // default (web)
+  ["--extractor-args", "youtube:player_client=tv_embedded"],
   ["--extractor-args", "youtube:player_client=android"],
+  ["--extractor-args", "youtube:player_client=mweb"],
 ];
 
 /* ── Helper: chạy yt-dlp một lần với args nhất định ───────── */
