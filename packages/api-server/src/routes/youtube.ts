@@ -264,7 +264,7 @@ function kickFfmpegDownload() {
 /* Khởi tạo khi module load */
 if (!_ytdlpReady) kickYtDlpDownload();
 initFfmpeg();
-console.log(`[yt-router] v10 loaded — cookies:${hasCookies} ffmpeg:${_ffmpegReady ?? "loading..."}`);
+console.log(`[yt-router] v12 loaded — cookies:${hasCookies} ffmpeg:${_ffmpegReady ?? "loading..."} (2026: PO-token-free clients)`);
 
 /* ── Platform detection ──────────────────────────────────────── */
 function isYouTube(url: string): boolean {
@@ -314,18 +314,21 @@ function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[]
 }
 
 /* ── YouTube player_client strategies ───────────────────────────
- *  Thứ tự: default web → android (bypass datacenter) → ios →
- *           tv_embedded → web_creator → mediaconnect → mweb
- *  web_creator / mediaconnect: thường cần cookies nhưng vẫn thử
+ *  2026: YouTube bắt PO Token cho web client trên datacenter IP.
+ *  Clients KHÔNG cần PO Token: ios, tv_embedded, android, mweb
+ *
+ *  Strategy 1: multi-client trong 1 lệnh (nhanh nhất, yt-dlp tự chọn)
+ *  Strategy 2: ios đơn (reliable nhất, không cần PO token)
+ *  Strategy 3: tv_embedded (không cần PO token, không cần sign-in)
+ *  Strategy 4: android (bypass datacenter IP check)
+ *  Strategy 5: mweb + web_embedded (fallback cuối)
  * ──────────────────────────────────────────────────────────── */
 const YT_CLIENT_STRATEGIES = [
-  [],
-  ["--extractor-args", "youtube:player_client=android"],
+  ["--extractor-args", "youtube:player_client=ios,tv_embedded,android"],
   ["--extractor-args", "youtube:player_client=ios"],
   ["--extractor-args", "youtube:player_client=tv_embedded"],
-  ["--extractor-args", "youtube:player_client=web_creator"],
-  ["--extractor-args", "youtube:player_client=mediaconnect"],
-  ["--extractor-args", "youtube:player_client=mweb"],
+  ["--extractor-args", "youtube:player_client=android"],
+  ["--extractor-args", "youtube:player_client=mweb,web_embedded"],
 ];
 
 /* ── Non-YouTube: single attempt, no player_client tricks ────── */
@@ -354,7 +357,10 @@ function isRetryableErr(msg: string): boolean {
     || msg.includes("player_client") || msg.includes("Requested")
     || msg.includes("Failed to extract") || msg.includes("unavailable")
     || msg.includes("Unavailable") || msg.includes("This video")
-    || msg.includes("Sign in") || msg.includes("bot check");
+    || msg.includes("Sign in") || msg.includes("bot check")
+    || msg.includes("po_token") || msg.includes("PO Token")
+    || msg.includes("proof of origin") || msg.includes("nsig")
+    || msg.includes("Precondition") || msg.includes("403");
 }
 
 /* ── GET /api/yt/info?url=... ────────────────────────────────── */

@@ -1,8 +1,71 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 07/04/2026 (session 8)
+  Cập nhật: 07/04/2026 (session 9)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 9] FIX — YtDownloader v12: PO Token fix cho YouTube 2026
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: packages/api-server/src/routes/youtube.ts (v12)
+
+Vấn đề gốc:
+  - YouTube 2026 bắt buộc PO Token (Proof of Origin) cho web client
+  - Datacenter IP (Replit/Render) không tạo được PO Token hợp lệ
+  - Strategy cũ: thử web client đầu tiên → luôn fail với PO token error
+  - agent cũ hết quota khi đang research
+
+Fix đã làm:
+  1. Đổi YT_CLIENT_STRATEGIES — bỏ web client (cần PO token), ưu tiên:
+     - Strategy 1: multi-client ios,tv_embedded,android trong 1 lệnh (nhanh nhất)
+     - Strategy 2: ios đơn (reliable nhất, không cần PO token)
+     - Strategy 3: tv_embedded (không cần PO token, không cần đăng nhập)
+     - Strategy 4: android (bypass datacenter IP check)
+     - Strategy 5: mweb,web_embedded (fallback cuối)
+  2. Thêm PO token errors vào isRetryableErr():
+     - po_token, PO Token, proof of origin, nsig, Precondition, 403
+
+End-to-end tests PASSED:
+  - /api/yt/info Rick Astley → title ✅ thumbnail ✅ ffmpegAvailable:true ✅
+  - /api/yt/download 360p → HTTP 200 | 11.8MB | video/mp4 ✅
+
+ESP32 cần nạp firmware: KHÔNG
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 9] SETUP — Khởi động lại môi trường Replit (migration)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → 730 packages (reused từ cache, done in 26.3s)
+  2. npm install -g node-gyp --prefix=/tmp/gyp-install
+  3. Rebuild better-sqlite3 native binary:
+     - cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     - /tmp/gyp-install/bin/node-gyp configure && build
+     → better_sqlite3.node ✅
+  4. Restart workflow "Start application" (Portfolio port 21113) → RUNNING ✅
+  5. Tạo + start workflow "packages/api-server: API Server":
+     - Lệnh: PORT=8080 pnpm --filter @workspace/api-server run dev
+     → RUNNING ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - WebSocket /ws và /ws-browser: sẵn sàng ✅
+  - SQLite DB initialized ✅
+  - ffmpeg native detected: /nix/store/.../bin/ffmpeg ✅
+  - yt-dlp binary: ready ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt (cần set trong Secrets)
+
+Lưu ý mỗi khi env reset:
+  1. pnpm install --ignore-scripts
+  2. npm install -g node-gyp --prefix=/tmp/gyp-install
+  3. cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     /tmp/gyp-install/bin/node-gyp configure && /tmp/gyp-install/bin/node-gyp build
+
+ESP32 cần nạp firmware: KHÔNG
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [07/04/2026 session 8] FIX — YtDownloader v11: code review fixes, Task #1 HOÀN THÀNH
