@@ -86,6 +86,8 @@ function baseArgs(opts?: { extraArgs?: string[] }): string[] {
   return [
     "--no-warnings",
     "--no-check-certificate",
+    "--socket-timeout", "15",      // fail nhanh nếu mạng bị block
+    "--no-playlist",               // không xử lý playlist
     ...(hasCookies ? ["--cookies", COOKIES_PATH] : []),
     ...(opts?.extraArgs ?? []),
   ];
@@ -93,11 +95,9 @@ function baseArgs(opts?: { extraArgs?: string[] }): string[] {
 
 /* ── Thử nhiều player_client cho YouTube nếu thất bại ──────── */
 const YT_CLIENT_STRATEGIES = [
+  ["--extractor-args", "youtube:player_client=tv_embedded"],     // thường thành công nhất
   [],                                                              // default
-  ["--extractor-args", "youtube:player_client=tv_embedded"],
-  ["--extractor-args", "youtube:player_client=web"],
   ["--extractor-args", "youtube:player_client=android"],
-  ["--extractor-args", "youtube:player_client=mweb"],
 ];
 
 /* ── Helper: chạy yt-dlp một lần với args nhất định ───────── */
@@ -134,7 +134,7 @@ router.get("/info", async (req, res) => {
           "--skip-download",
           ...baseArgs({ extraArgs }),
         ];
-        const stdout = await runYtDlp(bin, args, 35_000);
+        const stdout = await runYtDlp(bin, args, 22_000);
         let data: any;
         try { data = JSON.parse(stdout); }
         catch { throw new Error("Không parse được JSON từ yt-dlp"); }

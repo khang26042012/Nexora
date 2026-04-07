@@ -44,7 +44,7 @@ type VideoInfo = {
 
 async function fetchVideoInfo(url: string): Promise<VideoInfo> {
   const res = await fetch(`/api/yt/info?url=${encodeURIComponent(url)}`, {
-    signal: AbortSignal.timeout(35_000),
+    signal: AbortSignal.timeout(90_000),
   });
   if (!res.ok) {
     let msg = `Lỗi ${res.status}`;
@@ -211,7 +211,7 @@ export function YtDownloader() {
                 initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 className="text-xs mt-2 pl-1" style={{ color: "rgba(255,255,255,0.3)" }}
               >
-                Đang phân tích video... có thể mất 5–15 giây
+                Đang phân tích video... có thể mất 10–30 giây tuỳ nền tảng
               </motion.p>
             )}
           </AnimatePresence>
