@@ -213,10 +213,9 @@ router.get("/info", async (req, res) => {
 });
 
 /* ── GET /api/yt/download?url=...&quality=best|720p|480p|360p
- *  Approach từ n8n workflow:
- *  1. yt-dlp tải xuống file /tmp/yt_xxxx.mp4
- *  2. Server pipe file về browser
- *  3. Xóa file tạm
+ *  1. Thử lần lượt các player_client strategies (giống /info)
+ *  2. yt-dlp tải xuống file /tmp/yt_xxxx.mp4
+ *  3. Server pipe file về browser
  *  → Không bị timeout / stream break như approach pipe trực tiếp
  * ─────────────────────────────────────────────────────────── */
 router.get("/download", async (req, res) => {
@@ -226,55 +225,90 @@ router.get("/download", async (req, res) => {
 
   if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
 
-  const fmt = QUALITY_FORMAT[quality] ?? QUALITY_FORMAT["best"];
-  const tmpFile = `/tmp/yt_${Date.now()}_${Math.random().toString(36).slice(2)}.mp4`;
+  const fmt = QUALITY_FORMAT[quality] ?? QUALITY_FORMAT["best"]!;
+  /* Fallback rộng hơn: nếu format chính không có thì lấy bất kỳ */
+  const fmtWithFallback = `${fmt}/best`;
 
-  const cleanup = () => {
-    try { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile); } catch {}
+  const tmpFile = `/tmp/yt_${Date.now()}_${Math.random().toString(36).slice(2)}.%(ext)s`;
+
+  const cleanup = (ext?: string) => {
+    /* Xóa file bất kể ext là gì */
+    const base = tmpFile.replace(".%(ext)s", "");
+    try {
+      for (const e of ["mp4","webm","mkv","m4a","mp3","part",ext ?? ""].filter(Boolean)) {
+        const p = `${base}.${e}`;
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+    } catch {}
   };
 
   try {
     const bin = await getYtDlpBin();
+    let lastErr = "";
 
-    const args = [
-      url,
-      "-o", tmpFile,
-      "-f", fmt,
-      ...baseArgs(),
-    ];
+    for (const extraArgs of YT_CLIENT_STRATEGIES) {
+      try {
+        const args = [
+          url,
+          "-o", tmpFile,
+          "-f", fmtWithFallback,
+          ...baseArgs({ extraArgs }),
+        ];
 
-    await new Promise<void>((resolve, reject) => {
-      execFile(bin, args, { timeout: 180_000 }, (err, _stdout, stderr) => {
-        if (err) {
-          return reject(new Error((stderr || err.message).trim().split("\n").slice(-3).join(" | ")));
+        await new Promise<void>((resolve, reject) => {
+          execFile(bin, args, { timeout: 180_000 }, (err, _stdout, stderr) => {
+            if (err) {
+              return reject(new Error((stderr || err.message).trim().split("\n").filter(Boolean).slice(-3).join(" | ")));
+            }
+            resolve();
+          });
+        });
+
+        /* Tìm file đã tải (ext có thể khác mp4) */
+        const base = tmpFile.replace(".%(ext)s", "");
+        const actualFile = ["mp4","webm","mkv","m4a","mp3"]
+          .map(e => `${base}.${e}`)
+          .find(p => fs.existsSync(p));
+
+        if (!actualFile) {
+          lastErr = "yt-dlp không tạo ra file output";
+          continue;
         }
-        resolve();
-      });
-    });
 
-    if (!fs.existsSync(tmpFile)) {
-      return res.status(500).json({ error: "yt-dlp không tạo ra file output" });
+        const stat = fs.statSync(actualFile);
+        const ext  = actualFile.split(".").pop() ?? "mp4";
+        const safeTitle = title.replace(/[^\w\s\-\(\)\[\]]/g, "").trim().slice(0, 80) || "video";
+        const filename  = `${safeTitle}_${quality}.${ext}`;
+        const mime = ext === "webm" ? "video/webm" : ext === "mkv" ? "video/x-matroska" : "video/mp4";
+
+        res.setHeader("Content-Type", mime);
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.setHeader("Content-Length", stat.size);
+
+        const stream = fs.createReadStream(actualFile);
+        stream.pipe(res);
+        stream.on("end",   () => cleanup(ext));
+        stream.on("error", () => cleanup(ext));
+        req.on("close",    () => cleanup(ext));
+        return; /* Thành công → thoát vòng lặp */
+
+      } catch (e: any) {
+        lastErr = e.message ?? "Lỗi không xác định";
+        /* Chỉ retry nếu lỗi liên quan đến format/client */
+        const isRetryable = lastErr.includes("format") || lastErr.includes("No video")
+          || lastErr.includes("player_client") || lastErr.includes("Requested")
+          || lastErr.includes("Failed to extract");
+        if (!isRetryable) break;
+      }
     }
 
-    const stat = fs.statSync(tmpFile);
-    const safeTitle = title.replace(/[^\w\s\-\(\)\[\]]/g, "").trim().slice(0, 80) || "video";
-    const filename  = `${safeTitle}_${quality}.mp4`;
-
-    res.setHeader("Content-Type", "video/mp4");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.setHeader("Content-Length", stat.size);
-
-    const stream = fs.createReadStream(tmpFile);
-    stream.pipe(res);
-
-    stream.on("end",   cleanup);
-    stream.on("error", cleanup);
-    req.on("close",    cleanup);
+    cleanup();
+    if (!res.headersSent) res.status(500).json({ error: `yt-dlp: ${lastErr}` });
 
   } catch (err: unknown) {
     cleanup();
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";
-    if (!res.headersSent) res.status(500).json({ error: `yt-dlp: ${msg}` });
+    if (!res.headersSent) res.status(500).json({ error: `Lỗi server: ${msg}` });
   }
 });
 
