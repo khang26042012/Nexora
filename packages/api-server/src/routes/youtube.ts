@@ -277,6 +277,80 @@ function isYouTube(url: string): boolean {
   } catch { return false; }
 }
 
+function isTikTok(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.hostname.includes("tiktok.com") || u.hostname.includes("vm.tiktok.com");
+  } catch { return false; }
+}
+
+/* ── TikTok via tikwm.com API ────────────────────────────────── */
+async function fetchTikTokData(url: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const body = `url=${encodeURIComponent(url)}&hd=1`;
+    const options = {
+      hostname: "www.tikwm.com",
+      path: "/api/",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Length": Buffer.byteLength(body),
+        "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Referer": "https://www.tikwm.com/",
+      },
+    };
+    const req = https.request(options, (res) => {
+      let raw = "";
+      res.on("data", (c) => (raw += c));
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(raw);
+          if (json.code !== 0) return reject(new Error(`tikwm: ${json.msg ?? "lỗi không xác định"}`));
+          resolve(json.data);
+        } catch {
+          reject(new Error("tikwm: không parse được JSON"));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.setTimeout(15_000, () => { req.destroy(); reject(new Error("tikwm: timeout")); });
+    req.write(body);
+    req.end();
+  });
+}
+
+/* Stream URL từ xa về client (dùng cho TikTok CDN) */
+function streamRemoteUrl(remoteUrl: string, res: import("express").Response, filename: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const makeRequest = (url: string, redirectCount = 0) => {
+      if (redirectCount > 5) return reject(new Error("Quá nhiều redirect"));
+      const lib = url.startsWith("https") ? https : require("http");
+      lib.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36",
+          "Referer": "https://www.tiktok.com/",
+        }
+      }, (r: any) => {
+        if ([301, 302, 303, 307, 308].includes(r.statusCode)) {
+          return makeRequest(r.headers.location, redirectCount + 1);
+        }
+        if (r.statusCode !== 200) {
+          return reject(new Error(`CDN trả về ${r.statusCode}`));
+        }
+        const ct = r.headers["content-type"] ?? "video/mp4";
+        const cl = r.headers["content-length"];
+        res.setHeader("Content-Type", ct.includes("video") ? ct : "video/mp4");
+        res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
+        if (cl) res.setHeader("Content-Length", cl);
+        r.pipe(res);
+        r.on("end", resolve);
+        r.on("error", reject);
+      }).on("error", reject);
+    };
+    makeRequest(remoteUrl);
+  });
+}
+
 /* ── Format selector theo quality & ffmpeg availability ─────────
  *  Dùng yt-dlp shorthand "bv*+ba/b" - tương thích với MỌI client
  *  (ios, tv_embedded, android không dùng [ext=mp4]/[ext=m4a] cứng)
@@ -389,6 +463,28 @@ router.get("/info", async (req, res) => {
   const url = String(req.query["url"] ?? "").trim();
   if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
 
+  /* ── TikTok: dùng tikwm.com thay yt-dlp ── */
+  if (isTikTok(url)) {
+    try {
+      const data = await fetchTikTokData(url);
+      const hasHd = !!data.hdplay;
+      return res.json({
+        title:     data.title || data.id || "TikTok Video",
+        thumbnail: data.cover || data.origin_cover || "",
+        duration:  data.duration ?? 0,
+        channel:   data.author?.nickname ?? data.author?.unique_id ?? "TikTok",
+        platform:  "TikTok",
+        ffmpegAvailable: !!_ffmpegReady,
+        availableQualities: hasHd ? ["best", "360p"] : ["360p"],
+        maxQuality: hasHd ? "best" : "360p",
+        qualityNote: null,
+        _tiktok: { play: data.play, hdplay: data.hdplay ?? data.play },
+      });
+    } catch (e: any) {
+      return res.status(500).json({ error: `TikTok: ${e.message}` });
+    }
+  }
+
   const strategies = isYouTube(url) ? YT_CLIENT_STRATEGIES : NON_YT_STRATEGIES;
 
   try {
@@ -468,6 +564,21 @@ router.get("/download", async (req, res) => {
   const title   = String(req.query["title"]   ?? "video").trim();
 
   if (!url) return res.status(400).json({ error: "Thiếu tham số url" });
+
+  /* ── TikTok: stream trực tiếp từ tikwm CDN ── */
+  if (isTikTok(url)) {
+    try {
+      const data = await fetchTikTokData(url);
+      const videoUrl = (quality === "best" && data.hdplay) ? data.hdplay : data.play;
+      if (!videoUrl) return res.status(500).json({ error: "TikTok: không lấy được URL video" });
+      const safeTitle = title.replace(/[^\w\s\-\(\)\[\]]/g, "").trim().slice(0, 80) || "tiktok";
+      console.log(`[tiktok-download] quality=${quality} url=${videoUrl.slice(0, 60)}...`);
+      await streamRemoteUrl(videoUrl, res, `${safeTitle}_${quality}.mp4`);
+      return;
+    } catch (e: any) {
+      return res.status(500).json({ error: `TikTok: ${e.message}` });
+    }
+  }
 
   const strategies = isYouTube(url) ? YT_CLIENT_STRATEGIES : NON_YT_STRATEGIES;
   const fmt = getFormatSelector(quality);

@@ -1,8 +1,110 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 07/04/2026 (session 10)
+  Cập nhật: 07/04/2026 (session 12)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 12] TIKTOK DOWNLOAD — tích hợp tikwm.com API
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề: yt-dlp bị TikTok block IP datacenter → dùng tikwm.com free API
+
+Đã làm (packages/api-server/src/routes/youtube.ts):
+  1. Thêm hàm isTikTok(url) — detect tiktok.com / vm.tiktok.com
+  2. Thêm hàm fetchTikTokData(url) — POST tikwm.com/api/, trả data.play/hdplay/cover/title
+  3. Thêm hàm streamRemoteUrl() — stream CDN URL trực tiếp về client
+  4. Sửa GET /api/yt/info: nếu TikTok → gọi tikwm, trả {platform:"TikTok", qualities:["best","360p"], ...}
+  5. Sửa GET /api/yt/download: nếu TikTok → stream hdplay (best) hoặc play (360p)
+
+Kết quả test:
+  - /api/yt/info?url=tiktok → platform:TikTok, channel:..., thumbnail:ok ✅
+  - /api/yt/download?quality=best → HTTP 200, video/mp4, 3.9MB ✅
+  
+Ghi chú:
+  - tikwm.com chỉ hoạt động với video còn tồn tại (không cache video quá cũ)
+  - tikwm chấp nhận: www.tiktok.com/@user/video/ID, vm.tiktok.com/short/
+  - quality "best" → hdplay (HD), "360p" → play (standard, no watermark)
+  - ESP32: KHÔNG cần nạp lại firmware
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 11] SETUP — Migration Replit environment mới (lần 3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → 730 packages (done in 36.7s)
+  2. npm install -g node-gyp --prefix=/tmp/gyp-install
+  3. Rebuild better-sqlite3 native binary:
+     - node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     - node-gyp configure && build → better_sqlite3.node ✅
+  4. Restart workflow "Start application" (Portfolio port 21113) → RUNNING ✅
+  5. Tạo workflow "API Server":
+     - Lệnh: PORT=8080 pnpm --filter @workspace/api-server run dev
+     → RUNNING ✅ (tên mới: "API Server" thay vì "packages/api-server: API Server")
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - WebSocket /ws và /ws-browser: sẵn sàng ✅
+  - SQLite DB initialized ✅
+  - ffmpeg native detected: /nix/store/.../bin/ffmpeg ✅
+  - yt-dlp binary: ready ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt (cần set trong Secrets)
+
+Lưu ý mỗi khi env reset:
+  1. pnpm install --ignore-scripts
+  2. npm install -g node-gyp --prefix=/tmp/gyp-install
+  3. cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     /tmp/gyp-install/bin/node-gyp configure && /tmp/gyp-install/bin/node-gyp build
+  4. Restart "Start application" + "API Server"
+
+Tên workflow API Server hiện tại: "API Server" (KHÔNG phải "packages/api-server: API Server")
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[07/04/2026 session 11] FIX — YOUTUBE_COOKIES + node JS runtime cho yt-dlp
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Khang gửi file cookies YouTube (tài khoản VN). Đã làm:
+  1. Copy cookies vào /tmp/yt-cookies.txt
+  2. Set Secret YOUTUBE_COOKIES = nội dung file (Replit Secrets)
+  3. Sửa setupCookies(): fallback check fs.existsSync(/tmp/yt-cookies.txt)
+  4. Thêm findNodeBin() + --js-runtimes node:PATH vào baseArgs()
+     → yt-dlp 2026 cần JS runtime để decipher YouTube (deprecated warning fix)
+  5. Restart API Server → log: cookies:true ✅
+
+Kết quả test trên Replit (IP datacenter Mỹ):
+  - Cookie setup: ✅ cookies:true trong log
+  - Video VN geo-blocked: vẫn "Video unavailable"
+    → Nguyên nhân: YouTube block IP datacenter Mỹ ở tầng IP, không phải account
+    → Cookies chỉ fix age-restricted/account-only, KHÔNG fix IP geo-block cứng
+  - Cần test trên Render production (IP khác) → có thể bypass được
+
+Để deploy Render: push GitHub + set YOUTUBE_COOKIES trong Render Environment Variables
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[08/04/2026 session 11] FEAT — YtDownloader: hiển thị quality có sẵn theo video
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề: UI có 4 nút quality cố định, Khang không biết cái nào tải được cho video đó.
+
+Fix:
+  1. Server /api/yt/info: phân tích formats, tính maxHeight, trả về:
+     - availableQualities: ["best","720p","480p","360p"] (chỉ những cái video có)
+     - maxQuality: "720p" (cao nhất có sẵn)
+  2. Frontend YtDownloader.tsx:
+     - Thêm nút 1080p vào danh sách
+     - Nút không có trong availableQualities → mờ (disabled), cursor not-allowed
+     - Hiển thị dấu "—" trên nút không có
+     - Chú thích "Nút mờ = video không có chất lượng đó"
+     - Hiển thị "Cao nhất: 720p" bên cạnh tiêu đề chọn quality
+     - Tự động chọn quality tốt nhất khi load xong video info
+
+GitHub commit: adde380 (2 files)
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [07/04/2026 session 10] FIX — YtDownloader v14: Geo-block diagnosis + hướng dẫn cookies
