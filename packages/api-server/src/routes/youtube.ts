@@ -164,8 +164,17 @@ function runYtDlp(bin: string, args: string[], timeout = 35_000): Promise<string
   });
 }
 
+/* ── Helper: lỗi có nên retry client khác không ─────────────── */
+function isRetryableErr(msg: string): boolean {
+  return msg.includes("format") || msg.includes("No video")
+    || msg.includes("player_client") || msg.includes("Requested")
+    || msg.includes("Failed to extract") || msg.includes("unavailable")
+    || msg.includes("Unavailable") || msg.includes("This video");
+}
+
 /* ── GET /api/yt/info?url=... ────────────────────────────────
  *  Thử lần lượt nhiều yt-dlp client strategies cho YouTube
+ *  Chỉ trả success khi video CÓ format tải được (formats.length > 0)
  * ─────────────────────────────────────────────────────────── */
 router.get("/info", async (req, res) => {
   const url = String(req.query["url"] ?? "").trim();
@@ -188,6 +197,14 @@ router.get("/info", async (req, res) => {
         try { data = JSON.parse(stdout); }
         catch { throw new Error("Không parse được JSON từ yt-dlp"); }
 
+        /* Video không có format tải được → thử client khác */
+        const formats: any[] = data.formats ?? [];
+        const hasDownloadable = formats.some(f => f.url && !f.url.startsWith("manifest"));
+        if (!hasDownloadable) {
+          lastErr = "Video unavailable hoặc không có format tải được từ server này";
+          continue;
+        }
+
         return res.json({
           title:     data.title         ?? "Unknown",
           thumbnail: data.thumbnail      ?? "",
@@ -197,15 +214,18 @@ router.get("/info", async (req, res) => {
         });
       } catch (e: any) {
         lastErr = e.message ?? "Lỗi không xác định";
-        /* Nếu lỗi không liên quan đến format/client → stop ngay */
-        const isRetryable = lastErr.includes("format") || lastErr.includes("player_client")
-          || lastErr.includes("Requested") || lastErr.includes("Failed to extract");
-        if (!isRetryable) break;
+        if (!isRetryableErr(lastErr)) break;
       }
     }
 
+    const isUnavailable = lastErr.includes("unavailable") || lastErr.includes("Unavailable")
+      || lastErr.includes("Video unavailable");
     const isBotCheck = lastErr.includes("Sign in") || lastErr.includes("bot")
       || lastErr.includes("cookies") || lastErr.includes("confirm");
+
+    if (isUnavailable) {
+      return res.status(500).json({ error: "Video không tải được từ server (có thể bị geo-block hoặc cần đăng nhập YouTube)" });
+    }
     const hint = isBotCheck ? " | Cần set YOUTUBE_COOKIES để bypass bot-check." : "";
     return res.status(500).json({ error: `yt-dlp: ${lastErr}${hint}` });
 
@@ -274,8 +294,8 @@ router.get("/download", async (req, res) => {
           .find(p => fs.existsSync(p));
 
         if (!actualFile) {
-          lastErr = "No video formats found";   // trigger retry với client tiếp theo
-          continue;
+          lastErr = "No video formats found"; // trigger retry với client tiếp theo
+          continue; // luôn thử client tiếp theo khi không có file
         }
 
         const stat = fs.statSync(actualFile);
@@ -297,16 +317,16 @@ router.get("/download", async (req, res) => {
 
       } catch (e: any) {
         lastErr = e.message ?? "Lỗi không xác định";
-        /* Chỉ retry nếu lỗi liên quan đến format/client */
-        const isRetryable = lastErr.includes("format") || lastErr.includes("No video")
-          || lastErr.includes("player_client") || lastErr.includes("Requested")
-          || lastErr.includes("Failed to extract");
-        if (!isRetryable) break;
+        if (!isRetryableErr(lastErr)) break;
       }
     }
 
     cleanup();
-    if (!res.headersSent) res.status(500).json({ error: `yt-dlp: ${lastErr}` });
+    const isUnavail = lastErr.includes("unavailable") || lastErr.includes("Unavailable");
+    const msg = isUnavail
+      ? "Video không tải được từ server (geo-block hoặc cần đăng nhập)"
+      : `yt-dlp: ${lastErr}`;
+    if (!res.headersSent) res.status(500).json({ error: msg });
 
   } catch (err: unknown) {
     cleanup();
