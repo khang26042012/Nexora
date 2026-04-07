@@ -126,13 +126,15 @@ const QUALITY_FORMAT: Record<string, string> = {
 };
 
 /* ── Base yt-dlp args ────────────────────────────────────────── */
-function baseArgs(opts?: { extraArgs?: string[] }): string[] {
+function baseArgs(opts?: { extraArgs?: string[]; download?: boolean }): string[] {
   return [
     "--no-warnings",
     "--no-check-certificate",
     "--socket-timeout", "15",
     "--no-playlist",
-    "--ignore-no-formats-error",   // không crash khi client không có format
+    /* --ignore-no-formats-error: chỉ dùng cho /info (metadata), KHÔNG dùng cho download
+       vì sẽ khiến yt-dlp exit 0 khi không có format → không tạo file → khó detect lỗi */
+    ...(opts?.download ? [] : ["--ignore-no-formats-error"]),
     ...(hasCookies ? ["--cookies", COOKIES_PATH] : []),
     ...(opts?.extraArgs ?? []),
   ];
@@ -252,7 +254,7 @@ router.get("/download", async (req, res) => {
           url,
           "-o", tmpFile,
           "-f", fmtWithFallback,
-          ...baseArgs({ extraArgs }),
+          ...baseArgs({ extraArgs, download: true }),
         ];
 
         await new Promise<void>((resolve, reject) => {
@@ -271,7 +273,7 @@ router.get("/download", async (req, res) => {
           .find(p => fs.existsSync(p));
 
         if (!actualFile) {
-          lastErr = "yt-dlp không tạo ra file output";
+          lastErr = "No video formats found";   // trigger retry với client tiếp theo
           continue;
         }
 
