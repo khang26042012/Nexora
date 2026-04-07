@@ -83,6 +83,28 @@ pnpm --filter @workspace/portfolio run dev    # Chạy portfolio
 pnpm run typecheck                            # Typecheck toàn bộ
 ```
 
+## Cấu hình YtDownloader (Tool tải video)
+
+Tool tải video tại `/tools/yt-downloader` dùng `yt-dlp` + `ffmpeg`.
+
+### YOUTUBE_COOKIES (tùy chọn — tăng tỉ lệ thành công)
+Nếu YouTube trả về bot-check hoặc age-restricted error, set biến môi trường `YOUTUBE_COOKIES`:
+- **Replit**: Secrets → thêm key `YOUTUBE_COOKIES`, value = nội dung file `cookies.txt` (Netscape format)
+- **Render**: Environment → thêm env var `YOUTUBE_COOKIES`, value = nội dung `cookies.txt` hoặc base64 encode
+- Format: Netscape cookies.txt (`# Netscape HTTP Cookie File` ở dòng đầu) hoặc base64 của file đó
+- Lấy cookies: Chrome extension "Get cookies.txt LOCALLY" → Export cho `youtube.com`
+
+### Chất lượng và ffmpeg
+- Replit: ffmpeg native v6.1.2 có sẵn → tất cả quality kể cả 4K/1080p hoạt động ngay
+- Render: không có native ffmpeg → server tự download ~40MB binary khi khởi động
+  - Trong khi chờ: chỉ tải được combined format (360p/720p), UI hiển thị warning amber
+  - Sau ~2 phút: ffmpeg sẵn sàng, quality cao hơn khả dụng
+
+### Platform hỗ trợ
+- YouTube: ✅ hoàn toàn (360p đến 4K)
+- Streamable, Dailymotion, các platform public: ✅
+- TikTok, Instagram, Twitter/X: bị block ở datacenter IP (Replit/Render) — không thể fix từ phía code
+
 ## Ghi chú firmware ESP32
 
 File `.ino` ở `firmware/NexoraGarden/NexoraGarden.ino`.
