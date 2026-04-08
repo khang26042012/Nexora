@@ -3,6 +3,7 @@ import { execFile, execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";
 import https from "https";
+import http from "http";
 
 const router = Router();
 
@@ -324,7 +325,7 @@ function streamRemoteUrl(remoteUrl: string, res: import("express").Response, fil
   return new Promise((resolve, reject) => {
     const makeRequest = (url: string, redirectCount = 0) => {
       if (redirectCount > 5) return reject(new Error("Quá nhiều redirect"));
-      const lib = url.startsWith("https") ? https : require("http");
+      const lib = url.startsWith("https") ? https : http;
       lib.get(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36",
