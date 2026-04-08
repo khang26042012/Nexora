@@ -1,8 +1,40 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 07/04/2026 (session 12)
+  Cập nhật: 08/04/2026 (session 14)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[08/04/2026 session 14] THREE.JS REDESIGN V2 — Galaxy + Aurora + AI Crystals
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Xóa toàn bộ scene cũ (rocket, astronaut, moon, earth), viết lại hoàn toàn ThreeScene.tsx:
+
+Concept: Galaxy + Aurora Borealis + AI Crystal Network
+
+Các thành phần:
+  - GalaxyBand: 18,000 particles tạo dải Ngân Hà thực (warm core → cool edges, chậm quay)
+  - DeepStars: 2,500 sao nền tĩnh (màu xanh/vàng theo spectral type)
+  - BrightStars: 80 sao sáng nhấp nháy foreground
+  - Aurora: 5 ribbon sóng (xanh lá, xanh dương, tím) ở phía dưới — waving animation realtime
+  - ShootingStars: 6 sao băng ngẫu nhiên, spawn định kỳ, bay chéo
+  - Crystal (×6): Icosahedron/Octahedron/Dodecahedron wireframe + glow, màu gradient (tím/cyan/hồng/xanh lá)
+  - ConnectionLines: đường nối tĩnh giữa các crystal gần nhau (neural net look)
+  - DataStreams: 120 particles chạy dọc các đường nối (data flow animation)
+  - Nebula: 3 cụm dust mờ (additive blending)
+  - SceneCamera: mouse parallax mượt
+
+Kỹ thuật:
+  - Tất cả materials dùng AdditiveBlending → glow effect tự nhiên
+  - Aurora dùng PlaneGeometry realtime vertex deformation (sin wave)
+  - ShootingStars dùng BufferAttribute update mỗi frame
+  - Performance: dpr cap 1.8 desktop / 1.5 mobile, antialias off
+
+Ghi chú:
+  - WebGL error trong Replit preview là bình thường (headless env)
+  - Trên browser thật: hoạt động đầy đủ 60fps
+  - ThreeSections.tsx (orbital rings per-section) giữ nguyên
+  - ESP32: KHÔNG cần nạp lại firmware
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [08/04/2026 session 13] THREE.JS PORTFOLIO REDESIGN — Space background

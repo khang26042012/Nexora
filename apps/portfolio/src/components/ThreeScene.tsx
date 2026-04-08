@@ -2,7 +2,7 @@ import { useRef, useMemo, useEffect, useState, Component } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-/* ── Utils ── */
+/* ── Helpers ── */
 function webglOk() {
   try {
     const c = document.createElement("canvas");
@@ -17,106 +17,103 @@ class ErrBound extends Component<{ children: React.ReactNode; fallback: React.Re
 }
 
 const isMob = () => typeof window !== "undefined" && window.innerWidth < 768;
+const rng = (a: number, b: number) => a + Math.random() * (b - a);
 
-/* ── Procedural Moon Texture ── */
-function createMoonTexture(): THREE.CanvasTexture {
-  const S = 512;
-  const cv = document.createElement("canvas");
-  cv.width = S; cv.height = S;
-  const ctx = cv.getContext("2d")!;
+/* ── Milky Way Galaxy Band ── */
+function GalaxyBand() {
+  const geo = useMemo(() => {
+    const mob = isMob();
+    const n = mob ? 8000 : 18000;
+    const pos = new Float32Array(n * 3);
+    const col = new Float32Array(n * 3);
+    const sz  = new Float32Array(n);
 
-  /* Base surface */
-  ctx.fillStyle = "#8e8e8e";
-  ctx.fillRect(0, 0, S, S);
+    for (let i = 0; i < n; i++) {
+      /* Band along Z axis, tilted */
+      const angle  = rng(0, Math.PI * 2);
+      const spread = Math.abs(rng(-1, 1)) * rng(0, 1) * rng(0, 1); // concentrate toward center
+      const r      = rng(30, 120);
+      const bandH  = spread * 10 + rng(-2, 2);
 
-  /* Fine grain noise */
-  for (let i = 0; i < 12000; i++) {
-    const x = Math.random() * S, y = Math.random() * S;
-    const v = 100 + Math.floor(Math.random() * 80);
-    ctx.fillStyle = `rgba(${v},${v},${v},0.18)`;
-    ctx.beginPath(); ctx.arc(x, y, 0.8 + Math.random() * 1.8, 0, Math.PI * 2); ctx.fill();
-  }
+      pos[i*3]   = r * Math.cos(angle);
+      pos[i*3+1] = bandH + Math.sin(angle * 3) * 4;
+      pos[i*3+2] = r * Math.sin(angle) * 0.35 - 40; // flatten into band, push back
 
-  /* Craters */
-  const craters: { x: number; y: number; r: number }[] = [
-    { x: 140, y: 180, r: 48 }, { x: 320, y: 130, r: 34 }, { x: 90,  y: 360, r: 56 },
-    { x: 390, y: 290, r: 42 }, { x: 255, y: 410, r: 28 }, { x: 440, y: 95,  r: 22 },
-    { x: 55,  y: 115, r: 24 }, { x: 200, y: 300, r: 38 }, { x: 360, y: 420, r: 20 },
-    ...Array.from({ length: 25 }, () => ({ x: Math.random() * S, y: Math.random() * S, r: 4 + Math.random() * 14 })),
-  ];
+      /* Color: warm core → cool edges */
+      const dist = Math.abs(spread);
+      const warm = 1 - dist;
+      col[i*3]   = 0.85 + warm * 0.15;
+      col[i*3+1] = 0.72 + warm * 0.18;
+      col[i*3+2] = 0.55 + dist * 0.45;
 
-  craters.forEach(({ x, y, r }) => {
-    const g1 = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g1.addColorStop(0, "rgba(50,50,50,0.92)");
-    g1.addColorStop(0.55, "rgba(75,75,75,0.60)");
-    g1.addColorStop(0.9, "rgba(110,110,110,0.20)");
-    g1.addColorStop(1, "rgba(150,150,150,0)");
-    ctx.beginPath(); ctx.arc(x, y, r * 1.15, 0, Math.PI * 2);
-    ctx.fillStyle = g1; ctx.fill();
+      sz[i] = rng(0.3, 1.8);
+    }
 
-    /* Rim highlight */
-    const g2 = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.55, x, y, r * 1.08);
-    g2.addColorStop(0, "rgba(0,0,0,0)");
-    g2.addColorStop(0.8, "rgba(195,195,195,0.12)");
-    g2.addColorStop(1, "rgba(215,215,215,0.28)");
-    ctx.beginPath(); ctx.arc(x, y, r * 1.08, 0, Math.PI * 2);
-    ctx.fillStyle = g2; ctx.fill();
-  });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("color",    new THREE.BufferAttribute(col, 3));
+    g.setAttribute("size",     new THREE.BufferAttribute(sz,  1));
+    return g;
+  }, []);
 
-  /* Dark maria patches */
-  [{ x: 280, y: 220, rx: 80, ry: 55, op: 0.14 }, { x: 160, y: 280, rx: 60, ry: 40, op: 0.10 }].forEach(m => {
-    ctx.save();
-    ctx.translate(m.x, m.y); ctx.scale(m.rx / 50, m.ry / 50);
-    const gm = ctx.createRadialGradient(0, 0, 0, 0, 0, 50);
-    gm.addColorStop(0, `rgba(40,40,40,${m.op})`);
-    gm.addColorStop(1, "rgba(40,40,40,0)");
-    ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI * 2);
-    ctx.fillStyle = gm; ctx.fill(); ctx.restore();
-  });
+  const grpRef = useRef<THREE.Group>(null!);
+  useFrame((_, dt) => { if (grpRef.current) grpRef.current.rotation.y += dt * 0.004; });
 
-  return new THREE.CanvasTexture(cv);
+  return (
+    <group ref={grpRef} rotation={[0.3, 0.4, 0]}>
+      <points geometry={geo}>
+        <pointsMaterial
+          size={1.4} vertexColors sizeAttenuation={false}
+          transparent opacity={0.72} depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+    </group>
+  );
 }
 
-/* ── Stars ── */
-function Stars() {
+/* ── Background deep stars (tiny, dim, static) ── */
+function DeepStars() {
   const geo = useMemo(() => {
-    const n = isMob() ? 1400 : 2000;
+    const n = isMob() ? 1200 : 2500;
     const pos = new Float32Array(n * 3);
     const col = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi   = Math.acos(2 * Math.random() - 1);
-      const r     = 60 + Math.random() * 90;
+      const r     = 80 + Math.random() * 60;
       pos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
       pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
       pos[i*3+2] = r * Math.cos(phi);
-      const t = Math.random(), v = 0.55 + Math.random() * 0.45;
-      col[i*3]   = t < 0.25 ? v * 0.65 : v;
-      col[i*3+1] = t < 0.25 ? v * 0.78 : v;
-      col[i*3+2] = t > 0.72 ? v * 0.68 : v;
+      const t = Math.random();
+      const v = 0.3 + Math.random() * 0.5;
+      col[i*3]   = t < 0.3 ? v * 0.6 : v;
+      col[i*3+1] = t < 0.3 ? v * 0.7 : t > 0.8 ? v * 0.7 : v;
+      col[i*3+2] = t > 0.7 ? v * 0.55 : v;
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     g.setAttribute("color",    new THREE.BufferAttribute(col, 3));
     return g;
   }, []);
+
   return (
     <points geometry={geo}>
-      <pointsMaterial size={1.3} vertexColors sizeAttenuation={false} transparent opacity={0.88} depthWrite={false} />
+      <pointsMaterial size={0.9} vertexColors sizeAttenuation={false} transparent opacity={0.55} depthWrite={false} />
     </points>
   );
 }
 
-/* Bright twinkling accent stars */
-function AccentStars() {
-  const refs = useRef<THREE.Points[]>([]);
+/* ── Bright foreground stars (twinkling) ── */
+function BrightStars() {
+  const matRef = useRef<THREE.PointsMaterial>(null!);
   const geo = useMemo(() => {
-    const n = 60;
+    const n = 80;
     const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi   = Math.acos(2 * Math.random() - 1);
-      const r     = 50 + Math.random() * 60;
+      const r     = 45 + Math.random() * 50;
       pos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
       pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
       pos[i*3+2] = r * Math.cos(phi);
@@ -126,429 +123,355 @@ function AccentStars() {
     return g;
   }, []);
 
-  const pointsRef = useRef<THREE.Points>(null!);
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    if (pointsRef.current) {
-      (pointsRef.current.material as THREE.PointsMaterial).opacity = 0.6 + Math.sin(t * 1.4) * 0.3;
+  useFrame((s) => {
+    if (matRef.current) {
+      matRef.current.opacity = 0.55 + Math.sin(s.clock.elapsedTime * 1.8) * 0.35;
     }
   });
 
   return (
-    <points ref={pointsRef} geometry={geo}>
-      <pointsMaterial size={2.5} color="#ffffff" sizeAttenuation={false} transparent opacity={0.75} depthWrite={false} />
+    <points geometry={geo}>
+      <pointsMaterial ref={matRef} size={2.8} color="#e8f0ff" sizeAttenuation={false} transparent opacity={0.8} depthWrite={false} />
     </points>
   );
 }
 
-/* ── Nebula / Fog ── */
-function Nebula() {
-  const defs = useMemo(() => [
-    { n: 900, cx: -10, cy:  5, cz: -35, sx: 22, sy: 14, sz: 6,  r: 0.50, g: 0.10, b: 0.90, op: 0.055 },
-    { n: 700, cx:  14, cy: -3, cz: -42, sx: 18, sy: 12, sz: 6,  r: 0.08, g: 0.28, b: 1.00, op: 0.045 },
-    { n: 600, cx:   2, cy:  8, cz: -30, sx: 16, sy: 10, sz: 5,  r: 0.80, g: 0.08, b: 0.80, op: 0.040 },
-    { n: 500, cx: -20, cy: -6, cz: -38, sx: 15, sy:  8, sz: 5,  r: 0.60, g: 0.05, b: 0.70, op: 0.035 },
+/* ── Aurora Borealis (bottom ribbons) ── */
+function Aurora() {
+  const ribbons = useMemo(() => [
+    { color: "#00ffaa", y: -9,  z: -18, amp: 1.4, freq: 0.55, speed: 0.22, op: 0.18, w: 60, h: 3.5 },
+    { color: "#00ccff", y: -11, z: -20, amp: 1.8, freq: 0.40, speed: 0.16, op: 0.14, w: 80, h: 4.0 },
+    { color: "#8844ff", y: -7,  z: -16, amp: 1.1, freq: 0.70, speed: 0.28, op: 0.12, w: 50, h: 2.8 },
+    { color: "#00ff88", y: -13, z: -22, amp: 2.2, freq: 0.30, speed: 0.12, op: 0.10, w: 90, h: 5.0 },
+    { color: "#44aaff", y: -5,  z: -14, amp: 0.9, freq: 0.90, speed: 0.35, op: 0.09, w: 40, h: 2.2 },
   ], []);
 
-  const geos = useMemo(() => defs.map(d => {
-    const pos = new Float32Array(d.n * 3);
-    const col = new Float32Array(d.n * 3);
-    const bm = () => {
-      let u = 0, v = 0;
-      while (!u) u = Math.random(); while (!v) v = Math.random();
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    };
-    for (let i = 0; i < d.n; i++) {
-      pos[i*3] = d.cx + bm() * d.sx; pos[i*3+1] = d.cy + bm() * d.sy; pos[i*3+2] = d.cz + bm() * d.sz;
-      const v2 = 0.35 + Math.random() * 0.65;
-      col[i*3] = d.r * v2; col[i*3+1] = d.g * v2; col[i*3+2] = d.b * v2;
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    g.setAttribute("color",    new THREE.BufferAttribute(col, 3));
-    return g;
-  }), [defs]);
+  const meshRefs = useRef<THREE.Mesh[]>([]);
 
-  const grpRef = useRef<THREE.Group>(null!);
-  useFrame((_, dt) => { if (grpRef.current) grpRef.current.rotation.y += dt * 0.003; });
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    meshRefs.current.forEach((mesh, i) => {
+      if (!mesh) return;
+      const r = ribbons[i];
+      const geo = mesh.geometry as THREE.PlaneGeometry;
+      const pos = geo.attributes.position as THREE.BufferAttribute;
+      const cols = geo.attributes.position.count;
+      const segsX = 40;
+      for (let xi = 0; xi <= segsX; xi++) {
+        for (let yi = 0; yi <= 3; yi++) {
+          const idx = (yi * (segsX + 1) + xi);
+          const xFrac = xi / segsX;
+          const yFrac = yi / 3;
+          const wave = Math.sin(xFrac * r.freq * Math.PI * 6 + t * r.speed * Math.PI * 2) * r.amp;
+          const wave2 = Math.sin(xFrac * r.freq * Math.PI * 3.5 + t * r.speed * 0.7 * Math.PI * 2 + 1.2) * r.amp * 0.5;
+          pos.setY(idx, wave + wave2 + yFrac * r.h);
+        }
+      }
+      pos.needsUpdate = true;
+      geo.computeVertexNormals();
+    });
+  });
 
   return (
-    <group ref={grpRef}>
-      {defs.map((d, i) => (
-        <points key={i} geometry={geos[i]}>
-          <pointsMaterial size={0.85} vertexColors sizeAttenuation transparent opacity={d.op}
-            depthWrite={false} blending={THREE.AdditiveBlending} />
-        </points>
+    <group>
+      {ribbons.map((r, i) => (
+        <mesh
+          key={i}
+          ref={el => { if (el) meshRefs.current[i] = el; }}
+          position={[0, r.y, r.z]}
+        >
+          <planeGeometry args={[r.w, r.h, 40, 3]} />
+          <meshBasicMaterial
+            color={r.color}
+            transparent
+            opacity={r.op}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
       ))}
     </group>
   );
 }
 
-/* ── Moon ── */
-function Moon() {
-  const moonRef = useRef<THREE.Mesh>(null!);
-  const mob = isMob();
-  const radius = mob ? 2.8 : 4.5;
-  const posX  = mob ? 7  : 12;
-  const posY  = mob ? 2  : 3;
+/* ── Shooting Stars ── */
+function ShootingStars() {
+  const count = 6;
+  const state = useMemo(() => Array.from({ length: count }, (_, i) => ({
+    active: false,
+    timer: i * 4.0 + Math.random() * 3,
+    x: 0, y: 0, z: 0, vx: 0, vy: 0,
+  })), []);
 
-  const texture = useMemo(() => createMoonTexture(), []);
+  const geoRef = useRef<THREE.BufferGeometry>(null!);
+  const matRef = useRef<THREE.PointsMaterial>(null!);
 
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    if (moonRef.current) moonRef.current.rotation.y = t * 0.015;
+  const positions = useMemo(() => new Float32Array(count * 3), []);
+
+  useFrame((s, dt) => {
+    const t = s.clock.elapsedTime;
+    for (let i = 0; i < count; i++) {
+      const st = state[i];
+      st.timer -= dt;
+      if (st.timer <= 0) {
+        /* Spawn */
+        st.active = true;
+        st.x = rng(-35, 35);
+        st.y = rng(5, 20);
+        st.z = rng(-30, -10);
+        st.vx = rng(-25, -10);
+        st.vy = rng(-12, -5);
+        st.timer = rng(8, 18);
+      }
+      if (st.active) {
+        st.x += st.vx * dt;
+        st.y += st.vy * dt;
+        if (st.y < -15 || st.x < -60) { st.active = false; }
+      }
+      positions[i*3]   = st.active ? st.x : 9999;
+      positions[i*3+1] = st.active ? st.y : 9999;
+      positions[i*3+2] = st.active ? st.z : 9999;
+    }
+    if (geoRef.current) {
+      (geoRef.current.attributes.position as THREE.BufferAttribute).set(positions);
+      geoRef.current.attributes.position.needsUpdate = true;
+    }
   });
 
-  return (
-    <group position={[posX, posY, -22]}>
-      {/* Moon sphere */}
-      <mesh ref={moonRef}>
-        <sphereGeometry args={[radius, 48, 48]} />
-        <meshStandardMaterial map={texture} roughness={0.92} metalness={0} color="#d0cccc" />
-      </mesh>
-      {/* Subtle rim glow */}
-      <mesh>
-        <sphereGeometry args={[radius * 1.06, 24, 24]} />
-        <meshBasicMaterial color="#c8c8d8" transparent opacity={0.05}
-          depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.BackSide} />
-      </mesh>
-      {/* Very faint halo */}
-      <mesh>
-        <sphereGeometry args={[radius * 1.22, 16, 16]} />
-        <meshBasicMaterial color="#8888aa" transparent opacity={0.025}
-          depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.BackSide} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ── Earth (bottom edge) ── */
-function Earth() {
-  const earthRef = useRef<THREE.Mesh>(null!);
-  useFrame((_, dt) => { if (earthRef.current) earthRef.current.rotation.y += dt * 0.008; });
-
-  const mob = isMob();
-  const R = mob ? 12 : 20;
-  const posY = mob ? -20 : -28;
-
-  return (
-    <group position={[0, posY, -32]}>
-      <mesh ref={earthRef}>
-        <sphereGeometry args={[R, 40, 40]} />
-        <meshStandardMaterial
-          color="#1a4a7a"
-          roughness={0.85} metalness={0}
-          emissive="#082040"
-          emissiveIntensity={0.35}
-        />
-      </mesh>
-      {/* Land masses — simplified as slightly brighter patches */}
-      <mesh>
-        <sphereGeometry args={[R * 1.002, 32, 32]} />
-        <meshBasicMaterial color="#2a6040" transparent opacity={0.18}
-          depthWrite={false} blending={THREE.AdditiveBlending} />
-      </mesh>
-      {/* Atmosphere thin layer */}
-      <mesh>
-        <sphereGeometry args={[R * 1.04, 28, 28]} />
-        <meshBasicMaterial color="#3060c0" transparent opacity={0.10}
-          depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.BackSide} />
-      </mesh>
-      {/* Glow corona */}
-      <mesh>
-        <sphereGeometry args={[R * 1.18, 20, 20]} />
-        <meshBasicMaterial color="#0050ff" transparent opacity={0.055}
-          depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.BackSide} />
-      </mesh>
-      {/* Wide outer glow */}
-      <mesh>
-        <sphereGeometry args={[R * 1.45, 16, 16]} />
-        <meshBasicMaterial color="#0040cc" transparent opacity={0.022}
-          depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.BackSide} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ── Rocket Exhaust Particles ── */
-function ExhaustParticles() {
-  const count = 60;
   const geo = useMemo(() => {
-    const pos = new Float32Array(count * 3).fill(0);
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(count * 3).fill(9999), 3));
     return g;
   }, []);
 
-  const speeds = useMemo(() => Array.from({ length: count }, () => 0.02 + Math.random() * 0.06), []);
-  const lives  = useMemo(() => Array.from({ length: count }, () => Math.random()), []);
-  const offX   = useMemo(() => Array.from({ length: count }, () => (Math.random() - 0.5) * 0.25), []);
+  return (
+    <points geometry={geo} ref={(p) => { if (p) geoRef.current = p.geometry; }}>
+      <pointsMaterial
+        ref={matRef}
+        size={3.5} color="#ffffff" sizeAttenuation={false}
+        transparent opacity={0.92} depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+/* ── AI Crystal (floating icosahedron / octahedron) ── */
+type CrystalDef = { pos: [number,number,number]; geo: "ico"|"octa"|"dodeca"; scale: number; color: string; speed: number; phase: number };
+
+function Crystal({ def }: { def: CrystalDef }) {
+  const outerRef = useRef<THREE.Mesh>(null!);
+  const innerRef = useRef<THREE.Mesh>(null!);
+  const glowRef  = useRef<THREE.Mesh>(null!);
+
+  useFrame((s) => {
+    const t = s.clock.elapsedTime;
+    const bob = Math.sin(t * def.speed + def.phase) * 0.6;
+    const rot = t * def.speed * 0.45;
+
+    [outerRef, innerRef, glowRef].forEach(r => {
+      if (!r.current) return;
+      r.current.position.y = def.pos[1] + bob;
+      r.current.rotation.x = rot * 0.7;
+      r.current.rotation.y = rot;
+      r.current.rotation.z = rot * 0.4;
+    });
+  });
+
+  const geoArgs: [number, number] = [def.scale, 1];
+  const GeoComp =
+    def.geo === "ico"   ? <icosahedronGeometry   args={geoArgs} /> :
+    def.geo === "octa"  ? <octahedronGeometry     args={geoArgs} /> :
+                          <dodecahedronGeometry   args={geoArgs} />;
+
+  return (
+    <>
+      {/* Wireframe shell */}
+      <mesh ref={outerRef} position={def.pos}>
+        {GeoComp}
+        <meshBasicMaterial color={def.color} wireframe transparent opacity={0.55} depthWrite={false} />
+      </mesh>
+
+      {/* Solid inner — darker */}
+      <mesh ref={innerRef} position={def.pos} scale={0.72}>
+        {GeoComp}
+        <meshBasicMaterial color={def.color} transparent opacity={0.08} depthWrite={false} blending={THREE.AdditiveBlending} />
+      </mesh>
+
+      {/* Glow sphere */}
+      <mesh ref={glowRef} position={def.pos} scale={1.55}>
+        <sphereGeometry args={[def.scale, 8, 8]} />
+        <meshBasicMaterial color={def.color} transparent opacity={0.022} depthWrite={false} blending={THREE.AdditiveBlending} />
+      </mesh>
+    </>
+  );
+}
+
+/* ── Particle streams between crystals (neural net lines) ── */
+function DataStreams({ crystalPositions }: { crystalPositions: [number,number,number][] }) {
+  const count = 120;
+
+  const { geo, meta } = useMemo(() => {
+    const pos  = new Float32Array(count * 3).fill(9999);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+
+    const pairs: { from: [number,number,number]; to: [number,number,number]; t: number; speed: number }[] = [];
+    const n = crystalPositions.length;
+    const perPair = Math.floor(count / (n * (n-1) / 2 || 1));
+    for (let a = 0; a < n; a++) {
+      for (let b = a+1; b < n; b++) {
+        for (let k = 0; k < perPair; k++) {
+          pairs.push({ from: crystalPositions[a], to: crystalPositions[b], t: Math.random(), speed: rng(0.08, 0.25) });
+        }
+      }
+    }
+    return { geo: g, meta: pairs };
+  }, [crystalPositions]);
 
   useFrame((_, dt) => {
-    const pos = geo.getAttribute("position") as THREE.BufferAttribute;
-    for (let i = 0; i < count; i++) {
-      lives[i] += dt * speeds[i] * 4;
-      if (lives[i] > 1) { lives[i] = 0; }
-      pos.setXYZ(i, offX[i] * lives[i] * 3, -lives[i] * 2.5, offX[i] * lives[i] * 0.5);
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < meta.length && i < count; i++) {
+      const m = meta[i];
+      m.t += dt * m.speed;
+      if (m.t > 1) m.t = 0;
+      const t = m.t;
+      pos.setXYZ(i,
+        m.from[0] + (m.to[0] - m.from[0]) * t,
+        m.from[1] + (m.to[1] - m.from[1]) * t,
+        m.from[2] + (m.to[2] - m.from[2]) * t,
+      );
     }
     pos.needsUpdate = true;
   });
 
   return (
     <points geometry={geo}>
-      <pointsMaterial size={1.8} color="#ff5010" sizeAttenuation transparent opacity={0.55}
-        depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={2.2} color="#88ddff" sizeAttenuation={false} transparent opacity={0.55} depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>
   );
 }
 
-/* ── Rocket ── */
-function Rocket() {
-  const groupRef = useRef<THREE.Group>(null!);
-  const baseY = isMob() ? -3 : -2.5;
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    if (!groupRef.current) return;
-    /* Slow upward drift with gentle bob */
-    groupRef.current.position.y = baseY + Math.sin(t * 0.28) * 0.55;
-    groupRef.current.rotation.z = Math.sin(t * 0.18) * 0.025;
-    groupRef.current.rotation.x = Math.sin(t * 0.13) * 0.018;
-  });
-
-  const bodyMat  = <meshStandardMaterial color="#dcdce8" roughness={0.30} metalness={0.65} />;
-  const shellMat = <meshStandardMaterial color="#c8c8d8" roughness={0.35} metalness={0.55} />;
-  const accentMat = <meshStandardMaterial color="#8890c8" roughness={0.40} metalness={0.70} />;
+/* ── Connection Lines (static) ── */
+function ConnectionLines({ crystalPositions }: { crystalPositions: [number,number,number][] }) {
+  const geo = useMemo(() => {
+    const verts: number[] = [];
+    const n = crystalPositions.length;
+    for (let a = 0; a < n; a++) {
+      for (let b = a+1; b < n; b++) {
+        const dist = new THREE.Vector3(...crystalPositions[a]).distanceTo(new THREE.Vector3(...crystalPositions[b]));
+        if (dist < 20) {
+          verts.push(...crystalPositions[a], ...crystalPositions[b]);
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(verts), 3));
+    return g;
+  }, [crystalPositions]);
 
   return (
-    <group ref={groupRef} position={[isMob() ? 0 : -1.5, baseY, -10]}>
-      {/* Main body */}
-      <mesh castShadow>
-        <cylinderGeometry args={[0.32, 0.38, 2.0, 16]} />
-        {bodyMat}
-      </mesh>
+    <lineSegments geometry={geo}>
+      <lineBasicMaterial color="#4466cc" transparent opacity={0.18} depthWrite={false} blending={THREE.AdditiveBlending} />
+    </lineSegments>
+  );
+}
 
-      {/* Nose cone */}
-      <mesh position={[0, 1.42, 0]} castShadow>
-        <coneGeometry args={[0.32, 0.85, 16]} />
-        {shellMat}
-      </mesh>
+/* ── Nebula dust ── */
+function Nebula() {
+  const geo = useMemo(() => {
+    const n = isMob() ? 500 : 1200;
+    const pos = new Float32Array(n * 3);
+    const col = new Float32Array(n * 3);
+    const clusters = [
+      { cx: -15, cy: 8,  cz: -35, sx: 20, sy: 12, r: 0.45, g: 0.10, b: 0.90 },
+      { cx:  18, cy: -4, cz: -42, sx: 18, sy: 10, r: 0.10, g: 0.40, b: 0.95 },
+      { cx:  -5, cy: 12, cz: -28, sx: 14, sy:  8, r: 0.80, g: 0.15, b: 0.70 },
+    ];
+    const perCluster = Math.floor(n / clusters.length);
+    for (let c = 0; c < clusters.length; c++) {
+      const cl = clusters[c];
+      for (let i = 0; i < perCluster; i++) {
+        const idx = c * perCluster + i;
+        const bm = () => { let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+        pos[idx*3]   = cl.cx + bm() * cl.sx;
+        pos[idx*3+1] = cl.cy + bm() * cl.sy;
+        pos[idx*3+2] = cl.cz + bm() * 5;
+        const v2 = 0.3 + Math.random() * 0.7;
+        col[idx*3]   = cl.r * v2;
+        col[idx*3+1] = cl.g * v2;
+        col[idx*3+2] = cl.b * v2;
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("color",    new THREE.BufferAttribute(col, 3));
+    return g;
+  }, []);
 
-      {/* Nose tip accent */}
-      <mesh position={[0, 1.88, 0]}>
-        <sphereGeometry args={[0.06, 10, 10]} />
-        <meshStandardMaterial color="#aaaacc" roughness={0.1} metalness={0.9} />
-      </mesh>
+  const grpRef = useRef<THREE.Group>(null!);
+  useFrame((_, dt) => { if (grpRef.current) grpRef.current.rotation.y += dt * 0.002; });
 
-      {/* Engine skirt */}
-      <mesh position={[0, -1.05, 0]}>
-        <cylinderGeometry args={[0.44, 0.50, 0.22, 16]} />
-        {accentMat}
-      </mesh>
-
-      {/* 3 Fins */}
-      {[0, 120, 240].map((deg, i) => {
-        const rad = (deg * Math.PI) / 180;
-        return (
-          <mesh key={i}
-            position={[Math.sin(rad) * 0.34, -0.85, Math.cos(rad) * 0.34]}
-            rotation={[0, -rad, Math.PI * 0.08]}>
-            <boxGeometry args={[0.06, 0.55, 0.36]} />
-            {shellMat}
-          </mesh>
-        );
-      })}
-
-      {/* Porthole */}
-      <mesh position={[0, 0.35, 0.33]}>
-        <circleGeometry args={[0.13, 20]} />
-        <meshStandardMaterial color="#90c0ff" emissive="#2050a0" emissiveIntensity={0.8} roughness={0.05} metalness={0.9} />
-      </mesh>
-      <mesh position={[0, 0.35, 0.325]}>
-        <torusGeometry args={[0.135, 0.022, 8, 24]} />
-        <meshStandardMaterial color="#aaaacc" roughness={0.2} metalness={0.85} />
-      </mesh>
-
-      {/* Horizontal stripe bands */}
-      <mesh position={[0, 0.0, 0]}>
-        <cylinderGeometry args={[0.335, 0.335, 0.065, 16]} />
-        <meshStandardMaterial color="#6870b8" roughness={0.3} metalness={0.7} />
-      </mesh>
-      <mesh position={[0, -0.6, 0]}>
-        <cylinderGeometry args={[0.352, 0.352, 0.055, 16]} />
-        <meshStandardMaterial color="#6870b8" roughness={0.3} metalness={0.7} />
-      </mesh>
-
-      {/* Exhaust core */}
-      <mesh position={[0, -1.22, 0]}>
-        <cylinderGeometry args={[0.14, 0.22, 0.20, 12]} />
-        <meshBasicMaterial color="#ff8040" transparent opacity={0.75}
-          depthWrite={false} blending={THREE.AdditiveBlending} />
-      </mesh>
-
-      {/* Exhaust glow layers */}
-      <mesh position={[0, -1.45, 0]}>
-        <sphereGeometry args={[0.30, 12, 12]} />
-        <meshBasicMaterial color="#ff5010" transparent opacity={0.60}
-          depthWrite={false} blending={THREE.AdditiveBlending} />
-      </mesh>
-      <mesh position={[0, -1.70, 0]}>
-        <sphereGeometry args={[0.48, 10, 10]} />
-        <meshBasicMaterial color="#ff2800" transparent opacity={0.28}
-          depthWrite={false} blending={THREE.AdditiveBlending} />
-      </mesh>
-      <mesh position={[0, -2.10, 0]}>
-        <sphereGeometry args={[0.72, 8, 8]} />
-        <meshBasicMaterial color="#ff1000" transparent opacity={0.10}
-          depthWrite={false} blending={THREE.AdditiveBlending} />
-      </mesh>
-
-      {/* Exhaust particle trail */}
-      <ExhaustParticles />
+  return (
+    <group ref={grpRef}>
+      <points geometry={geo}>
+        <pointsMaterial size={0.9} vertexColors sizeAttenuation transparent opacity={0.038} depthWrite={false} blending={THREE.AdditiveBlending} />
+      </points>
     </group>
   );
 }
 
-/* ── Astronaut ── */
-function Astronaut() {
-  const groupRef = useRef<THREE.Group>(null!);
-  const baseX = isMob() ? 2.0 : 3.5;
-  const baseY = isMob() ? 0   : 0.5;
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    if (!groupRef.current) return;
-    groupRef.current.position.y = baseY + Math.sin(t * 0.42 + 1.4) * 0.35;
-    groupRef.current.rotation.z = Math.sin(t * 0.28 + 0.8) * 0.18;
-    groupRef.current.rotation.y = t * 0.04;
-    groupRef.current.rotation.x = Math.sin(t * 0.22) * 0.08;
-  });
-
-  const suitMat = <meshStandardMaterial color="#e0e0ea" roughness={0.45} metalness={0.15} />;
-  const suitDark = <meshStandardMaterial color="#c0c0cc" roughness={0.50} metalness={0.18} />;
-
-  return (
-    <group ref={groupRef} position={[baseX, baseY, -8.5]}>
-      {/* Torso */}
-      <mesh>
-        <capsuleGeometry args={[0.19, 0.38, 8, 14]} />
-        {suitMat}
-      </mesh>
-
-      {/* Backpack (life support) */}
-      <mesh position={[0, 0, -0.22]}>
-        <boxGeometry args={[0.28, 0.32, 0.12]} />
-        {suitDark}
-      </mesh>
-
-      {/* Helmet */}
-      <mesh position={[0, 0.42, 0]}>
-        <sphereGeometry args={[0.24, 20, 20]} />
-        {suitMat}
-      </mesh>
-
-      {/* Visor */}
-      <mesh position={[0, 0.42, 0.19]}>
-        <sphereGeometry args={[0.175, 14, 14]} />
-        <meshStandardMaterial color="#3878c8" roughness={0.02} metalness={0.95}
-          transparent opacity={0.82} envMapIntensity={1.5} />
-      </mesh>
-
-      {/* Helmet ring */}
-      <mesh position={[0, 0.22, 0]}>
-        <torusGeometry args={[0.205, 0.028, 8, 24]} />
-        <meshStandardMaterial color="#aaaabc" roughness={0.25} metalness={0.80} />
-      </mesh>
-
-      {/* Left arm */}
-      <mesh position={[-0.28, 0.06, 0]} rotation={[0.1, 0, Math.PI / 3.2]}>
-        <capsuleGeometry args={[0.085, 0.28, 6, 10]} />
-        {suitMat}
-      </mesh>
-      {/* Left hand */}
-      <mesh position={[-0.42, -0.12, 0.04]}>
-        <sphereGeometry args={[0.08, 10, 10]} />
-        {suitDark}
-      </mesh>
-
-      {/* Right arm */}
-      <mesh position={[0.28, 0.06, 0]} rotation={[-0.2, 0, -Math.PI / 2.8]}>
-        <capsuleGeometry args={[0.085, 0.28, 6, 10]} />
-        {suitMat}
-      </mesh>
-      {/* Right hand */}
-      <mesh position={[0.42, -0.15, 0.04]}>
-        <sphereGeometry args={[0.08, 10, 10]} />
-        {suitDark}
-      </mesh>
-
-      {/* Left leg */}
-      <mesh position={[-0.11, -0.42, 0]} rotation={[0.08, 0, 0.08]}>
-        <capsuleGeometry args={[0.095, 0.26, 6, 10]} />
-        {suitMat}
-      </mesh>
-      {/* Left boot */}
-      <mesh position={[-0.12, -0.68, 0.02]}>
-        <boxGeometry args={[0.14, 0.08, 0.20]} />
-        {suitDark}
-      </mesh>
-
-      {/* Right leg */}
-      <mesh position={[0.11, -0.42, 0]} rotation={[-0.06, 0, -0.08]}>
-        <capsuleGeometry args={[0.095, 0.26, 6, 10]} />
-        {suitMat}
-      </mesh>
-      {/* Right boot */}
-      <mesh position={[0.12, -0.68, 0.02]}>
-        <boxGeometry args={[0.14, 0.08, 0.20]} />
-        {suitDark}
-      </mesh>
-    </group>
-  );
-}
-
-/* ── Camera ── */
+/* ── Camera parallax ── */
 function SceneCamera({ mouse }: { mouse: React.MutableRefObject<{ x: number; y: number }> }) {
   const tx = useRef(0), ty = useRef(0);
   useFrame((state, dt) => {
-    tx.current += (mouse.current.x * 2.2 - tx.current) * dt * 1.1;
-    ty.current += (mouse.current.y * 1.4 - ty.current) * dt * 1.1;
+    tx.current += (mouse.current.x * 1.8 - tx.current) * dt * 0.9;
+    ty.current += (mouse.current.y * 1.2 - ty.current) * dt * 0.9;
     const t = state.clock.elapsedTime;
-    state.camera.position.x = tx.current + Math.sin(t * 0.038) * 1.2;
-    state.camera.position.y = ty.current + Math.sin(t * 0.028) * 0.7;
+    state.camera.position.x = tx.current + Math.sin(t * 0.032) * 0.8;
+    state.camera.position.y = ty.current + Math.sin(t * 0.024) * 0.5;
     state.camera.lookAt(0, 0, 0);
   });
   return null;
 }
 
-/* ── Scene ── */
+/* ── Main Scene ── */
+const CRYSTALS: CrystalDef[] = [
+  { pos: [-9,  2, -14], geo: "ico",    scale: 1.35, color: "#7c4fff", speed: 0.55, phase: 0.0  },
+  { pos: [ 8,  0, -16], geo: "octa",   scale: 1.10, color: "#00ccff", speed: 0.42, phase: 2.1  },
+  { pos: [-4, -3, -18], geo: "dodeca", scale: 0.90, color: "#ff44aa", speed: 0.68, phase: 4.3  },
+  { pos: [14,  4, -20], geo: "ico",    scale: 0.75, color: "#44ffcc", speed: 0.38, phase: 1.5  },
+  { pos: [-14,-1, -22], geo: "octa",   scale: 0.65, color: "#ffaa22", speed: 0.72, phase: 3.2  },
+  { pos: [ 2,  5, -12], geo: "dodeca", scale: 0.55, color: "#aa44ff", speed: 0.60, phase: 5.1  },
+];
+
+const CRYSTAL_POSITIONS = CRYSTALS.map(c => c.pos);
+
 function Scene({ mouse }: { mouse: React.MutableRefObject<{ x: number; y: number }> }) {
   return (
     <>
       <SceneCamera mouse={mouse} />
 
-      {/* Lighting for 3D objects */}
-      <ambientLight intensity={0.25} color="#c0c8ff" />
-      {/* Sunlight from top-left (simulating sun off-screen) */}
-      <directionalLight position={[-8, 12, 6]} intensity={0.9} color="#fff8e8" />
-      {/* Subtle fill from right to illuminate moon crater detail */}
-      <directionalLight position={[10, -2, 5]} intensity={0.18} color="#8090ff" />
-      {/* Earth ambient bounce */}
-      <pointLight position={[0, -12, -15]} intensity={0.35} color="#2060cc" distance={40} />
+      {/* Very dim ambient — almost no light, rely on emissive/basic materials */}
+      <ambientLight intensity={0.06} color="#2030ff" />
 
-      <Stars />
-      <AccentStars />
+      <DeepStars />
+      <BrightStars />
+      <GalaxyBand />
       <Nebula />
-      <Moon />
-      <Earth />
-      <Rocket />
-      <Astronaut />
+      <Aurora />
+      <ShootingStars />
+
+      {CRYSTALS.map((def, i) => <Crystal key={i} def={def} />)}
+      <ConnectionLines crystalPositions={CRYSTAL_POSITIONS} />
+      <DataStreams crystalPositions={CRYSTAL_POSITIONS} />
     </>
   );
 }
 
 /* ══════════════════════════════════════════════════════
-   EXPORT — Fixed full-page space background
+   EXPORT
 ══════════════════════════════════════════════════════ */
 export function ThreeScene({ className }: { className?: string }) {
   const [ok, setOk] = useState<boolean | null>(null);
@@ -556,9 +479,7 @@ export function ThreeScene({ className }: { className?: string }) {
 
   useEffect(() => { setOk(webglOk()); }, []);
 
-  const fallback = (
-    <div className={className} style={{ background: "#000510" }} />
-  );
+  const fallback = <div className={className} style={{ background: "#000510" }} />;
 
   if (ok === null) return fallback;
   if (!ok)         return fallback;
@@ -578,10 +499,10 @@ export function ThreeScene({ className }: { className?: string }) {
     >
       <ErrBound fallback={null}>
         <Canvas
-          camera={{ position: [0, 0, 30], fov: 62 }}
+          camera={{ position: [0, 0, 28], fov: 65 }}
           gl={{ antialias: false, alpha: false, powerPreference: "high-performance" }}
-          style={{ background: "radial-gradient(ellipse at 50% 60%, #050a1a 0%, #020810 35%, #000000 75%)" }}
-          dpr={[1, isMob() ? 1.5 : 2]}
+          style={{ background: "radial-gradient(ellipse at 50% 70%, #060818 0%, #030610 40%, #000000 80%)" }}
+          dpr={[1, isMob() ? 1.5 : 1.8]}
         >
           <Scene mouse={mouse} />
         </Canvas>
