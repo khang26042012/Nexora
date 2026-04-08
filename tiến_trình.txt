@@ -5,6 +5,35 @@
 ================================================================
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[08/04/2026 session 13] THREE.JS PORTFOLIO REDESIGN — Space background
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Redesign hoàn toàn background portfolio thành full-page Three.js space scene:
+
+ThreeScene.tsx — viết lại hoàn toàn:
+  - Stars: 2000 particle stars (gradient màu xanh/tím/trắng), 60 accent twinkling stars
+  - Moon: sphere bên phải với procedural crater texture (canvas-based, ~35 craters)
+  - Earth: large sphere ở bottom edge với atmosphere + corona glow layers
+  - Rocket: geometric mesh (body/nose/3fins/porthole/stripes), floating animation
+  - Astronaut: full-body figure (helmet+visor+torso+arms+legs+boots), bobbing drift
+  - ExhaustParticles: particle trail behind rocket
+  - Nebula: subtle fog particle clusters (4 defs, additive blending)
+  - Lights: ambientLight + directionalLight (sunlight) + pointLight (earth bounce)
+  - SceneCamera: mouse parallax + gentle drift animation
+  - Fallback: CSS dark background nếu WebGL không khả dụng
+
+Home.tsx:
+  - ThreeScene → position:fixed, inset:0, z-index:0, pointer-events:none (full-page)
+  - Xóa ThreeScene cũ ra khỏi hero section
+  - Background main div: solid #000510 thay vì gradient
+
+Ghi chú:
+  - WebGL error trong Replit preview là bình thường (headless env, không hỗ trợ WebGL)
+  - Trên browser thật: hoạt động đầy đủ 60fps
+  - ThreeSections.tsx (orbital rings per-section) giữ nguyên, overlay trên background
+  - ESP32: KHÔNG cần nạp lại firmware
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [07/04/2026 session 12] TIKTOK DOWNLOAD — tích hợp tikwm.com API
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

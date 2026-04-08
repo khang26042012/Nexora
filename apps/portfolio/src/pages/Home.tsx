@@ -381,15 +381,16 @@ function SpaceDivider() {
 ═══════════════════════════════════════════════════════ */
 export function Home() {
   return (
-    <div className="min-h-screen selection:bg-violet-500/30" style={{ background: "linear-gradient(180deg, #04000f 0%, #060014 30%, #07001a 60%, #05000e 100%)", color: "white", overflowX: "hidden", width: "100%", maxWidth: "100vw" }}>
+    <div className="min-h-screen selection:bg-violet-500/30" style={{ background: "#000510", color: "white", overflowX: "hidden", width: "100%", maxWidth: "100vw" }}>
+
+      {/* ── Three.js Full-Page Space Background ── */}
+      <ThreeScene className="fixed inset-0 z-0 pointer-events-none" />
+
       <CursorGlow />
       <Navigation />
 
       {/* ── HERO ── */}
       <section id="trang-chu" className="relative min-h-screen flex items-center justify-center pt-20 px-4 sm:px-6 overflow-hidden">
-
-        {/* Three.js nebula + stars background */}
-        <ThreeScene className="absolute inset-0 z-0" />
 
         {/* ── Ambient glow orbs (CSS) ── */}
         <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
