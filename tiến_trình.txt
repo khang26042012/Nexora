@@ -1,11 +1,33 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 09/04/2026 (session 17)
+  Cập nhật: 09/04/2026 (session 18)
 ================================================================
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[09/04/2026 session 17] MIGRATE — Bỏ Wispbyte, chuyển sang Northflank
+[09/04/2026 session 18] MIGRATE — Bỏ Northflank, chuyển sang Back4App Containers
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lý do: Northflank yêu cầu thêm thẻ thanh toán (dù free).
+Back4App Containers: hoàn toàn miễn phí, không cần thẻ,
+GitHub auto-deploy, Docker, 0.25vCPU + 256MB RAM.
+
+Đã làm:
+  - DEPLOY.md viết lại cho Back4App (step-by-step)
+  - replit.md cập nhật platform → Back4App Containers
+  - Dockerfile + .dockerignore giữ nguyên (Back4App cũng dùng Docker)
+  - Không cần thay đổi code gì thêm
+
+NEXT STEPS cho Khang:
+  1. back4app.com → Sign Up → Containers as a Service
+  2. Build new app → GitHub → repo Nexora, branch main
+  3. Port 8080, auto-deploy ON, set ENV vars
+  4. Create App → đợi build ~10 phút
+  5. Add Volume /app/packages/api-server/data (SQLite persist)
+  6. Cloudflare DNS + Custom Domain
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[09/04/2026 session 17] MIGRATE — Bỏ Wispbyte, chuyển sang Northflank (đã hủy)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Lý do: Wispbyte dùng Pterodactyl panel — startup command phức tạp,

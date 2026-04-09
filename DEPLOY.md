@@ -1,48 +1,52 @@
-# Hướng dẫn Deploy NexoraGarden — Northflank
+# Hướng dẫn Deploy NexoraGarden — Back4App Containers
 
-## 1. Northflank — Docker Container Hosting
+## 1. Back4App Containers — Docker Hosting
 
 ### Đặc điểm
-- Free tier: 2 services, 500 build minutes/tháng, 2GB storage
+- **Miễn phí hoàn toàn** — không cần thẻ thanh toán
 - GitHub auto-deploy: mỗi lần push → tự build Docker + deploy
-- Cần thêm payment method (dù dùng free tier — để xác minh danh tính)
-- Persistent volume: dữ liệu không mất khi restart
+- Zero-downtime deployment
+- CPU: 0.25 vCPU | RAM: 256 MB | Transfer: 100 GB/tháng
+- Sử dụng Dockerfile (đã có sẵn trong repo)
 
 ---
 
-## Bước 1 — Tạo account Northflank
+## Bước 1 — Tạo account Back4App
 
-1. Vào [northflank.com](https://northflank.com) → **Sign Up**
-2. Thêm payment method (bắt buộc, kể cả free tier)
-3. Tạo Project mới → đặt tên `nexoragarden`
-
----
-
-## Bước 2 — Kết nối GitHub
-
-Dashboard → **Account Settings** → **GitHub** → **Connect** → cấp quyền repo `khang26042012/Nexora`
+1. Vào [back4app.com](https://back4app.com) → **Sign Up** (miễn phí, không cần thẻ)
+2. Chọn **Containers** (không phải Parse Server)
 
 ---
 
-## Bước 3 — Tạo Service
+## Bước 2 — Tạo Container App
 
-Project → **Add Service** → **Deployment Service** → **GitHub Repo**
+Dashboard → **Build new app** → **Containers as a Service**
 
-Cấu hình:
+---
+
+## Bước 3 — Kết nối GitHub
+
+- Chọn **GitHub** → cấp quyền → chọn repo `khang26042012/Nexora`
+- Branch: `main`
+- Back4App tự detect `Dockerfile` tại root ✅
+
+---
+
+## Bước 4 — Cấu hình
+
 | Trường | Giá trị |
 |--------|---------|
-| Repository | `khang26042012/Nexora` |
+| App name | `nexoragarden` |
 | Branch | `main` |
-| Build type | **Dockerfile** |
-| Dockerfile path | `/Dockerfile` |
+| Dockerfile | `/Dockerfile` (tự detect) |
 | Port | `8080` |
 | Auto deploy | ✅ bật |
 
 ---
 
-## Bước 4 — Environment Variables
+## Bước 5 — Environment Variables
 
-Service → **Environment** → **Add Variables**:
+Trong phần **Environment Variables** khi tạo app hoặc sau khi tạo:
 
 | Key | Value |
 |-----|-------|
@@ -56,55 +60,45 @@ Service → **Environment** → **Add Variables**:
 | `WEATHER_API_KEY` | *(WeatherAPI key)* |
 | `YOUTUBE_COOKIES` | *(nội dung cookies.txt — tùy chọn)* |
 
----
-
-## Bước 5 — Persistent Volume (SQLite)
-
-SQLite database lưu tại: `/app/packages/api-server/data/nexora.db`
-
-Service → **Volumes** → **Add Volume**:
-
-| Trường | Giá trị |
-|--------|---------|
-| Mount path | `/app/packages/api-server/data` |
-| Size | `1GB` |
-
-> Nếu không mount volume → dữ liệu sensor/log bị mất mỗi lần restart!
+→ Nhấn **Create App**
 
 ---
 
 ## Bước 6 — Deploy lần đầu
 
-Service → **Deploy** → đợi build (~5-10 phút lần đầu vì cần build Docker image)
+Back4App tự build Docker → đợi ~5-10 phút. Log hiển thị trong dashboard.
 
-Log sẽ hiện:
-```
-Step 1/10 : FROM node:20-slim
-...
-Step 10/10 : CMD ["node", "packages/api-server/dist/index.mjs"]
-✅ Build complete
-✅ Server listening on port 8080
-```
+Sau khi build xong, app có URL dạng: `https://nexoragarden-xxx.b4a.run`
 
 ---
 
 ## Bước 7 — DNS — Cloudflare
 
-Service → **Networking** → lấy public URL dạng `xxx.northflank.app`
+App → **Settings** → **Custom Domain** → thêm `nexorax.cloud`
 
 Cloudflare Dashboard → domain **nexorax.cloud** → **DNS**:
 
 | Type | Name | Target | Proxy |
 |------|------|--------|-------|
-| CNAME | `@` | `xxx.northflank.app` | Proxied ☁️ |
-
-> Hoặc: Northflank → **Custom Domain** → thêm `nexorax.cloud` → Cloudflare verify
+| CNAME | `@` | `nexoragarden-xxx.b4a.run` | Proxied ☁️ |
 
 ---
 
-## Bước 8 — Cloudflare Worker Ping (chống sleep)
+## Bước 8 — Persistent Volume (SQLite)
 
-Northflank free tier không ngủ, nhưng nên có worker để đảm bảo:
+SQLite database lưu tại: `/app/packages/api-server/data/nexora.db`
+
+Back4App → App → **Storage** → **Add Volume**:
+
+| Mount path | Size |
+|-----------|------|
+| `/app/packages/api-server/data` | 1 GB |
+
+> Nếu không mount volume → dữ liệu sensor bị mất mỗi lần restart!
+
+---
+
+## Bước 9 — Cloudflare Worker Ping
 
 Cloudflare Dashboard → **Workers & Pages** → Create Worker `ping`:
 
@@ -125,11 +119,10 @@ Settings → Triggers → Add Cron: `*/3 * * * *`
 
 ## Auto-deploy sau khi push GitHub
 
-Sau khi setup xong:
+Sau khi setup xong — mỗi lần push GitHub:
 ```
-git push origin main → Northflank detect → build Docker → deploy tự động
+git push origin main → Back4App detect → build Docker → deploy tự động ✅
 ```
-Không cần làm gì thêm!
 
 ---
 
@@ -147,11 +140,11 @@ const char* WS_PATH     = "/NexoraGarden/ws";
 
 ## Thứ tự thực hiện
 
-1. Tạo account + project Northflank
-2. Kết nối GitHub → chọn repo `Nexora`
-3. Tạo Deployment Service (Dockerfile, port 8080, auto-deploy)
-4. Set Environment Variables
-5. Mount Persistent Volume tại `/app/packages/api-server/data`
-6. Deploy → đợi build
-7. Lấy URL → cập nhật Cloudflare DNS
+1. back4app.com → Sign Up → Containers as a Service
+2. Build new app → GitHub → repo `Nexora`, branch `main`
+3. Port `8080`, auto-deploy ON
+4. Set tất cả Environment Variables
+5. Create App → đợi build (~10 phút)
+6. Add Volume tại `/app/packages/api-server/data`
+7. Lấy URL `b4a.run` → Cloudflare DNS + Custom Domain
 8. Tạo Cloudflare Worker ping

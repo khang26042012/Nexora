@@ -3,7 +3,7 @@
 ## Tổng quan
 
 Monorepo pnpm cho dự án **NexoraGarden** — hệ thống IoT tưới cây thông minh của Phan Trọng Khang.
-GitHub: `khang26042012/Nexora` | Deploy: **Northflank** (Docker auto-deploy từ GitHub, thay thế Render/Zeabur/Wispbyte)
+GitHub: `khang26042012/Nexora` | Deploy: **Back4App Containers** (Docker auto-deploy từ GitHub, miễn phí không cần thẻ)
 
 ## Stack
 
