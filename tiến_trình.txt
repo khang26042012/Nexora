@@ -1,8 +1,45 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 08/04/2026 (session 14)
+  Cập nhật: 08/04/2026 (session 15)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[08/04/2026 session 15] MIGRATE — Bỏ Render, chuyển sang Zeabur
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lý do: Render free tier lag nặng, nhiều người deploy → timeout liên tục.
+
+Đã làm:
+  1. Tạo zbpack.json (root repo) — cấu hình Zeabur:
+     - install_command: pnpm install
+     - build_command: build nexora-garden + portfolio + api-server
+     - start_command: node packages/api-server/dist/index.mjs
+     - cache_dependencies: false (tránh lỗi pnpm workspace)
+
+  2. Cập nhật package.json (root):
+     - Thêm "packageManager": "pnpm@10.26.1" → Zeabur dùng pnpm
+     - Thêm "engines": { "node": ">=20" } → pin Node version
+
+  3. Viết lại DEPLOY.md hoàn toàn:
+     - Hướng dẫn deploy Zeabur step-by-step
+     - Danh sách env vars cần set (thêm YOUTUBE_COOKIES, WEATHER_API_KEY)
+     - Cloudflare DNS: đổi CNAME về Zeabur URL
+     - Giữ lại Cloudflare Worker ping, ESP32 firmware, YtDownloader notes
+
+  4. Cập nhật replit.md:
+     - Thay "Render.com" → "Zeabur"
+     - Thêm YOUTUBE_COOKIES vào env vars list
+
+Hướng dẫn Khang deploy Zeabur:
+  1. zeabur.com → New Project → GitHub → khang26042012/Nexora
+  2. 1 service duy nhất (API Server) — Zeabur detect zbpack.json tự động
+  3. Variables: TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY, TELEGRAM_WEBHOOK_URL,
+     TELEGRAM_WEBHOOK_SECRET, WEATHER_API_KEY, NODE_ENV=production, YOUTUBE_COOKIES (tùy chọn)
+  4. Cloudflare DNS: CNAME nexorax.cloud → <zeabur-service>.zeabur.app (Proxied)
+  5. Xóa service Render sau khi xác nhận Zeabur hoạt động
+
+ESP32 cần nạp firmware: KHÔNG (server vẫn tại nexorax.cloud)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [08/04/2026 session 14] THREE.JS REDESIGN V2 — Galaxy + Aurora + AI Crystals

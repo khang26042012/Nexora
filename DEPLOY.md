@@ -1,17 +1,18 @@
-# Hướng dẫn Deploy NexoraGarden
+# Hướng dẫn Deploy NexoraGarden — Zeabur
 
-## 1. Render — Web Service
+## 1. Zeabur — Web Service (thay thế Render)
 
-**Lưu ý quan trọng:** Phải chọn **Web Service** (KHÔNG phải Static Site).
+### Bước deploy
 
-### Build & Start Command
+1. Vào [zeabur.com](https://zeabur.com) → **New Project**
+2. Kết nối GitHub → chọn repo `khang26042012/Nexora`
+3. Zeabur tự detect `zbpack.json` ở root → chọn **1 service duy nhất** (API Server)
+4. Deploy → Zeabur tự chạy:
+   - Install: `pnpm install`
+   - Build: build nexora-garden + portfolio + api-server
+   - Start: `node packages/api-server/dist/index.mjs`
 
-```
-Build:  pnpm install && pnpm --filter @workspace/nexora-garden run build && pnpm --filter @workspace/portfolio run build && pnpm --filter @workspace/api-server run build
-Start:  node packages/api-server/dist/index.mjs
-```
-
-### Environment Variables
+### Environment Variables (thêm trong Zeabur Dashboard → Service → Variables)
 
 | Key | Value |
 |-----|-------|
@@ -19,32 +20,44 @@ Start:  node packages/api-server/dist/index.mjs
 | `TELEGRAM_CHAT_ID` | *(chat ID nhận thông báo)* |
 | `GEMINI_API_KEY` | *(API key Gemini)* |
 | `TELEGRAM_WEBHOOK_URL` | `https://nexorax.cloud/NexoraGarden/telegram-webhook` |
+| `TELEGRAM_WEBHOOK_SECRET` | *(secret webhook)* |
+| `WEATHER_API_KEY` | *(WeatherAPI key)* |
+| `YOUTUBE_COOKIES` | *(nội dung cookies.txt — tùy chọn)* |
 | `NODE_ENV` | `production` |
+
+### File cấu hình Zeabur
+
+`zbpack.json` ở root repo — Zeabur đọc tự động:
+```json
+{
+  "install_command": "pnpm install",
+  "build_command": "pnpm --filter @workspace/nexora-garden run build && pnpm --filter @workspace/portfolio run build && pnpm --filter @workspace/api-server run build",
+  "start_command": "node packages/api-server/dist/index.mjs",
+  "cache_dependencies": false
+}
+```
 
 ---
 
 ## 2. DNS — Cloudflare
 
 1. Đăng nhập [dash.cloudflare.com](https://dash.cloudflare.com) → chọn domain **nexorax.cloud** → vào **DNS**
-2. Cập nhật CNAME record trỏ về Render URL mới:
+2. Cập nhật CNAME record trỏ về Zeabur URL:
 
 | Type | Name | Target | Proxy |
 |------|------|--------|-------|
-| CNAME | `@` (hoặc `nexorax.cloud`) | `nexora-v8re.onrender.com` | Proxied (đám mây màu cam) |
+| CNAME | `@` (hoặc `nexorax.cloud`) | `<zeabur-service>.zeabur.app` | Proxied (đám mây màu cam) |
 
-> Đảm bảo **Proxy status** là **Proxied** (biểu tượng đám mây cam) để Cloudflare làm CDN & SSL.
+> Zeabur URL dạng: `nexorax-xxx.zeabur.app` — lấy trong Zeabur Dashboard → Service → Domains
 
 ---
 
 ## 3. Cloudflare Worker — Ping Keep-Alive
 
-Worker này tự động ping server mỗi 3 phút để tránh Render sleep do free tier.
+Worker này tự động ping server mỗi 3 phút (Zeabur free tier cũng có thể sleep).
 
 ### Tên worker: `ping`
-
 ### Cron trigger: `*/3 * * * *`
-
-### Code worker:
 
 ```js
 export default {
@@ -57,29 +70,11 @@ export default {
 };
 ```
 
-### Cách tạo:
-1. Vào **Cloudflare Dashboard** → **Workers & Pages** → **Create Application** → **Create Worker**
-2. Đặt tên: `ping`
-3. Dán code trên vào editor
-4. Deploy
-5. Vào **Settings** → **Triggers** → **Add Cron Trigger** → nhập `*/3 * * * *`
-
 ---
 
-## 4. Cloudflare Redirect Rules — Xóa Rule Cũ
+## 4. ESP32 Firmware
 
-Xóa redirect rule cũ (nếu có):
-- Rule: `/NexoraGarden` → `nexoragarden.onrender.com`
-
-Lý do: Server mới phục vụ toàn bộ qua `nexorax.cloud`, không cần redirect này nữa.
-
-Cách xóa: **Cloudflare Dashboard** → **nexorax.cloud** → **Rules** → **Redirect Rules** → tìm và xóa rule trên.
-
----
-
-## 5. ESP32 Firmware
-
-Cập nhật các hằng số kết nối trong file `firmware/NexoraGarden/NexoraGarden.ino`:
+Giữ nguyên — server vẫn chạy tại `nexorax.cloud`:
 
 ```cpp
 const char* SERVER_HOST = "nexorax.cloud";
@@ -87,28 +82,21 @@ const int   SERVER_PORT = 443;
 const char* WS_PATH     = "/NexoraGarden/ws";
 ```
 
-> Firmware đã được cập nhật sẵn các giá trị này. Chỉ cần nạp lại vào ESP32.
-
 ---
 
-## 6. Xóa Service Cũ trên Render
+## 5. YtDownloader Tool
 
-Sau khi xác nhận mọi thứ hoạt động ổn định trên `nexorax.cloud`:
-
-1. Vào [Render Dashboard](https://dashboard.render.com)
-2. Tìm service `nexoragarden.onrender.com`
-3. Vào **Settings** → cuộn xuống → **Delete Service**
-
-> **Chờ ít nhất 24 giờ** trước khi xóa để đảm bảo DNS đã propagate hoàn toàn.
+- Zeabur có **ffmpeg native** → tất cả quality kể cả 4K hoạt động ngay
+- Set `YOUTUBE_COOKIES` trong Zeabur Variables nếu cần bypass geo-block
 
 ---
 
 ## Thứ tự thực hiện
 
-1. Deploy service mới lên Render (Web Service)
-2. Cập nhật DNS Cloudflare → CNAME trỏ về Render URL mới
-3. Tạo/cập nhật Cloudflare Worker `ping` với cron `*/3 * * * *`
-4. Xóa Redirect Rule cũ trên Cloudflare
-5. Nạp firmware mới vào ESP32
-6. Kiểm tra toàn bộ hệ thống hoạt động
-7. Xóa service cũ `nexoragarden.onrender.com`
+1. Push `zbpack.json` lên GitHub (đã có sẵn)
+2. Deploy lên Zeabur → lấy URL service
+3. Cập nhật DNS Cloudflare → CNAME trỏ về Zeabur URL
+4. Cập nhật/tạo Cloudflare Worker `ping`
+5. Thêm tất cả Environment Variables trong Zeabur
+6. Kiểm tra hệ thống hoạt động
+7. (Tùy chọn) Xóa service cũ trên Render
