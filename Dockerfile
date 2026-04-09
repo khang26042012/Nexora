@@ -23,7 +23,7 @@ COPY lib/api-zod/package.json ./lib/api-zod/
 COPY lib/db/package.json ./lib/db/
 
 # Cài dependencies — better-sqlite3 tự build nhờ onlyBuiltDependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Copy toàn bộ source code
 COPY . .
