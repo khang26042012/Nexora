@@ -5,8 +5,8 @@ RUN apt-get update && \
     apt-get install -y python3 make g++ && \
     rm -rf /var/lib/apt/lists/*
 
-# Pin đúng pnpm version (khớp package.json)
-RUN npm install -g pnpm@10.26.1
+# Pin pnpm + cài node-gyp global
+RUN npm install -g pnpm@10.26.1 node-gyp
 
 WORKDIR /app
 
@@ -20,11 +20,13 @@ COPY lib/api-spec/package.json ./lib/api-spec/
 COPY lib/api-zod/package.json ./lib/api-zod/
 COPY lib/db/package.json ./lib/db/
 
-# Cài deps (không chạy scripts — tránh timeout native build lẫn lộn)
+# Cài deps (không chạy scripts)
 RUN pnpm install --no-frozen-lockfile --ignore-scripts
 
-# Rebuild tất cả native modules (better-sqlite3, v.v.)
-RUN pnpm rebuild
+# Build better-sqlite3 native binary trực tiếp bằng node-gyp
+RUN cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3 && \
+    node-gyp configure && \
+    node-gyp build
 
 # Copy source code
 COPY . .
