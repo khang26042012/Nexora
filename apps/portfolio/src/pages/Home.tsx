@@ -10,7 +10,7 @@ import {
   GraduationCap, ChevronDown,
 } from "lucide-react";
 import { useRef, useEffect, useState, useCallback } from "react";
-import avatarImg from "@assets/IMG_20251219_183126_1775387730987.jpg";
+import avatarImg from "../assets/avatar.jpg";
 
 /* ─── Reveal wrapper — bidirectional (once: false) ─── */
 function Reveal({
