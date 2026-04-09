@@ -1,915 +1,741 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Phan Trọng Khang — AI Architect</title>
-  <meta name="description" content="Portfolio của Phan Trọng Khang — AI Architect, học sinh THCS Vĩnh Hòa, Việt Nam." />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;1,14..32,300&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Phan Trọng Khang — AI Architect</title>
+<meta name="description" content="Portfolio của Phan Trọng Khang — AI Architect, IoT Engineer, Developer tại Vĩnh Hòa, Việt Nam."/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#040c07;--surface:rgba(8,22,14,0.72);--border:rgba(80,180,120,0.13);
+  --text:#e8f5e3;--dim:rgba(200,235,210,0.42);
+  --gold:#d4a843;--gold2:#f0c96a;
+  --cyan:#3fd4aa;--cyan2:#6ee7c8;
+  --purple:#8b5cf6;--purple2:#a78bfa;
+  --green:#1a5c30;--green2:#2d8a4e;
+  --r:16px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Crimson Pro',serif;font-weight:300;overflow-x:hidden;cursor:none}
 
-    :root {
-      --purple: #7c3aed;
-      --purple-light: #a78bfa;
-      --cyan: #06b6d4;
-      --cyan-light: #67e8f9;
-      --pink: #ec4899;
-      --bg: #020408;
-      --glass: rgba(255,255,255,0.03);
-      --glass-border: rgba(255,255,255,0.08);
-      --text: rgba(255,255,255,0.92);
-      --text-dim: rgba(255,255,255,0.45);
-    }
+/* CURSOR */
+#cur{position:fixed;top:0;left:0;width:12px;height:12px;border-radius:50%;background:var(--cyan);pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s,background .2s;mix-blend-mode:screen}
+#cur-r{position:fixed;top:0;left:0;width:36px;height:36px;border-radius:50%;border:1px solid rgba(63,212,170,.4);pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:all .14s ease-out}
+body:has(a:hover,button:hover) #cur{width:22px;height:22px;background:var(--gold)}
+body:has(a:hover,button:hover) #cur-r{width:50px;height:50px;border-color:rgba(212,168,67,.7)}
 
-    html { scroll-behavior: smooth; }
+/* CANVAS */
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      font-weight: 300;
-      overflow-x: hidden;
-      cursor: none;
-    }
+/* LOADING */
+#loading{position:fixed;inset:0;z-index:9990;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;transition:opacity .8s}
+#loading.hidden{opacity:0;pointer-events:none}
+.load-rune{width:80px;height:80px;border:2px solid rgba(63,212,170,.2);border-top-color:var(--cyan);border-radius:50%;animation:spin 1.2s linear infinite}
+.load-txt{font-family:'Cinzel Decorative',serif;font-size:.75rem;letter-spacing:.4em;color:var(--cyan);text-transform:uppercase;animation:fadePulse 2s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadePulse{0%,100%{opacity:.4}50%{opacity:1}}
 
-    /* ─── CUSTOM CURSOR ─── */
-    #cursor {
-      position: fixed; top: 0; left: 0; width: 10px; height: 10px;
-      background: var(--cyan); border-radius: 50%; pointer-events: none;
-      z-index: 9999; transform: translate(-50%,-50%);
-      transition: transform 0.1s, background 0.2s, width 0.2s, height 0.2s;
-      mix-blend-mode: screen;
-    }
-    #cursor-ring {
-      position: fixed; top: 0; left: 0; width: 38px; height: 38px;
-      border: 1px solid rgba(167,139,250,0.5); border-radius: 50%;
-      pointer-events: none; z-index: 9998; transform: translate(-50%,-50%);
-      transition: all 0.12s ease-out;
-    }
-    body:has(a:hover) #cursor, body:has(button:hover) #cursor { width: 20px; height: 20px; background: var(--purple-light); }
-    body:has(a:hover) #cursor-ring, body:has(button:hover) #cursor-ring { width: 52px; height: 52px; border-color: rgba(167,139,250,0.8); }
+/* NAV BUTTON */
+#ham{position:fixed;top:22px;left:22px;z-index:1100;width:46px;height:46px;border:1px solid var(--border);background:rgba(4,12,7,.8);backdrop-filter:blur(20px);border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:border-color .3s,box-shadow .3s}
+#ham:hover{border-color:var(--cyan);box-shadow:0 0 20px rgba(63,212,170,.25)}
+#ham span{display:block;width:20px;height:1.5px;background:var(--text);transition:all .35s cubic-bezier(.68,-.55,.265,1.55);transform-origin:center}
+#ham.open span:nth-child(1){transform:translateY(6.5px) rotate(45deg)}
+#ham.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+#ham.open span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg)}
 
-    /* ─── CANVAS ─── */
-    #bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+/* SIDEBAR */
+#sidebar{position:fixed;top:0;left:0;height:100vh;width:270px;background:rgba(4,10,6,.95);backdrop-filter:blur(32px);border-right:1px solid var(--border);z-index:1050;transform:translateX(-100%);transition:transform .4s cubic-bezier(.77,0,.175,1);display:flex;flex-direction:column;padding:90px 28px 40px}
+#sidebar.open{transform:translateX(0)}
+.sb-brand{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold);letter-spacing:.12em;margin-bottom:48px}
+.sb-links{display:flex;flex-direction:column;gap:4px;flex:1}
+.sb-link{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:10px;text-decoration:none;color:var(--dim);font-family:'Cinzel Decorative',serif;font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;transition:all .25s;position:relative;overflow:hidden}
+.sb-link::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:0;background:var(--cyan);border-radius:2px;transition:height .25s}
+.sb-link:hover{color:var(--cyan);background:rgba(63,212,170,.07);padding-left:22px}
+.sb-link:hover::before{height:55%}
+.sb-dot{width:6px;height:6px;border-radius:50%;background:var(--green2);flex-shrink:0}
+.sb-foot{font-size:.68rem;color:var(--dim);border-top:1px solid var(--border);padding-top:20px;letter-spacing:.1em}
+#ov{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .4s;backdrop-filter:blur(3px)}
+#ov.on{opacity:1;pointer-events:all}
 
-    /* ─── HAMBURGER ─── */
-    #hamburger {
-      position: fixed; top: 24px; left: 24px; z-index: 1000;
-      width: 48px; height: 48px; border: 1px solid var(--glass-border);
-      background: rgba(2,4,8,0.7); backdrop-filter: blur(20px);
-      border-radius: 12px; cursor: pointer; display: flex;
-      flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-      transition: border-color 0.3s, box-shadow 0.3s;
-    }
-    #hamburger:hover { border-color: var(--purple-light); box-shadow: 0 0 20px rgba(124,58,237,0.3); }
-    #hamburger span {
-      display: block; width: 22px; height: 1.5px; background: var(--text);
-      transition: all 0.35s cubic-bezier(0.68,-0.55,0.265,1.55);
-      transform-origin: center;
-    }
-    #hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
-    #hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
-    #hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+/* SCROLL WRAPPER */
+#wrap{position:relative;z-index:1}
 
-    /* ─── SIDEBAR ─── */
-    #sidebar {
-      position: fixed; top: 0; left: 0; height: 100vh; width: 280px;
-      background: rgba(2,4,8,0.92); backdrop-filter: blur(32px);
-      border-right: 1px solid var(--glass-border);
-      z-index: 999; transform: translateX(-100%);
-      transition: transform 0.45s cubic-bezier(0.77,0,0.175,1);
-      display: flex; flex-direction: column; padding: 100px 32px 48px;
-    }
-    #sidebar.open { transform: translateX(0); }
+/* SECTION BASE */
+section{min-height:100vh;padding:100px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
 
-    .sidebar-logo {
-      font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.1rem;
-      color: var(--purple-light); letter-spacing: 0.15em; margin-bottom: 56px;
-      text-transform: uppercase;
-    }
+/* SEC HEADER */
+.sh{text-align:center;margin-bottom:64px}
+.sh-tag{display:inline-block;font-family:'Cinzel Decorative',serif;font-size:.6rem;letter-spacing:.35em;color:var(--cyan);text-transform:uppercase;padding:5px 18px;border:1px solid rgba(63,212,170,.3);border-radius:100px;background:rgba(63,212,170,.05);margin-bottom:14px}
+.sh-title{font-family:'Cinzel Decorative',serif;font-size:clamp(1.6rem,4vw,2.8rem);font-weight:700;background:linear-gradient(135deg,var(--gold) 0%,var(--text) 60%,var(--cyan) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sh-line{width:60px;height:1px;background:linear-gradient(to right,transparent,var(--gold),transparent);margin:14px auto 0}
 
-    .nav-links { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-    .nav-link {
-      display: flex; align-items: center; gap: 14px; padding: 14px 16px;
-      border-radius: 12px; text-decoration: none; color: var(--text-dim);
-      font-size: 0.95rem; font-weight: 400; letter-spacing: 0.04em;
-      transition: all 0.25s; position: relative; overflow: hidden;
-    }
-    .nav-link::before {
-      content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-      width: 3px; height: 0; background: var(--purple-light); border-radius: 2px;
-      transition: height 0.25s;
-    }
-    .nav-link:hover { color: var(--text); background: rgba(124,58,237,0.1); padding-left: 22px; }
-    .nav-link:hover::before { height: 60%; }
-    .nav-link .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+/* ─── HERO ─── */
+#hero{text-align:center;gap:0}
+.hero-rune{font-size:.65rem;letter-spacing:.4em;color:var(--cyan);text-transform:uppercase;opacity:0;animation:riseIn .8s .3s forwards;margin-bottom:24px;font-family:'Inter',sans-serif}
+h1.hname{font-family:'Cinzel Decorative',serif;font-size:clamp(2.2rem,7vw,5.5rem);font-weight:900;line-height:1.1;background:linear-gradient(160deg,var(--gold2) 0%,var(--text) 40%,var(--cyan2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;opacity:0;animation:riseIn .9s .55s forwards;margin-bottom:14px}
+.htitle{font-family:'Cinzel Decorative',serif;font-size:clamp(.8rem,2vw,.95rem);letter-spacing:.3em;color:var(--dim);text-transform:uppercase;opacity:0;animation:riseIn .8s .75s forwards;margin-bottom:30px}
+.hbio{max-width:520px;font-size:clamp(1rem,2vw,1.15rem);color:var(--dim);line-height:1.9;opacity:0;animation:riseIn .8s .95s forwards;margin-bottom:44px}
+.hbtns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;opacity:0;animation:riseIn .8s 1.15s forwards}
+.btn{padding:13px 30px;border-radius:100px;font-family:'Cinzel Decorative',serif;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;cursor:pointer;border:none;transition:all .3s}
+.btn-p{background:linear-gradient(135deg,rgba(63,212,170,.9),rgba(139,92,246,.8));color:#fff;box-shadow:0 0 28px rgba(63,212,170,.3)}
+.btn-p:hover{box-shadow:0 0 48px rgba(63,212,170,.5);transform:translateY(-2px)}
+.btn-o{background:transparent;color:var(--dim);border:1px solid var(--border)}
+.btn-o:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-2px)}
+.scroll-dn{position:absolute;bottom:40px;display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0;animation:riseIn .8s 1.6s forwards}
+.scroll-dn span{font-size:.6rem;letter-spacing:.25em;color:var(--dim);text-transform:uppercase;font-family:'Inter',sans-serif}
+.scroll-line{width:1px;height:50px;background:linear-gradient(to bottom,var(--gold),transparent);animation:scrollGlow 2s ease-in-out infinite}
 
-    .sidebar-footer {
-      font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.1em;
-      border-top: 1px solid var(--glass-border); padding-top: 24px;
-    }
+/* ─── ABOUT ─── */
+#about{padding:120px 24px}
+.about-inner{max-width:900px;width:100%;display:grid;grid-template-columns:1fr 1.6fr;gap:60px;align-items:center}
+.about-emblem{position:relative;display:flex;align-items:center;justify-content:center}
+.emblem-ring{width:200px;height:200px;border-radius:50%;border:1px solid rgba(63,212,170,.2);display:flex;align-items:center;justify-content:center;position:relative}
+.emblem-ring::before{content:'';position:absolute;inset:-12px;border-radius:50%;border:1px solid rgba(212,168,67,.15);animation:rotateSlow 12s linear infinite}
+.emblem-ring::after{content:'';position:absolute;inset:-28px;border-radius:50%;border:1px dashed rgba(63,212,170,.08);animation:rotateSlow 20s linear infinite reverse}
+.emblem-char{font-family:'Cinzel Decorative',serif;font-size:3.5rem;color:var(--gold);text-shadow:0 0 30px rgba(212,168,67,.5)}
+.about-txt h2{font-family:'Cinzel Decorative',serif;font-size:1.4rem;color:var(--gold);margin-bottom:18px}
+.about-txt p{font-size:1.1rem;line-height:1.95;color:var(--dim);margin-bottom:14px}
+.about-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.badge{padding:5px 14px;border-radius:100px;border:1px solid var(--border);font-size:.75rem;color:var(--dim);font-family:'Inter',sans-serif;background:rgba(63,212,170,.04)}
 
-    #overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      z-index: 998; opacity: 0; pointer-events: none; transition: opacity 0.4s;
-      backdrop-filter: blur(2px);
-    }
-    #overlay.visible { opacity: 1; pointer-events: all; }
+/* ─── SKILLS ─── */
+#skills{padding:120px 24px}
+.skills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;max-width:1000px;width:100%}
+.skill-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:26px;position:relative;overflow:hidden;transition:all .4s}
+.skill-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(63,212,170,.06),transparent 70%);opacity:0;transition:opacity .4s}
+.skill-card:hover{border-color:rgba(63,212,170,.3);transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.skill-card:hover::before{opacity:1}
+.sk-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.sk-icon{font-size:1.4rem}
+.sk-name{font-family:'Cinzel Decorative',serif;font-size:.72rem;letter-spacing:.1em;color:var(--text)}
+.sk-bar-bg{height:3px;background:rgba(255,255,255,.06);border-radius:2px;margin-bottom:14px;overflow:hidden}
+.sk-bar{height:100%;border-radius:2px;background:linear-gradient(to right,var(--cyan),var(--purple));width:0;transition:width 1.2s cubic-bezier(.23,1,.32,1)}
+.sk-tags{display:flex;flex-wrap:wrap;gap:6px}
+.sk-tag{padding:3px 10px;border-radius:100px;font-size:.72rem;background:rgba(63,212,170,.07);border:1px solid rgba(63,212,170,.12);color:var(--dim);font-family:'Inter',sans-serif}
 
-    /* ─── SCROLL CONTAINER ─── */
-    #scroll-container { position: relative; z-index: 1; }
+/* ─── ACHIEVEMENTS ─── */
+#achievements{padding:120px 24px}
+.timeline{max-width:760px;width:100%;position:relative}
+.timeline::before{content:'';position:absolute;left:28px;top:0;bottom:0;width:1px;background:linear-gradient(to bottom,transparent,var(--gold),var(--cyan),transparent)}
+.tl-item{display:flex;gap:32px;margin-bottom:48px;position:relative;opacity:0;transform:translateX(-20px);transition:all .7s cubic-bezier(.23,1,.32,1)}
+.tl-item.visible{opacity:1;transform:translateX(0)}
+.tl-left{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.tl-dot{width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid var(--gold);box-shadow:0 0 14px rgba(212,168,67,.5);flex-shrink:0;margin-top:4px;position:relative;z-index:1}
+.tl-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1px solid rgba(212,168,67,.2);animation:pulseDot 2.5s ease-in-out infinite}
+.tl-year{font-family:'Cinzel Decorative',serif;font-size:.6rem;letter-spacing:.15em;color:var(--gold);margin-top:8px;white-space:nowrap}
+.tl-body{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px 24px;flex:1}
+.tl-title{font-family:'Cinzel Decorative',serif;font-size:.82rem;color:var(--text);margin-bottom:8px;line-height:1.4}
+.tl-desc{font-size:1rem;color:var(--dim);line-height:1.8;margin-bottom:12px}
+.tl-tags{display:flex;flex-wrap:wrap;gap:6px}
+.tl-tag{padding:2px 10px;border-radius:100px;font-size:.68rem;border:1px solid rgba(139,92,246,.25);color:var(--purple2);font-family:'Inter',sans-serif;background:rgba(139,92,246,.06)}
 
-    /* ─── SECTION GENERAL ─── */
-    section { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 80px 24px; }
+/* ─── PROJECTS ─── */
+#projects{padding:120px 24px}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;max-width:1100px;width:100%}
+.proj-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;text-decoration:none;color:inherit;display:block;position:relative;overflow:hidden;transition:all .4s cubic-bezier(.23,1,.32,1)}
+.proj-card::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(63,212,170,.04),transparent);opacity:0;transition:opacity .4s}
+.proj-card:hover{transform:translateY(-8px);box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.proj-card:hover::after{opacity:1}
+.pc-glow{position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:var(--gc,rgba(63,212,170,.2));filter:blur(30px);pointer-events:none;opacity:.6}
+.pc-status{display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);border:1px solid var(--border);border-radius:100px;padding:3px 10px;margin-bottom:16px}
+.pc-dot{width:5px;height:5px;border-radius:50%;animation:pulseDot 2s infinite}
+.pc-active .pc-dot{background:#4ade80}
+.pc-coming .pc-dot{background:var(--gold)}
+.pc-name{font-family:'Cinzel Decorative',serif;font-size:.95rem;color:var(--text);margin-bottom:10px}
+.pc-desc{font-size:.95rem;color:var(--dim);line-height:1.75;margin-bottom:16px}
+.pc-techs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:18px}
+.pc-tech{padding:2px 9px;border-radius:100px;font-size:.65rem;background:rgba(63,212,170,.06);border:1px solid rgba(63,212,170,.12);color:var(--cyan);font-family:'Inter',sans-serif}
+.pc-arrow{font-family:'Cinzel Decorative',serif;font-size:.6rem;letter-spacing:.15em;color:var(--gold);display:flex;align-items:center;gap:6px;transition:gap .25s}
+.proj-card:hover .pc-arrow{gap:12px}
 
-    /* ─── HERO ─── */
-    #hero { flex-direction: column; text-align: center; position: relative; }
+/* ─── CONTACT ─── */
+#contact{padding:120px 24px}
+.contact-wrap{max-width:860px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:52px 44px;position:relative;overflow:hidden}
+.contact-wrap::before{content:'';position:absolute;top:-80px;right:-80px;width:240px;height:240px;background:radial-gradient(circle,rgba(63,212,170,.1),transparent 70%);border-radius:50%;pointer-events:none}
+.contact-wrap::after{content:'';position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(212,168,67,.07),transparent 70%);border-radius:50%;pointer-events:none}
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;position:relative;z-index:1}
+.cl{display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:14px;border:1px solid var(--border);background:rgba(255,255,255,.02);text-decoration:none;color:var(--dim);transition:all .3s;position:relative;overflow:hidden}
+.cl::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(63,212,170,.06),rgba(212,168,67,.04));opacity:0;transition:opacity .3s}
+.cl:hover{border-color:var(--cyan);color:var(--text);transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.4)}
+.cl:hover::before{opacity:1}
+.ci{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;position:relative;z-index:1}
+.ci-gh{background:rgba(255,255,255,.07)}
+.ci-em{background:rgba(234,88,12,.12)}
+.ci-fb{background:rgba(29,78,216,.15)}
+.ci-tg{background:rgba(63,212,170,.12)}
+.ci-ph{background:rgba(34,197,94,.12)}
+.ci-za{background:rgba(0,104,255,.15);font-weight:900;font-size:.72rem;color:#0068ff;letter-spacing:.02em}
+.ci-ig{background:rgba(236,72,153,.12)}
+.ci-tt{background:rgba(255,255,255,.05)}
+.cinfo{position:relative;z-index:1;min-width:0}
+.cn{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:2px;font-family:'Inter',sans-serif}
+.cv{font-size:.88rem;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Inter',sans-serif}
 
-    .hero-badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      border: 1px solid rgba(124,58,237,0.4); border-radius: 100px;
-      padding: 6px 18px; font-size: 0.72rem; letter-spacing: 0.2em;
-      color: var(--purple-light); text-transform: uppercase; margin-bottom: 36px;
-      background: rgba(124,58,237,0.08);
-      animation: fadeSlideDown 1s 0.3s both;
-    }
-    .hero-badge::before {
-      content: ''; width: 6px; height: 6px; border-radius: 50%;
-      background: var(--purple-light); animation: pulse 2s infinite;
-    }
+/* FOOTER */
+footer{text-align:center;padding:44px 24px;font-family:'Cinzel Decorative',serif;font-size:.6rem;letter-spacing:.2em;color:var(--dim);border-top:1px solid var(--border);position:relative;z-index:1}
+footer span{color:var(--gold)}
 
-    h1.hero-name {
-      font-family: 'Orbitron', sans-serif;
-      font-size: clamp(2.8rem, 8vw, 6.5rem);
-      font-weight: 900; line-height: 1.05;
-      letter-spacing: -0.02em; margin-bottom: 16px;
-      background: linear-gradient(135deg, #fff 0%, var(--purple-light) 50%, var(--cyan-light) 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
-      animation: fadeSlideUp 1s 0.5s both;
-    }
+/* REVEAL */
+.rev{opacity:0;transform:translateY(36px);transition:opacity .8s cubic-bezier(.23,1,.32,1),transform .8s cubic-bezier(.23,1,.32,1)}
+.rev.on{opacity:1;transform:translateY(0)}
 
-    .hero-title {
-      font-size: clamp(0.9rem, 2.5vw, 1.15rem);
-      color: var(--cyan-light); letter-spacing: 0.35em; text-transform: uppercase;
-      font-weight: 300; margin-bottom: 36px;
-      animation: fadeSlideUp 1s 0.7s both;
-    }
+/* KEYFRAMES */
+@keyframes riseIn{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scrollGlow{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes rotateSlow{to{transform:rotate(360deg)}}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
 
-    .hero-bio {
-      max-width: 560px; font-size: clamp(0.9rem, 1.8vw, 1.05rem);
-      color: var(--text-dim); line-height: 1.85; font-weight: 300;
-      animation: fadeSlideUp 1s 0.9s both; margin-bottom: 52px;
-    }
-
-    .hero-cta {
-      display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
-      animation: fadeSlideUp 1s 1.1s both;
-    }
-    .btn {
-      padding: 14px 32px; border-radius: 100px; font-size: 0.85rem;
-      letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none;
-      font-weight: 500; cursor: pointer; transition: all 0.3s;
-      border: none; font-family: 'Inter', sans-serif;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--purple), var(--cyan));
-      color: #fff; box-shadow: 0 0 30px rgba(124,58,237,0.4);
-    }
-    .btn-primary:hover { box-shadow: 0 0 50px rgba(124,58,237,0.7); transform: translateY(-2px); }
-    .btn-outline {
-      background: transparent; color: var(--text-dim);
-      border: 1px solid var(--glass-border);
-    }
-    .btn-outline:hover { border-color: var(--purple-light); color: var(--text); background: rgba(124,58,237,0.08); transform: translateY(-2px); }
-
-    .scroll-hint {
-      position: absolute; bottom: 48px;
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
-      animation: fadeSlideUp 1s 1.5s both;
-    }
-    .scroll-hint span { font-size: 0.65rem; letter-spacing: 0.25em; color: var(--text-dim); text-transform: uppercase; }
-    .scroll-line {
-      width: 1px; height: 56px; background: linear-gradient(to bottom, var(--purple-light), transparent);
-      animation: scrollPulse 2s ease-in-out infinite;
-    }
-
-    /* ─── SECTION HEADER ─── */
-    .section-header { text-align: center; margin-bottom: 72px; }
-    .section-label {
-      display: inline-block; font-size: 0.68rem; letter-spacing: 0.3em;
-      color: var(--cyan-light); text-transform: uppercase; margin-bottom: 16px;
-      padding: 5px 16px; border: 1px solid rgba(6,182,212,0.3); border-radius: 100px;
-      background: rgba(6,182,212,0.06);
-    }
-    .section-title {
-      font-family: 'Orbitron', sans-serif;
-      font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 700;
-      background: linear-gradient(135deg, #fff 30%, var(--purple-light));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-
-    /* ─── PROJECTS ─── */
-    #projects { flex-direction: column; }
-
-    .projects-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 24px; max-width: 1100px; width: 100%;
-    }
-
-    .project-card {
-      background: var(--glass); border: 1px solid var(--glass-border);
-      border-radius: 20px; padding: 32px; position: relative; overflow: hidden;
-      cursor: pointer; text-decoration: none; color: inherit;
-      transition: all 0.4s cubic-bezier(0.23,1,0.32,1);
-      display: block;
-    }
-    .project-card::before {
-      content: ''; position: absolute; inset: 0;
-      background: radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.12), transparent 70%);
-      opacity: 0; transition: opacity 0.4s;
-    }
-    .project-card:hover { transform: translateY(-8px); border-color: rgba(124,58,237,0.4); box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 40px rgba(124,58,237,0.15); }
-    .project-card:hover::before { opacity: 1; }
-
-    .card-glow {
-      position: absolute; top: -40px; right: -40px;
-      width: 120px; height: 120px;
-      background: radial-gradient(circle, rgba(124,58,237,0.25), transparent 70%);
-      border-radius: 50%; pointer-events: none;
-    }
-
-    .card-status {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--text-dim); margin-bottom: 20px;
-      border: 1px solid var(--glass-border); border-radius: 100px; padding: 4px 12px;
-    }
-    .card-status::before {
-      content: ''; width: 5px; height: 5px; border-radius: 50%;
-      background: var(--purple-light); animation: pulse 2.5s infinite;
-    }
-
-    .card-title {
-      font-family: 'Orbitron', sans-serif; font-size: 1.05rem; font-weight: 600;
-      margin-bottom: 12px; color: var(--text);
-    }
-    .card-desc { font-size: 0.85rem; color: var(--text-dim); line-height: 1.7; }
-    .card-arrow {
-      margin-top: 24px; font-size: 0.8rem; color: var(--purple-light);
-      letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px;
-      transition: gap 0.25s;
-    }
-    .project-card:hover .card-arrow { gap: 14px; }
-
-    /* ─── CONTACT ─── */
-    #contact { flex-direction: column; }
-
-    .contact-wrapper {
-      max-width: 800px; width: 100%;
-      background: var(--glass); border: 1px solid var(--glass-border);
-      border-radius: 28px; padding: 56px 48px; position: relative; overflow: hidden;
-    }
-    .contact-wrapper::before {
-      content: ''; position: absolute; top: -100px; right: -100px;
-      width: 300px; height: 300px;
-      background: radial-gradient(circle, rgba(124,58,237,0.15), transparent 70%);
-      border-radius: 50%;
-    }
-    .contact-wrapper::after {
-      content: ''; position: absolute; bottom: -80px; left: -80px;
-      width: 250px; height: 250px;
-      background: radial-gradient(circle, rgba(6,182,212,0.1), transparent 70%);
-      border-radius: 50%;
-    }
-
-    .contact-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px; position: relative; z-index: 1;
-    }
-
-    .contact-link {
-      display: flex; align-items: center; gap: 14px;
-      padding: 18px 20px; border-radius: 16px;
-      border: 1px solid var(--glass-border);
-      background: rgba(255,255,255,0.02);
-      text-decoration: none; color: var(--text-dim);
-      transition: all 0.3s; position: relative; overflow: hidden;
-    }
-    .contact-link::before {
-      content: ''; position: absolute; inset: 0;
-      background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(6,182,212,0.05));
-      opacity: 0; transition: opacity 0.3s;
-    }
-    .contact-link:hover { border-color: var(--purple-light); color: var(--text); transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.4); }
-    .contact-link:hover::before { opacity: 1; }
-
-    .contact-icon {
-      width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem; flex-shrink: 0; position: relative; z-index: 1;
-    }
-    .contact-info { position: relative; z-index: 1; min-width: 0; }
-    .contact-name { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 3px; }
-    .contact-value { font-size: 0.88rem; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    /* icon bg colors */
-    .ic-github { background: rgba(255,255,255,0.08); }
-    .ic-email  { background: rgba(234,88,12,0.15); }
-    .ic-fb     { background: rgba(29,78,216,0.2); }
-    .ic-tg     { background: rgba(6,182,212,0.15); }
-    .ic-phone  { background: rgba(34,197,94,0.15); }
-    .ic-zalo   { background: rgba(6,182,212,0.18); }
-    .ic-ig     { background: rgba(236,72,153,0.15); }
-    .ic-tt     { background: rgba(255,255,255,0.06); }
-
-    /* ─── FOOTER ─── */
-    footer {
-      text-align: center; padding: 48px 24px;
-      font-size: 0.72rem; color: var(--text-dim); letter-spacing: 0.12em;
-      border-top: 1px solid var(--glass-border); position: relative; z-index: 1;
-    }
-    footer span { color: var(--purple-light); }
-
-    /* ─── REVEAL ANIMATION ─── */
-    .reveal { opacity: 0; transform: translateY(40px); transition: all 0.8s cubic-bezier(0.23,1,0.32,1); }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-
-    /* ─── KEYFRAMES ─── */
-    @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes fadeSlideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-    @keyframes scrollPulse { 0%,100% { opacity: 0.3; transform: scaleY(1); } 50% { opacity: 1; transform: scaleY(1.1); } }
-    @keyframes glitch {
-      0%,100% { clip-path: none; transform: none; }
-      20% { clip-path: polygon(0 15%,100% 15%,100% 35%,0 35%); transform: translateX(-4px); }
-      22% { clip-path: none; transform: none; }
-      40% { clip-path: polygon(0 60%,100% 60%,100% 80%,0 80%); transform: translateX(4px); }
-      42% { clip-path: none; transform: none; }
-    }
-
-    /* ─── RESPONSIVE ─── */
-    @media (max-width: 640px) {
-      .contact-wrapper { padding: 36px 24px; }
-      .contact-grid { grid-template-columns: 1fr; }
-      #sidebar { width: 100vw; }
-    }
-  </style>
+/* MOBILE */
+@media(max-width:700px){
+  .about-inner{grid-template-columns:1fr}
+  .about-emblem{display:none}
+  .contact-wrap{padding:32px 20px}
+  .cg{grid-template-columns:1fr}
+  #sidebar{width:100vw}
+  .timeline::before{left:16px}
+  .tl-left{gap:8px}
+}
+</style>
 </head>
 <body>
+<div id="cur"></div>
+<div id="cur-r"></div>
 
-<div id="cursor"></div>
-<div id="cursor-ring"></div>
-<canvas id="bg"></canvas>
-
-<!-- HAMBURGER -->
-<button id="hamburger" aria-label="Menu">
-  <span></span><span></span><span></span>
-</button>
-
-<!-- SIDEBAR -->
-<nav id="sidebar">
-  <div class="sidebar-logo">Nexorax</div>
-  <div class="nav-links">
-    <a href="#hero" class="nav-link">
-      <span class="nav-icon">⌂</span> Trang chủ
-    </a>
-    <a href="#projects" class="nav-link">
-      <span class="nav-icon">◈</span> Dự án
-    </a>
-    <a href="#contact" class="nav-link">
-      <span class="nav-icon">◎</span> Liên hệ
-    </a>
-  </div>
-  <div class="sidebar-footer">© 2025 Phan Trọng Khang</div>
-</nav>
-<div id="overlay"></div>
-
-<!-- MAIN CONTENT -->
-<div id="scroll-container">
-
-  <!-- HERO -->
-  <section id="hero">
-    <div class="hero-badge">AI Architect · Việt Nam</div>
-    <h1 class="hero-name">Phan Trọng Khang</h1>
-    <p class="hero-title">AI Architect &amp; Developer</p>
-    <p class="hero-bio">
-      Học sinh THCS Vĩnh Hòa đam mê xây dựng các hệ thống thông minh. Tôi kết hợp
-      trí tuệ nhân tạo, IoT và phát triển phần mềm để tạo ra những sản phẩm
-      công nghệ có tác động thực tế.
-    </p>
-    <div class="hero-cta">
-      <a href="#projects" class="btn btn-primary">Xem dự án</a>
-      <a href="#contact" class="btn btn-outline">Liên hệ</a>
-    </div>
-    <div class="scroll-hint">
-      <div class="scroll-line"></div>
-      <span>Cuộn xuống</span>
-    </div>
-  </section>
-
-  <!-- PROJECTS -->
-  <section id="projects">
-    <div class="section-header reveal">
-      <div class="section-label">Portfolio</div>
-      <h2 class="section-title">Dự án</h2>
-    </div>
-    <div class="projects-grid">
-
-      <a href="/NexoraGarden" class="project-card reveal">
-        <div class="card-glow"></div>
-        <div class="card-status">Đang phát triển</div>
-        <div class="card-title">NexoraGarden</div>
-        <p class="card-desc">Hệ thống tưới cây IoT thông minh — tự động hóa nông nghiệp với ESP32, AI và Telegram bot.</p>
-        <div class="card-arrow">Xem dự án →</div>
-      </a>
-
-      <a href="/NexoraAI" class="project-card reveal" style="--delay:0.1s">
-        <div class="card-glow" style="background:radial-gradient(circle,rgba(6,182,212,0.25),transparent 70%)"></div>
-        <div class="card-status">Sắp ra mắt</div>
-        <div class="card-title">NexoraAI</div>
-        <p class="card-desc">Trợ lý AI thế hệ tiếp theo — được xây dựng để hiểu ngữ cảnh, phân tích dữ liệu và hỗ trợ sáng tạo.</p>
-        <div class="card-arrow">Sắp ra mắt →</div>
-      </a>
-
-      <a href="/NexoraVision" class="project-card reveal" style="--delay:0.2s">
-        <div class="card-glow" style="background:radial-gradient(circle,rgba(236,72,153,0.2),transparent 70%)"></div>
-        <div class="card-status">Sắp ra mắt</div>
-        <div class="card-title">NexoraVision</div>
-        <p class="card-desc">Hệ thống thị giác máy tính — nhận diện hình ảnh và phân tích video theo thời gian thực.</p>
-        <div class="card-arrow">Sắp ra mắt →</div>
-      </a>
-
-      <a href="/DuAnMoi" class="project-card reveal" style="--delay:0.3s">
-        <div class="card-glow" style="background:radial-gradient(circle,rgba(250,204,21,0.15),transparent 70%)"></div>
-        <div class="card-status">Sắp ra mắt</div>
-        <div class="card-title">Dự án mới</div>
-        <p class="card-desc">Ý tưởng đang được ấp ủ — một sản phẩm công nghệ mới sẽ sớm ra đời.</p>
-        <div class="card-arrow">Sắp ra mắt →</div>
-      </a>
-
-    </div>
-  </section>
-
-  <!-- CONTACT -->
-  <section id="contact">
-    <div class="section-header reveal">
-      <div class="section-label">Kết nối</div>
-      <h2 class="section-title">Liên hệ</h2>
-    </div>
-    <div class="contact-wrapper reveal">
-      <div class="contact-grid">
-
-        <a href="https://github.com/khang26042012" target="_blank" rel="noopener" class="contact-link">
-          <div class="contact-icon ic-github">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
-          </div>
-          <div class="contact-info">
-            <div class="contact-name">GitHub</div>
-            <div class="contact-value">khang26042012</div>
-          </div>
-        </a>
-
-        <a href="mailto:trongkhabgphan@gmail.com" class="contact-link">
-          <div class="contact-icon ic-email">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m2 7 10 7 10-7"/></svg>
-          </div>
-          <div class="contact-info">
-            <div class="contact-name">Email</div>
-            <div class="contact-value">trongkhabgphan@gmail.com</div>
-          </div>
-        </a>
-
-        <a href="https://www.facebook.com/share/1CAZqbwCgB/" target="_blank" rel="noopener" class="contact-link">
-          <div class="contact-icon ic-fb">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-          </div>
-          <div class="contact-info">
-            <div class="contact-name">Facebook</div>
-            <div class="contact-value">Phan Trọng Khang</div>
-          </div>
-        </a>
-
-        <a href="https://t.me/+84352234521" target="_blank" rel="noopener" class="contact-link">
-          <div class="contact-icon ic-tg">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-          </div>
-          <div class="contact-info">
-            <div class="contact-name">Telegram</div>
-            <div class="contact-value">+84 352 234 521</div>
-          </div>
-        </a>
-
-        <a href="tel:0352234521" class="contact-link">
-          <div class="contact-icon ic-phone">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8a19.79 19.79 0 01-3.07-8.63A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.72 6.72l1.28-1.28a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-          </div>
-          <div class="contact-info">
-            <div class="contact-name">Điện thoại</div>
-            <div class="contact-value">0352 234 521</div>
-          </div>
-        </a>
-
-        <a href="https://zalo.me/0352234521" target="_blank" rel="noopener" class="contact-link">
-          <div class="contact-icon ic-zalo" style="font-weight:900;font-size:0.85rem;color:#0068ff;">Zalo</div>
-          <div class="contact-info">
-            <div class="contact-name">Zalo</div>
-            <div class="contact-value">0352 234 521</div>
-          </div>
-        </a>
-
-        <a href="https://www.instagram.com/khang.trong.809039?igsh=MWdsbWU1bGdobzNjeA==" target="_blank" rel="noopener" class="contact-link">
-          <div class="contact-icon ic-ig">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-          </div>
-          <div class="contact-info">
-            <div class="contact-name">Instagram</div>
-            <div class="contact-value">khang.trong.809039</div>
-          </div>
-        </a>
-
-        <a href="https://www.tiktok.com/@phantrongkhangg" target="_blank" rel="noopener" class="contact-link">
-          <div class="contact-icon ic-tt">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.27 8.27 0 004.84 1.56V6.78a4.85 4.85 0 01-1.07-.09z"/></svg>
-          </div>
-          <div class="contact-info">
-            <div class="contact-name">TikTok</div>
-            <div class="contact-value">@phantrongkhangg</div>
-          </div>
-        </a>
-
-      </div>
-    </div>
-  </section>
-
-  <footer>
-    Thiết kế &amp; Xây dựng bởi <span>Phan Trọng Khang</span> · 2025
-  </footer>
-
+<!-- LOADING -->
+<div id="loading">
+  <div class="load-rune"></div>
+  <div class="load-txt">Bước vào khu rừng...</div>
 </div>
 
+<canvas id="bg"></canvas>
+
+<!-- NAV -->
+<button id="ham" aria-label="Menu"><span></span><span></span><span></span></button>
+<nav id="sidebar">
+  <div class="sb-brand">Nexorax</div>
+  <div class="sb-links">
+    <a href="#hero" class="sb-link"><span class="sb-dot"></span>Trang Chủ</a>
+    <a href="#about" class="sb-link"><span class="sb-dot"></span>Giới Thiệu</a>
+    <a href="#skills" class="sb-link"><span class="sb-dot"></span>Kỹ Năng</a>
+    <a href="#achievements" class="sb-link"><span class="sb-dot"></span>Chiến Tích</a>
+    <a href="#projects" class="sb-link"><span class="sb-dot"></span>Dự Án</a>
+    <a href="#contact" class="sb-link"><span class="sb-dot"></span>Liên Hệ</a>
+  </div>
+  <div class="sb-foot">© 2026 Phan Trọng Khang</div>
+</nav>
+<div id="ov"></div>
+
+<!-- MAIN -->
+<div id="wrap">
+
+<!-- ═══ HERO ═══ -->
+<section id="hero">
+  <div class="hero-rune">✦ AI Architect · Vĩnh Hòa · Việt Nam ✦</div>
+  <h1 class="hname">Phan Trọng Khang</h1>
+  <p class="htitle">Developer &nbsp;·&nbsp; IoT Engineer &nbsp;·&nbsp; AI Builder</p>
+  <p class="hbio">Học sinh THCS Vĩnh Hòa đam mê xây dựng hệ thống thông minh. Kết hợp trí tuệ nhân tạo, IoT và lập trình để tạo ra những sản phẩm có tác động thực tế.</p>
+  <div class="hbtns">
+    <a href="#projects" class="btn btn-p">Khám phá dự án</a>
+    <a href="#contact" class="btn btn-o">Liên hệ</a>
+  </div>
+  <div class="scroll-dn">
+    <div class="scroll-line"></div>
+    <span>Cuộn xuống</span>
+  </div>
+</section>
+
+<!-- ═══ ABOUT ═══ -->
+<section id="about">
+  <div class="sh rev">
+    <div class="sh-tag">Giới Thiệu</div>
+    <h2 class="sh-title">Về Tôi</h2>
+    <div class="sh-line"></div>
+  </div>
+  <div class="about-inner rev">
+    <div class="about-emblem">
+      <div class="emblem-ring">
+        <div class="emblem-char">K</div>
+      </div>
+    </div>
+    <div class="about-txt">
+      <h2>Lập trình viên tự học từ Vĩnh Hòa</h2>
+      <p>Sinh ra và lớn lên tại Vĩnh Hòa, tôi bắt đầu hành trình lập trình từ niềm đam mê với công nghệ và khát vọng tạo ra những thứ có ý nghĩa thực sự.</p>
+      <p>Từ những dòng code HTML đầu tiên đến hệ thống IoT hoàn chỉnh điều khiển cây trồng bằng AI — mỗi dự án là một câu chuyện về sự kiên trì và sáng tạo không ngừng nghỉ.</p>
+      <p>Tôi tin rằng công nghệ là công cụ tốt nhất để một người trẻ có thể tạo ra thay đổi thực sự — dù đang ngồi ở bất kỳ đâu trên thế giới.</p>
+      <div class="about-badges">
+        <span class="badge">🇻🇳 Việt Nam</span>
+        <span class="badge">🎓 THCS Vĩnh Hòa</span>
+        <span class="badge">⚡ Self-taught</span>
+        <span class="badge">🤖 AI Enthusiast</span>
+        <span class="badge">🌱 IoT Builder</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SKILLS ═══ -->
+<section id="skills">
+  <div class="sh rev">
+    <div class="sh-tag">Kỹ Năng</div>
+    <h2 class="sh-title">Sức Mạnh</h2>
+    <div class="sh-line"></div>
+  </div>
+  <div class="skills-grid">
+
+    <div class="skill-card rev" data-level="85">
+      <div class="sk-head"><span class="sk-icon">🧠</span><span class="sk-name">AI &amp; Machine Learning</span></div>
+      <div class="sk-bar-bg"><div class="sk-bar"></div></div>
+      <div class="sk-tags">
+        <span class="sk-tag">Google Gemini</span><span class="sk-tag">AI Integration</span><span class="sk-tag">Prompt Engineering</span><span class="sk-tag">Chatbot Dev</span>
+      </div>
+    </div>
+
+    <div class="skill-card rev" data-level="90">
+      <div class="sk-head"><span class="sk-icon">⚙️</span><span class="sk-name">IoT Development</span></div>
+      <div class="sk-bar-bg"><div class="sk-bar"></div></div>
+      <div class="sk-tags">
+        <span class="sk-tag">ESP32 / Arduino</span><span class="sk-tag">WebSocket</span><span class="sk-tag">Sensor Networks</span><span class="sk-tag">Relay Control</span>
+      </div>
+    </div>
+
+    <div class="skill-card rev" data-level="88">
+      <div class="sk-head"><span class="sk-icon">🌐</span><span class="sk-name">Web Development</span></div>
+      <div class="sk-bar-bg"><div class="sk-bar"></div></div>
+      <div class="sk-tags">
+        <span class="sk-tag">React 19</span><span class="sk-tag">Node.js</span><span class="sk-tag">Express 5</span><span class="sk-tag">Three.js</span><span class="sk-tag">Vite</span>
+      </div>
+    </div>
+
+    <div class="skill-card rev" data-level="87">
+      <div class="sk-head"><span class="sk-icon">💻</span><span class="sk-name">Languages</span></div>
+      <div class="sk-bar-bg"><div class="sk-bar"></div></div>
+      <div class="sk-tags">
+        <span class="sk-tag">JavaScript / TS</span><span class="sk-tag">C++ (Arduino)</span><span class="sk-tag">Python</span><span class="sk-tag">HTML / CSS</span>
+      </div>
+    </div>
+
+    <div class="skill-card rev" data-level="80">
+      <div class="sk-head"><span class="sk-icon">🗄️</span><span class="sk-name">Database &amp; Backend</span></div>
+      <div class="sk-bar-bg"><div class="sk-bar"></div></div>
+      <div class="sk-tags">
+        <span class="sk-tag">SQLite</span><span class="sk-tag">Drizzle ORM</span><span class="sk-tag">REST API</span><span class="sk-tag">WebSocket Server</span>
+      </div>
+    </div>
+
+    <div class="skill-card rev" data-level="78">
+      <div class="sk-head"><span class="sk-icon">🛠️</span><span class="sk-name">Tools &amp; DevOps</span></div>
+      <div class="sk-bar-bg"><div class="sk-bar"></div></div>
+      <div class="sk-tags">
+        <span class="sk-tag">Git / GitHub</span><span class="sk-tag">Docker</span><span class="sk-tag">Telegram Bot API</span><span class="sk-tag">Railway</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══ ACHIEVEMENTS ═══ -->
+<section id="achievements">
+  <div class="sh rev">
+    <div class="sh-tag">Chiến Tích</div>
+    <h2 class="sh-title">Hành Trình</h2>
+    <div class="sh-line"></div>
+  </div>
+  <div class="timeline">
+
+    <div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-dot"></div>
+        <div class="tl-year">2026</div>
+      </div>
+      <div class="tl-body">
+        <div class="tl-title">NexoraGarden — Hệ thống IoT Tưới Cây Thông Minh</div>
+        <div class="tl-desc">Xây dựng hệ thống IoT hoàn chỉnh: ESP32 thu thập cảm biến độ ẩm/nhiệt độ/lửa/mưa, server Node.js xử lý logic bơm nước tự động, dashboard web real-time, điều khiển qua Telegram Bot và AI Gemini.</div>
+        <div class="tl-tags"><span class="tl-tag">ESP32</span><span class="tl-tag">Node.js</span><span class="tl-tag">WebSocket</span><span class="tl-tag">Telegram</span><span class="tl-tag">Gemini AI</span></div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-dot"></div>
+        <div class="tl-year">2026</div>
+      </div>
+      <div class="tl-body">
+        <div class="tl-title">YtDownloader — Tool Tải Video Đa Nền Tảng</div>
+        <div class="tl-desc">Xây dựng tool tải video từ YouTube, TikTok, Streamable. Tích hợp yt-dlp, ffmpeg, xử lý geo-block, cookies authentication. Hỗ trợ từ 360p đến 4K.</div>
+        <div class="tl-tags"><span class="tl-tag">yt-dlp</span><span class="tl-tag">ffmpeg</span><span class="tl-tag">Node.js</span><span class="tl-tag">React</span></div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-dot"></div>
+        <div class="tl-year">2026</div>
+      </div>
+      <div class="tl-body">
+        <div class="tl-title">Portfolio Three.js — Arcane &amp; Galaxy Scene</div>
+        <div class="tl-desc">Thiết kế và phát triển portfolio cá nhân với scene Three.js phức tạp: galaxy 16k particles, aurora ribbons, wireframe crystals, data streams, shooting stars — hoàn toàn tự viết từ đầu.</div>
+        <div class="tl-tags"><span class="tl-tag">Three.js</span><span class="tl-tag">React 19</span><span class="tl-tag">GLSL</span><span class="tl-tag">Animation</span></div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-dot"></div>
+        <div class="tl-year">2025</div>
+      </div>
+      <div class="tl-body">
+        <div class="tl-title">Bắt Đầu Hành Trình Tự Học Lập Trình &amp; AI</div>
+        <div class="tl-desc">Từ HTML cơ bản đến React, Node.js, ESP32 firmware C++, và tích hợp AI — tất cả trong chưa đầy 1 năm tự học. Không có thầy, không có lớp học — chỉ có đam mê và Google.</div>
+        <div class="tl-tags"><span class="tl-tag">Self-taught</span><span class="tl-tag">JavaScript</span><span class="tl-tag">C++</span><span class="tl-tag">AI</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══ PROJECTS ═══ -->
+<section id="projects">
+  <div class="sh rev">
+    <div class="sh-tag">Dự Án</div>
+    <h2 class="sh-title">Công Trình</h2>
+    <div class="sh-line"></div>
+  </div>
+  <div class="proj-grid">
+
+    <a href="/NexoraGarden" class="proj-card pc-active rev" style="--card-color:#3fd4aa">
+      <div class="pc-glow" style="--gc:rgba(63,212,170,.25)"></div>
+      <div class="pc-status"><span class="pc-dot"></span>Đang phát triển</div>
+      <div class="pc-name">NexoraGarden</div>
+      <div class="pc-desc">Hệ thống nông nghiệp IoT thông minh — tự động tưới cây theo cảm biến, điều khiển qua Telegram &amp; Web Dashboard real-time.</div>
+      <div class="pc-techs"><span class="pc-tech">ESP32</span><span class="pc-tech">Node.js</span><span class="pc-tech">React</span><span class="pc-tech">SQLite</span><span class="pc-tech">WebSocket</span></div>
+      <div class="pc-arrow">Xem dự án <span>→</span></div>
+    </a>
+
+    <a href="/tools/yt-downloader" class="proj-card pc-active rev">
+      <div class="pc-glow" style="--gc:rgba(245,158,11,.2)"></div>
+      <div class="pc-status"><span class="pc-dot" style="background:#4ade80"></span>Hoàn thành</div>
+      <div class="pc-name">YtDownloader</div>
+      <div class="pc-desc">Tool tải video đa nền tảng: YouTube, TikTok, Streamable. Từ 360p đến 4K, xử lý geo-block tự động.</div>
+      <div class="pc-techs"><span class="pc-tech">yt-dlp</span><span class="pc-tech">ffmpeg</span><span class="pc-tech">Node.js</span><span class="pc-tech">React</span></div>
+      <div class="pc-arrow">Xem tool <span>→</span></div>
+    </a>
+
+    <a href="/NexoraAI" class="proj-card pc-coming rev">
+      <div class="pc-glow" style="--gc:rgba(139,92,246,.25)"></div>
+      <div class="pc-status"><span class="pc-dot" style="background:var(--gold)"></span>Sắp ra mắt</div>
+      <div class="pc-name">NexoraAI</div>
+      <div class="pc-desc">Trợ lý AI thế hệ tiếp theo — hiểu ngữ cảnh sâu, phân tích dữ liệu, hỗ trợ sáng tạo và lập trình.</div>
+      <div class="pc-techs"><span class="pc-tech">Gemini</span><span class="pc-tech">React</span><span class="pc-tech">Node.js</span></div>
+      <div class="pc-arrow">Sắp ra mắt <span>→</span></div>
+    </a>
+
+    <a href="/NexoraVision" class="proj-card pc-coming rev">
+      <div class="pc-glow" style="--gc:rgba(236,72,153,.2)"></div>
+      <div class="pc-status"><span class="pc-dot" style="background:var(--gold)"></span>Sắp ra mắt</div>
+      <div class="pc-name">NexoraVision</div>
+      <div class="pc-desc">Hệ thống thị giác máy tính — nhận diện hình ảnh và phân tích video theo thời gian thực.</div>
+      <div class="pc-techs"><span class="pc-tech">Python</span><span class="pc-tech">OpenCV</span><span class="pc-tech">AI</span></div>
+      <div class="pc-arrow">Sắp ra mắt <span>→</span></div>
+    </a>
+
+  </div>
+</section>
+
+<!-- ═══ CONTACT ═══ -->
+<section id="contact">
+  <div class="sh rev">
+    <div class="sh-tag">Liên Hệ</div>
+    <h2 class="sh-title">Kết Nối</h2>
+    <div class="sh-line"></div>
+  </div>
+  <div class="contact-wrap rev">
+    <div class="cg">
+
+      <a href="https://github.com/khang26042012" target="_blank" rel="noopener" class="cl">
+        <div class="ci ci-gh"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg></div>
+        <div class="cinfo"><div class="cn">GitHub</div><div class="cv">khang26042012</div></div>
+      </a>
+
+      <a href="mailto:trongkhabgphan@gmail.com" class="cl">
+        <div class="ci ci-em"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m2 7 10 7 10-7"/></svg></div>
+        <div class="cinfo"><div class="cn">Email</div><div class="cv">trongkhabgphan@gmail.com</div></div>
+      </a>
+
+      <a href="https://www.facebook.com/share/1CAZqbwCgB/" target="_blank" rel="noopener" class="cl">
+        <div class="ci ci-fb"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
+        <div class="cinfo"><div class="cn">Facebook</div><div class="cv">Phan Trọng Khang</div></div>
+      </a>
+
+      <a href="https://t.me/+84352234521" target="_blank" rel="noopener" class="cl">
+        <div class="ci ci-tg"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg></div>
+        <div class="cinfo"><div class="cn">Telegram</div><div class="cv">+84 352 234 521</div></div>
+      </a>
+
+      <a href="tel:0352234521" class="cl">
+        <div class="ci ci-ph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8a19.79 19.79 0 01-3.07-8.63A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.72 6.72l1.28-1.28a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div>
+        <div class="cinfo"><div class="cn">Điện Thoại</div><div class="cv">0352 234 521</div></div>
+      </a>
+
+      <a href="https://zalo.me/0352234521" target="_blank" rel="noopener" class="cl">
+        <div class="ci ci-za">Zalo</div>
+        <div class="cinfo"><div class="cn">Zalo</div><div class="cv">0352 234 521</div></div>
+      </a>
+
+      <a href="https://www.instagram.com/khang.trong.809039?igsh=MWdsbWU1bGdobzNjeA==" target="_blank" rel="noopener" class="cl">
+        <div class="ci ci-ig"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></div>
+        <div class="cinfo"><div class="cn">Instagram</div><div class="cv">khang.trong.809039</div></div>
+      </a>
+
+      <a href="https://www.tiktok.com/@phantrongkhangg" target="_blank" rel="noopener" class="cl">
+        <div class="ci ci-tt"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.27 8.27 0 004.84 1.56V6.78a4.85 4.85 0 01-1.07-.09z"/></svg></div>
+        <div class="cinfo"><div class="cn">TikTok</div><div class="cv">@phantrongkhangg</div></div>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<footer>
+  Được tạo ra bởi <span>Phan Trọng Khang</span> &nbsp;·&nbsp; Vĩnh Hòa · 2026
+</footer>
+
+</div><!-- #wrap -->
+
 <script>
-/* ─────────────────────────────────────────
-   CURSOR
-───────────────────────────────────────── */
-const cursor = document.getElementById('cursor');
-const cursorRing = document.getElementById('cursor-ring');
-let mx = 0, my = 0, rx = 0, ry = 0;
-document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
-(function animCursor() {
-  rx += (mx - rx) * 0.18; ry += (my - ry) * 0.18;
-  cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
-  cursorRing.style.left = rx + 'px'; cursorRing.style.top = ry + 'px';
-  requestAnimationFrame(animCursor);
-})();
+/* ═══ CURSOR ═══ */
+const cur=document.getElementById('cur'),curR=document.getElementById('cur-r');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY});
+(function a(){rx+=(mx-rx)*.15;ry+=(my-ry)*.15;
+  cur.style.cssText=`left:${mx}px;top:${my}px`;
+  curR.style.cssText=`left:${rx}px;top:${ry}px`;
+  requestAnimationFrame(a)})();
 
-/* ─────────────────────────────────────────
-   SIDEBAR / HAMBURGER
-───────────────────────────────────────── */
-const ham = document.getElementById('hamburger');
-const sidebar = document.getElementById('sidebar');
-const overlay = document.getElementById('overlay');
+/* ═══ SIDEBAR ═══ */
+const ham=document.getElementById('ham'),sb=document.getElementById('sidebar'),ov=document.getElementById('ov');
+const openSB=()=>{sb.classList.add('open');ham.classList.add('open');ov.classList.add('on');document.body.style.overflow='hidden'};
+const closeSB=()=>{sb.classList.remove('open');ham.classList.remove('open');ov.classList.remove('on');document.body.style.overflow=''};
+ham.addEventListener('click',()=>sb.classList.contains('open')?closeSB():openSB());
+ov.addEventListener('click',closeSB);
+document.querySelectorAll('.sb-link').forEach(l=>l.addEventListener('click',closeSB));
 
-function toggleSidebar() {
-  const open = !sidebar.classList.contains('open');
-  sidebar.classList.toggle('open', open);
-  ham.classList.toggle('open', open);
-  overlay.classList.toggle('visible', open);
-  document.body.style.overflow = open ? 'hidden' : '';
-}
-function closeSidebar() {
-  sidebar.classList.remove('open');
-  ham.classList.remove('open');
-  overlay.classList.remove('visible');
-  document.body.style.overflow = '';
-}
-
-ham.addEventListener('click', toggleSidebar);
-overlay.addEventListener('click', closeSidebar);
-document.querySelectorAll('.nav-link').forEach(l => l.addEventListener('click', () => {
-  closeSidebar();
-}));
-
-/* ─────────────────────────────────────────
-   SCROLL REVEAL
-───────────────────────────────────────── */
-const reveals = document.querySelectorAll('.reveal');
-const io = new IntersectionObserver((entries) => {
-  entries.forEach((e, i) => {
-    if (e.isIntersecting) {
-      const delay = e.target.style.getPropertyValue('--delay') || '0s';
-      e.target.style.transitionDelay = delay;
-      e.target.classList.add('visible');
-      io.unobserve(e.target);
-    }
+/* ═══ SCROLL REVEAL ═══ */
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(!e.isIntersecting)return;
+    e.target.classList.add('on');
+    // skill bars
+    const bar=e.target.querySelector('.sk-bar');
+    if(bar){const lv=e.target.dataset.level||0;setTimeout(()=>bar.style.width=lv+'%',100)}
+    // timeline
+    e.target.classList.add('visible');
+    io.unobserve(e.target);
   });
-}, { threshold: 0.15 });
-reveals.forEach(r => io.observe(r));
+},{threshold:.12});
+document.querySelectorAll('.rev,.tl-item').forEach(el=>io.observe(el));
 
-/* ─────────────────────────────────────────
-   THREE.JS SCENE
-───────────────────────────────────────── */
-(function() {
-  const canvas = document.getElementById('bg');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
-  renderer.setClearColor(0x020408, 1);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+/* ═══ THREE.JS FOREST ═══ */
+(function(){
+  const canvas=document.getElementById('bg');
+  const R=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false});
+  R.setPixelRatio(Math.min(devicePixelRatio,1.8));
+  R.setClearColor(0x040c07,1);
+  const scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x050e08,0.018);
+  const cam=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,300);
+  cam.position.set(0,6,50);
 
-  const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x020408, 0.0012);
+  function resize(){R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+  resize();window.addEventListener('resize',resize);
 
-  const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 2000);
-  camera.position.set(0, 0, 80);
+  /* LIGHTS */
+  scene.add(new THREE.AmbientLight(0x0a2010,.6));
+  const moon=new THREE.DirectionalLight(0xc4f0d8,.4);
+  moon.position.set(-10,30,-20);scene.add(moon);
 
-  function resize() {
-    renderer.setSize(innerWidth, innerHeight);
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
+  /* GROUND */
+  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(300,300),new THREE.MeshLambertMaterial({color:0x060f08}));
+  gnd.rotation.x=-Math.PI/2;gnd.position.y=-8;scene.add(gnd);
+
+  /* TREES */
+  const treeGroup=new THREE.Group();
+  const trunkMat=new THREE.MeshLambertMaterial({color:0x1a0d08});
+  const foliageMats=[
+    new THREE.MeshLambertMaterial({color:0x0a1f0d,transparent:true,opacity:.95}),
+    new THREE.MeshLambertMaterial({color:0x0c2510,transparent:true,opacity:.85}),
+    new THREE.MeshLambertMaterial({color:0x081a0b,transparent:true,opacity:.9}),
+  ];
+  for(let i=0;i<55;i++){
+    const g=new THREE.Group();
+    const h=8+Math.random()*14;
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.2+Math.random()*.2,.3+Math.random()*.3,h,6),trunkMat);
+    trunk.position.y=h/2-8;g.add(trunk);
+    const layers=2+Math.floor(Math.random()*2);
+    for(let j=0;j<layers;j++){
+      const cone=new THREE.Mesh(
+        new THREE.ConeGeometry(2.5+Math.random()*1.5-j*.5,5+Math.random()*3,7),
+        foliageMats[j%foliageMats.length]);
+      cone.position.y=h-8+j*1.8;g.add(cone);
+    }
+    const angle=Math.random()*Math.PI*2;
+    const r=15+Math.random()*70;
+    g.position.set(Math.cos(angle)*r,0,Math.sin(angle)*r-10);
+    g.rotation.y=Math.random()*Math.PI*2;
+    treeGroup.add(g);
   }
-  resize();
-  window.addEventListener('resize', resize);
+  scene.add(treeGroup);
 
-  /* ── DEEP STARS ── */
-  (() => {
-    const N = 3500;
-    const pos = new Float32Array(N * 3);
-    const col = new Float32Array(N * 3);
-    const size = new Float32Array(N);
-    const spectral = [[1,.95,.85],[.85,.9,1],[1,.85,.7],[.7,.85,1],[1,1,.95]];
-    for (let i = 0; i < N; i++) {
-      const r = 400 + Math.random() * 800;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
-      pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i*3+2] = r * Math.cos(phi);
-      const c = spectral[Math.floor(Math.random() * spectral.length)];
-      col[i*3]=c[0]; col[i*3+1]=c[1]; col[i*3+2]=c[2];
-      size[i] = 0.6 + Math.random() * 1.6;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    geo.setAttribute('size', new THREE.BufferAttribute(size, 1));
-    const mat = new THREE.PointsMaterial({ size: 1.2, vertexColors: true, transparent: true, opacity: 0.9, sizeAttenuation: true });
-    scene.add(new THREE.Points(geo, mat));
-  })();
+  /* FIREFLIES */
+  const FF=600;
+  const ffPos=new Float32Array(FF*3);
+  const ffPhase=new Float32Array(FF);
+  const ffSpeed=new Float32Array(FF);
+  const ffRadius=new Float32Array(FF);
+  for(let i=0;i<FF;i++){
+    const a=Math.random()*Math.PI*2;
+    const r=3+Math.random()*35;
+    ffPos[i*3]=Math.cos(a)*r+(Math.random()-.5)*10;
+    ffPos[i*3+1]=-4+Math.random()*12;
+    ffPos[i*3+2]=Math.sin(a)*r+(Math.random()-.5)*10-5;
+    ffPhase[i]=Math.random()*Math.PI*2;
+    ffSpeed[i]=.4+Math.random()*.8;
+    ffRadius[i]=.5+Math.random()*2;
+  }
+  const ffGeo=new THREE.BufferGeometry();
+  ffGeo.setAttribute('position',new THREE.BufferAttribute(ffPos.slice(),3));
+  const ffMesh=new THREE.Points(ffGeo,new THREE.PointsMaterial({color:0xccff88,size:.4,transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false}));
+  scene.add(ffMesh);
 
-  /* ── GALAXY BAND ── */
-  const galaxyPts = (() => {
-    const N = 16000;
-    const pos = new Float32Array(N * 3);
-    const col = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) {
-      const arm = Math.floor(Math.random() * 3);
-      const t = Math.random();
-      const angle = arm * (Math.PI * 2 / 3) + t * Math.PI * 3;
-      const r = 30 + t * 200 + (Math.random() - 0.5) * 40;
-      const spread = (1 - t) * 15 + 5;
-      pos[i*3]   = Math.cos(angle) * r + (Math.random()-0.5)*spread;
-      pos[i*3+1] = (Math.random()-0.5) * spread * 0.3;
-      pos[i*3+2] = Math.sin(angle) * r + (Math.random()-0.5)*spread;
-      const hot = 1 - t;
-      col[i*3]   = 0.6 + hot * 0.4;
-      col[i*3+1] = 0.3 + hot * 0.3;
-      col[i*3+2] = 0.5 + t * 0.5;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const mat = new THREE.PointsMaterial({ size: 0.9, vertexColors: true, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
-    const pts = new THREE.Points(geo, mat);
-    scene.add(pts);
-    return pts;
-  })();
+  /* WILL-O-WISPS */
+  const wispColors=[0x4dd9ac,0x8b5cf6,0xfbbf24,0x34d399,0xa78bfa,0x6ee7b7,0x60a5fa,0xf472b6];
+  const wisps=[];
+  for(let i=0;i<8;i++){
+    const c=wispColors[i];
+    const outer=new THREE.Mesh(new THREE.SphereGeometry(1.2,8,8),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.06,blending:THREE.AdditiveBlending,depthWrite:false}));
+    const inner=new THREE.Mesh(new THREE.SphereGeometry(.4,8,8),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,depthWrite:false}));
+    const g=new THREE.Group();g.add(outer);g.add(inner);
+    const a=i*(Math.PI*2/8);
+    g.position.set(Math.cos(a)*12+(Math.random()-.5)*6,Math.random()*5,Math.sin(a)*12+(Math.random()-.5)*6-5);
+    g.userData={phase:i*1.1,ox:g.position.x,oy:g.position.y,oz:g.position.z,speed:.3+Math.random()*.4};
+    scene.add(g);wisps.push(g);
+  }
 
-  /* ── NEBULA ── */
-  (() => {
-    const defs = [
-      { pos:[60,20,-80], color:0x4c1d95, r:55 },
-      { pos:[-80,-15,-60], color:0x0e7490, r:45 },
-      { pos:[20,50,-100], color:0x831843, r:40 },
-      { pos:[-40,30,-50], color:0x1e3a5f, r:35 },
-    ];
-    defs.forEach(d => {
-      const N = 600;
-      const pos = new Float32Array(N*3);
-      const col = new THREE.Color(d.color);
-      const c3 = new Float32Array(N*3);
-      for (let i = 0; i < N; i++) {
-        const th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
-        const rr = Math.random() * d.r;
-        pos[i*3]   = d.pos[0] + rr*Math.sin(ph)*Math.cos(th);
-        pos[i*3+1] = d.pos[1] + rr*Math.sin(ph)*Math.sin(th);
-        pos[i*3+2] = d.pos[2] + rr*Math.cos(ph);
-        c3[i*3]=col.r; c3[i*3+1]=col.g; c3[i*3+2]=col.b;
-      }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-      geo.setAttribute('color', new THREE.BufferAttribute(c3,3));
-      scene.add(new THREE.Points(geo, new THREE.PointsMaterial({
-        size:2.5, vertexColors:true, transparent:true, opacity:0.18,
-        blending:THREE.AdditiveBlending, depthWrite:false
-      })));
-    });
-  })();
+  /* MUSHROOMS */
+  for(let i=0;i<22;i++){
+    const a=Math.random()*Math.PI*2;
+    const r=4+Math.random()*20;
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(.4+Math.random()*.25,8,6),new THREE.MeshBasicMaterial({color:0x3fd4aa,transparent:true,opacity:.5+Math.random()*.3,blending:THREE.AdditiveBlending,depthWrite:false}));
+    cap.scale.y=.5;
+    cap.position.set(Math.cos(a)*r,(-8+.2),Math.sin(a)*r-5);
+    scene.add(cap);
+  }
 
-  /* ── CRYSTALS ── */
-  const crystals = [];
-  (() => {
-    const configs = [
-      { geo: new THREE.IcosahedronGeometry(4,0), pos:[-55,20,-30], color:0x7c3aed },
-      { geo: new THREE.OctahedronGeometry(3.5,0), pos:[55,-10,-25], color:0x06b6d4 },
-      { geo: new THREE.DodecahedronGeometry(3,0), pos:[0,40,-40], color:0xec4899 },
-      { geo: new THREE.IcosahedronGeometry(2.5,0), pos:[-30,-35,-20], color:0xa78bfa },
-      { geo: new THREE.OctahedronGeometry(2,0), pos:[40,35,-35], color:0x22d3ee },
-      { geo: new THREE.IcosahedronGeometry(3,0), pos:[25,-40,-15], color:0x34d399 },
-    ];
-    configs.forEach((cfg, idx) => {
-      const mat = new THREE.MeshBasicMaterial({ color:cfg.color, wireframe:true, transparent:true, opacity:0.55, blending:THREE.AdditiveBlending });
-      const mesh = new THREE.Mesh(cfg.geo, mat);
-      mesh.position.set(...cfg.pos);
-      mesh.userData = { baseY: cfg.pos[1], phase: idx * 1.3, speed: 0.4 + idx*0.12 };
-      scene.add(mesh);
-      crystals.push(mesh);
+  /* MIST LAYERS */
+  for(let i=0;i<8;i++){
+    const plane=new THREE.Mesh(new THREE.PlaneGeometry(150,60),new THREE.MeshBasicMaterial({color:0x3a5a48,transparent:true,opacity:.025+i*.003,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+    plane.rotation.x=-Math.PI/2+(.1-i*.02);
+    plane.position.set((Math.random()-.5)*20,-5+i*1.2,(Math.random()-.5)*10);
+    scene.add(plane);
+  }
 
-      // glow sphere
-      const gMat = new THREE.MeshBasicMaterial({ color:cfg.color, transparent:true, opacity:0.06, blending:THREE.AdditiveBlending, depthWrite:false });
-      const gMesh = new THREE.Mesh(new THREE.SphereGeometry(7,8,8), gMat);
-      gMesh.position.set(...cfg.pos);
-      scene.add(gMesh);
-    });
+  /* MOONBEAM */
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(1.5,8,80,12,1,true),new THREE.MeshBasicMaterial({color:0xc4f0d8,transparent:true,opacity:.025,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+  beam.position.set(-15,30,-30);beam.rotation.z=.15;scene.add(beam);
 
-    // connection lines
-    for (let i = 0; i < crystals.length; i++) {
-      for (let j = i+1; j < crystals.length; j++) {
-        const d = crystals[i].position.distanceTo(crystals[j].position);
-        if (d < 90) {
-          const pts = [crystals[i].position.clone(), crystals[j].position.clone()];
-          const geo = new THREE.BufferGeometry().setFromPoints(pts);
-          const mat = new THREE.LineBasicMaterial({ color:0x4c1d95, transparent:true, opacity:0.25, blending:THREE.AdditiveBlending });
-          scene.add(new THREE.Line(geo, mat));
-        }
-      }
-    }
-  })();
+  /* FLOATING SPORES */
+  const SP=1400;
+  const spPos=new Float32Array(SP*3);
+  const spVel=new Float32Array(SP);
+  for(let i=0;i<SP;i++){
+    spPos[i*3]=(Math.random()-.5)*80;
+    spPos[i*3+1]=-8+Math.random()*30;
+    spPos[i*3+2]=(Math.random()-.5)*80-10;
+    spVel[i]=.01+Math.random()*.03;
+  }
+  const spGeo=new THREE.BufferGeometry();
+  spGeo.setAttribute('position',new THREE.BufferAttribute(spPos.slice(),3));
+  scene.add(new THREE.Points(spGeo,new THREE.PointsMaterial({color:0xaaffcc,size:.18,transparent:true,opacity:.4,blending:THREE.AdditiveBlending,depthWrite:false})));
 
-  /* ── DATA STREAM PARTICLES ── */
-  const streamParticles = (() => {
-    const N = 180;
-    const pos = new Float32Array(N*3);
-    const vel = [];
-    for (let i = 0; i < N; i++) {
-      const c1 = crystals[Math.floor(Math.random()*crystals.length)];
-      const c2 = crystals[Math.floor(Math.random()*crystals.length)];
-      const t = Math.random();
-      pos[i*3]   = c1.position.x + (c2.position.x - c1.position.x)*t;
-      pos[i*3+1] = c1.position.y + (c2.position.y - c1.position.y)*t;
-      pos[i*3+2] = c1.position.z + (c2.position.z - c1.position.z)*t;
-      vel.push({ c1, c2, t, speed: 0.003 + Math.random()*0.005 });
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-    const mat = new THREE.PointsMaterial({ size:1.2, color:0xa78bfa, transparent:true, opacity:0.8, blending:THREE.AdditiveBlending, depthWrite:false });
-    const pts = new THREE.Points(geo, mat);
-    scene.add(pts);
-    return { pts, pos, vel };
-  })();
+  /* RUNE RINGS */
+  const runeColors=[0x7c3aed,0x3fd4aa,0xd4a843,0x8b5cf6,0x34d399];
+  const runes=[];
+  for(let i=0;i<5;i++){
+    const r=new THREE.Mesh(new THREE.TorusGeometry(2+i*.6,.04,6,40),new THREE.MeshBasicMaterial({color:runeColors[i],transparent:true,opacity:.25,blending:THREE.AdditiveBlending,depthWrite:false}));
+    r.position.set((Math.random()-.5)*30,-2+i*1.5,(Math.random()-.5)*30-10);
+    r.rotation.x=Math.PI/2+(Math.random()-.5)*.5;
+    r.userData={phase:i*1.2,speed:.2+i*.08};
+    scene.add(r);runes.push(r);
+  }
 
-  /* ── AURORA RIBBONS ── */
-  const auroraMeshes = [];
-  (() => {
-    const auroraColors = [0x06b6d4, 0x7c3aed, 0x10b981, 0xec4899, 0x6366f1];
-    for (let a = 0; a < 5; a++) {
-      const W = 180, segs = 40;
-      const geo = new THREE.PlaneGeometry(W, 12, segs, 1);
-      const mat = new THREE.MeshBasicMaterial({
-        color: auroraColors[a], transparent:true, opacity:0.06 + a*0.01,
-        side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite:false
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(-20 + a*8, -55 + a*6, -120 + a*15);
-      mesh.rotation.x = -0.3 + a*0.08;
-      mesh.rotation.z = -0.1 + a*0.04;
-      mesh.userData = { phase: a * 0.7 };
-      scene.add(mesh);
-      auroraMeshes.push({ mesh, geo });
-    }
-  })();
+  /* MOUSE */
+  let mx=0,my=0,tx=0,ty=0;
+  window.addEventListener('mousemove',e=>{mx=(e.clientX/innerWidth-.5)*2;my=(e.clientY/innerHeight-.5)*2});
 
-  /* ── SHOOTING STARS ── */
-  const shootingStars = [];
-  (() => {
-    for (let i = 0; i < 8; i++) {
-      const pts = [new THREE.Vector3(0,0,0), new THREE.Vector3(-4,-1.5,0)];
-      const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      const mat = new THREE.LineBasicMaterial({ color:0xffffff, transparent:true, opacity:0, blending:THREE.AdditiveBlending });
-      const line = new THREE.Line(geo, mat);
-      scene.add(line);
-      shootingStars.push({ line, mat, active:false, timer:0, delay: i * 60 + Math.random()*120 });
-    }
-  })();
+  let scrollY=0;
+  window.addEventListener('scroll',()=>{scrollY=window.scrollY});
 
-  /* ── MOUSE PARALLAX ── */
-  let mouseX = 0, mouseY = 0, targetX = 0, targetY = 0;
-  window.addEventListener('mousemove', e => {
-    mouseX = (e.clientX / innerWidth - 0.5) * 2;
-    mouseY = (e.clientY / innerHeight - 0.5) * 2;
-  });
+  /* ANIMATE */
+  let t=0;
+  const ffPosAttr=ffGeo.attributes.position;
+  const spPosAttr=spGeo.attributes.position;
 
-  /* ── SCROLL ── */
-  let scrollY = 0;
-  window.addEventListener('scroll', () => { scrollY = window.scrollY; });
-
-  /* ── ANIMATE ── */
-  let t = 0;
-  function animate() {
+  function animate(){
     requestAnimationFrame(animate);
-    t += 0.008;
+    t+=.008;
 
-    // parallax camera
-    targetX += (mouseX * 8 - targetX) * 0.04;
-    targetY += (-mouseY * 5 - targetY) * 0.04;
-    camera.position.x = targetX;
-    camera.position.y = targetY + scrollY * 0.01;
-    camera.lookAt(0, scrollY * 0.01, 0);
+    // camera parallax + drift
+    tx+=(mx*6-tx)*.04;ty+=(-my*4-ty)*.04;
+    cam.position.x=tx;
+    cam.position.y=6+ty+scrollY*.008;
+    cam.position.z=50-scrollY*.01;
+    cam.lookAt(0,2+scrollY*.008,-10);
 
-    // galaxy rotate
-    galaxyPts.rotation.y = t * 0.06;
-
-    // crystals
-    crystals.forEach(c => {
-      c.rotation.x += 0.003 * c.userData.speed;
-      c.rotation.y += 0.005 * c.userData.speed;
-      c.rotation.z += 0.002 * c.userData.speed;
-      c.position.y = c.userData.baseY + Math.sin(t * 0.8 + c.userData.phase) * 4;
-    });
-
-    // data streams
-    const sp = streamParticles;
-    for (let i = 0; i < sp.vel.length; i++) {
-      sp.vel[i].t += sp.vel[i].speed;
-      if (sp.vel[i].t > 1) {
-        sp.vel[i].t = 0;
-        sp.vel[i].c1 = crystals[Math.floor(Math.random()*crystals.length)];
-        sp.vel[i].c2 = crystals[Math.floor(Math.random()*crystals.length)];
-      }
-      const tt = sp.vel[i].t;
-      const c1 = sp.vel[i].c1, c2 = sp.vel[i].c2;
-      sp.pos[i*3]   = c1.position.x + (c2.position.x-c1.position.x)*tt;
-      sp.pos[i*3+1] = c1.position.y + (c2.position.y-c1.position.y)*tt;
-      sp.pos[i*3+2] = c1.position.z + (c2.position.z-c1.position.z)*tt;
+    // fireflies organic motion
+    for(let i=0;i<FF;i++){
+      const ph=ffPhase[i];const sp=ffSpeed[i];const ra=ffRadius[i];
+      ffPosAttr.array[i*3]  =ffPos[i*3]  +Math.sin(t*sp+ph)*ra;
+      ffPosAttr.array[i*3+1]=ffPos[i*3+1]+Math.sin(t*sp*.7+ph*1.3)*ra*.5;
+      ffPosAttr.array[i*3+2]=ffPos[i*3+2]+Math.cos(t*sp*.9+ph*.8)*ra;
     }
-    sp.pts.geometry.attributes.position.needsUpdate = true;
+    ffPosAttr.needsUpdate=true;
 
-    // aurora wave
-    auroraMeshes.forEach(({ mesh, geo }, ai) => {
-      const pos = geo.attributes.position;
-      const phase = mesh.userData.phase;
-      for (let i = 0; i <= 40; i++) {
-        const u = i / 40;
-        const wave = Math.sin(u * Math.PI * 3 + t * 1.2 + phase) * 4
-                   + Math.sin(u * Math.PI * 5 + t * 0.7 + phase * 1.3) * 2;
-        for (let j = 0; j < 2; j++) {
-          const idx = i * 2 + j;
-          pos.setY(idx, pos.getY(idx) * 0.0 + wave + (j === 0 ? 6 : -6));
-        }
-      }
-      pos.needsUpdate = true;
-      geo.computeVertexNormals();
+    // wisps
+    wisps.forEach(w=>{
+      const {phase,ox,oy,oz,speed}=w.userData;
+      w.position.x=ox+Math.sin(t*speed+phase)*4;
+      w.position.y=oy+Math.sin(t*speed*.6+phase*1.4)*2;
+      w.position.z=oz+Math.cos(t*speed*.8+phase)*3;
+      w.children[0].material.opacity=.04+Math.abs(Math.sin(t*speed+phase))*.06;
     });
 
-    // shooting stars
-    shootingStars.forEach(s => {
-      if (!s.active) {
-        s.timer++;
-        if (s.timer > s.delay) {
-          s.active = true; s.timer = 0; s.delay = 90 + Math.random()*180;
-          const x = (Math.random()-0.5)*200, y = 40+Math.random()*60;
-          const dir = new THREE.Vector3(1.5+Math.random(), -(0.5+Math.random()*0.8), Math.random()*0.5);
-          s.line.position.set(x, y, -50);
-          s.line.userData.dir = dir;
-          s.mat.opacity = 0.9;
-        }
-      } else {
-        s.timer++;
-        s.line.position.addScaledVector(s.line.userData.dir, 2.5);
-        s.mat.opacity -= 0.025;
-        if (s.mat.opacity <= 0) { s.active = false; s.timer = 0; }
-      }
+    // spores rise
+    for(let i=0;i<SP;i++){
+      spPosAttr.array[i*3+1]+=spVel[i];
+      if(spPosAttr.array[i*3+1]>22){spPosAttr.array[i*3+1]=-8;}
+    }
+    spPosAttr.needsUpdate=true;
+
+    // runes
+    runes.forEach(r=>{
+      r.rotation.z+=r.userData.speed*.01;
+      r.position.y+= Math.sin(t*.5+r.userData.phase)*.003;
     });
 
-    renderer.render(scene, camera);
+    // treeGroup subtle sway
+    treeGroup.rotation.z=Math.sin(t*.15)*.003;
+
+    R.render(scene,cam);
   }
   animate();
+
+  // hide loading
+  setTimeout(()=>{document.getElementById('loading').classList.add('hidden')},1200);
 })();
 </script>
-
 </body>
 </html>

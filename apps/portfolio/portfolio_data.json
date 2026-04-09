@@ -1,0 +1,150 @@
+{
+  "meta": {
+    "name": "Phan Trọng Khang",
+    "title": "AI Architect",
+    "subtitle": "Developer · IoT Engineer · AI Builder",
+    "bio": "Học sinh THCS Vĩnh Hòa đam mê xây dựng các hệ thống thông minh. Tôi kết hợp trí tuệ nhân tạo, IoT và phát triển phần mềm để tạo ra những sản phẩm công nghệ có tác động thực tế.",
+    "bio_long": "Sinh ra và lớn lên tại Vĩnh Hòa, tôi bắt đầu hành trình lập trình từ niềm đam mê với công nghệ và khát vọng tạo ra những thứ có ý nghĩa. Từ những dòng code đầu tiên cho đến hệ thống IoT hoàn chỉnh, mỗi dự án là một câu chuyện về sự kiên trì và sáng tạo.",
+    "location": "Vĩnh Hòa, Việt Nam",
+    "theme": "khu_rung_ki_bi",
+    "font_heading": "Cinzel Decorative",
+    "font_body": "Crimson Pro"
+  },
+  "contact": {
+    "github": { "url": "https://github.com/khang26042012", "label": "khang26042012" },
+    "email": { "url": "mailto:trongkhabgphan@gmail.com", "label": "trongkhabgphan@gmail.com" },
+    "facebook": { "url": "https://www.facebook.com/share/1CAZqbwCgB/", "label": "Phan Trọng Khang" },
+    "telegram": { "url": "https://t.me/+84352234521", "label": "+84 352 234 521" },
+    "phone": { "url": "tel:0352234521", "label": "0352 234 521" },
+    "zalo": { "url": "https://zalo.me/0352234521", "label": "0352 234 521" },
+    "instagram": { "url": "https://www.instagram.com/khang.trong.809039?igsh=MWdsbWU1bGdobzNjeA==", "label": "khang.trong.809039" },
+    "tiktok": { "url": "https://www.tiktok.com/@phantrongkhangg", "label": "@phantrongkhangg" }
+  },
+  "skills": [
+    { "category": "AI & Machine Learning", "icon": "🧠", "items": ["Google Gemini", "AI Integration", "Prompt Engineering", "Chatbot Development"], "level": 85 },
+    { "category": "IoT Development", "icon": "⚙️", "items": ["ESP32 / Arduino", "WebSocket", "MQTT", "Sensor Networks", "Relay Control"], "level": 90 },
+    { "category": "Web Development", "icon": "🌐", "items": ["React 19", "Node.js", "Express 5", "Three.js", "Vite", "Tailwind CSS"], "level": 88 },
+    { "category": "Languages", "icon": "💻", "items": ["JavaScript / TypeScript", "C++ (Arduino)", "Python", "HTML / CSS"], "level": 87 },
+    { "category": "Database & Backend", "icon": "🗄️", "items": ["SQLite", "Drizzle ORM", "REST API", "WebSocket Server"], "level": 80 },
+    { "category": "Tools & DevOps", "icon": "🛠️", "items": ["Git / GitHub", "Docker", "Telegram Bot API", "Railway", "pnpm Workspace"], "level": 78 }
+  ],
+  "achievements": [
+    {
+      "year": "2026",
+      "title": "NexoraGarden — Hệ thống IoT Tưới Cây Thông Minh",
+      "desc": "Xây dựng hệ thống IoT hoàn chỉnh: ESP32 thu thập cảm biến, server Node.js xử lý logic, dashboard web real-time, điều khiển qua Telegram Bot và AI (Gemini).",
+      "tags": ["ESP32", "Node.js", "WebSocket", "Telegram", "AI"]
+    },
+    {
+      "year": "2026",
+      "title": "Portfolio Three.js — Arcane & Galaxy Scene",
+      "desc": "Thiết kế và phát triển portfolio cá nhân với scene Three.js phức tạp: galaxy 16k particles, aurora, crystals, data streams, hoàn toàn tự viết.",
+      "tags": ["Three.js", "React", "Animation"]
+    },
+    {
+      "year": "2026",
+      "title": "YtDownloader Tool — Tải video đa nền tảng",
+      "desc": "Tool tải video từ YouTube, TikTok, Streamable và nhiều nền tảng khác. Tích hợp yt-dlp, ffmpeg, xử lý geo-block, cookies authentication.",
+      "tags": ["yt-dlp", "ffmpeg", "API", "Node.js"]
+    },
+    {
+      "year": "2025",
+      "title": "Tự học lập trình & AI",
+      "desc": "Bắt đầu hành trình lập trình tự học — từ HTML cơ bản đến React, Node.js, ESP32 firmware C++, và tích hợp AI trong vòng dưới 1 năm.",
+      "tags": ["Self-taught", "JavaScript", "C++", "AI"]
+    }
+  ],
+  "projects": [
+    {
+      "id": "NexoraGarden",
+      "name": "NexoraGarden",
+      "status": "active",
+      "status_label": "Đang phát triển",
+      "desc": "Hệ thống nông nghiệp IoT thông minh — tự động tưới cây dựa trên cảm biến độ ẩm đất, mức nước, nhiệt độ. Điều khiển qua Telegram & Web Dashboard real-time.",
+      "tech": ["ESP32", "Node.js", "React", "SQLite", "Telegram", "WebSocket"],
+      "url": "/NexoraGarden",
+      "color": "#3fd4aa"
+    },
+    {
+      "id": "NexoraAI",
+      "name": "NexoraAI",
+      "status": "coming",
+      "status_label": "Sắp ra mắt",
+      "desc": "Trợ lý AI thế hệ tiếp theo — hiểu ngữ cảnh sâu, phân tích dữ liệu, hỗ trợ sáng tạo và lập trình.",
+      "tech": ["Gemini", "React", "Node.js"],
+      "url": "/NexoraAI",
+      "color": "#8b5cf6"
+    },
+    {
+      "id": "NexoraVision",
+      "name": "NexoraVision",
+      "status": "coming",
+      "status_label": "Sắp ra mắt",
+      "desc": "Hệ thống thị giác máy tính — nhận diện hình ảnh, phân tích video real-time.",
+      "tech": ["Python", "OpenCV", "AI"],
+      "url": "/NexoraVision",
+      "color": "#ec4899"
+    },
+    {
+      "id": "YtDownloader",
+      "name": "YtDownloader",
+      "status": "active",
+      "status_label": "Hoàn thành",
+      "desc": "Tool tải video đa nền tảng (YouTube, TikTok, Streamable). Hỗ trợ nhiều chất lượng, xử lý geo-block.",
+      "tech": ["yt-dlp", "ffmpeg", "Node.js", "React"],
+      "url": "/tools/yt-downloader",
+      "color": "#f59e0b"
+    }
+  ],
+  "three_scene": {
+    "theme": "mysterious_forest",
+    "palette": {
+      "bg": "#040c07",
+      "fog_color": "#050e08",
+      "fog_density": 0.018,
+      "ambient": "#0a2010",
+      "moonlight": "#c4f0d8",
+      "firefly": "#ccff88",
+      "wisp_colors": ["#4dd9ac", "#8b5cf6", "#fbbf24", "#34d399", "#a78bfa", "#6ee7b7"],
+      "mushroom": "#3fd4aa",
+      "trunk": "#1a0d08",
+      "foliage": "#0a2010",
+      "mist": "#3a5a48",
+      "spore": "#aaffcc",
+      "rune": "#7c3aed",
+      "moonbeam": "#c4f0d8"
+    },
+    "elements": {
+      "trees": 50,
+      "fireflies": 600,
+      "wisps": 8,
+      "mushroom_clusters": 25,
+      "mist_layers": 8,
+      "spores": 1500,
+      "rune_rings": 5,
+      "moonbeam": true,
+      "ground": true
+    },
+    "camera": {
+      "fov": 65,
+      "near": 0.1,
+      "far": 300,
+      "start_z": 50,
+      "drift_speed": 0.0003,
+      "parallax_strength": 6
+    }
+  },
+  "design": {
+    "colors": {
+      "bg": "#040c07",
+      "surface": "rgba(10,30,20,0.6)",
+      "border": "rgba(100,200,150,0.12)",
+      "text": "#e8f5e3",
+      "text_dim": "rgba(200,235,210,0.45)",
+      "gold": "#d4a843",
+      "cyan": "#3fd4aa",
+      "purple": "#8b5cf6"
+    },
+    "sections": ["hero", "about", "skills", "achievements", "projects", "contact"]
+  }
+}
