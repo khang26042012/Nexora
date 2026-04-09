@@ -1,8 +1,42 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 09/04/2026 (session 19)
+  Cập nhật: 09/04/2026 (session 20)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[09/04/2026 session 20] MIGRATION — Replit environment mới (lần 4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install → 730 packages OK
+  2. Fix portfolio dev script: dùng "node node_modules/vite/bin/vite.js"
+     thay vì "vite" trực tiếp (pnpm không tạo .bin symlinks trong env này)
+  3. Fix .npmrc: thêm better-sqlite3, esbuild, msw, unrs-resolver, @swc/core vào allow-build
+  4. Rebuild better-sqlite3 native binary:
+     - npm install -g node-gyp
+     - cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     - node-gyp rebuild --release → better_sqlite3.node ✅
+  5. Restart "Start application" (Portfolio port 21113) → RUNNING ✅
+  6. Restart "packages/api-server: API Server" (port 8080) → RUNNING ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - WebSocket /ws và /ws-browser: sẵn sàng ✅
+  - SQLite DB initialized ✅
+  - ffmpeg native: /nix/store/.../bin/ffmpeg ✅
+  - yt-dlp: ready ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt (set trong Secrets nếu cần)
+
+Lưu ý mỗi khi env reset:
+  1. pnpm install
+  2. npm install -g node-gyp
+  3. cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     node-gyp rebuild --release
+  4. Restart "Start application" + "packages/api-server: API Server"
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [09/04/2026 session 19] MIGRATE — Bỏ Back4App, chuyển sang Railway
