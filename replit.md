@@ -3,7 +3,7 @@
 ## Tổng quan
 
 Monorepo pnpm cho dự án **NexoraGarden** — hệ thống IoT tưới cây thông minh của Phan Trọng Khang.
-GitHub: `khang26042012/Nexora` | Deploy: **Zeabur** (auto-deploy từ branch main, thay thế Render)
+GitHub: `khang26042012/Nexora` | Deploy: **Wispbyte** (upload thủ công, thay thế Render/Zeabur)
 
 ## Stack
 
@@ -44,9 +44,9 @@ attached_assets/
 | `Start application` | ✅ RUNNING | Portfolio tại port 21113 |
 | `packages/api-server: API Server` | ✅ RUNNING | API + WebSocket + Telegram tại PORT env |
 
-## Environment Variables cần thiết (Zeabur)
+## Environment Variables cần thiết (Wispbyte)
 
-Set trong **Zeabur Dashboard → Service → Variables**:
+Set trong **Wispbyte Panel → Environment Variables**:
 
 - `TELEGRAM_TOKEN` — Token bot Telegram
 - `TELEGRAM_CHAT_ID` — Chat ID của Khang

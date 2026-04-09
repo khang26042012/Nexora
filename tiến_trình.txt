@@ -1,11 +1,47 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 08/04/2026 (session 15)
+  Cập nhật: 09/04/2026 (session 16)
 ================================================================
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[08/04/2026 session 15] MIGRATE — Bỏ Render, chuyển sang Zeabur
+[09/04/2026 session 16] MIGRATE — Bỏ Zeabur, chuyển sang Wispbyte
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lý do: Zeabur yêu cầu mua dedicated server ($2+/tháng), không còn free tier.
+Wispbyte: free, 24/7, container-based, hỗ trợ Node.js.
+
+Đã làm:
+  1. Tạo startup.sh (root repo) — smart startup script:
+     - Cài pnpm nếu chưa có
+     - pnpm install --ignore-scripts
+     - Build better-sqlite3 native binary (chỉ lần đầu)
+     - Build all packages (chỉ nếu dist/ chưa tồn tại)
+     - Start: node packages/api-server/dist/index.mjs
+     - Startup command trong Wispbyte: bash startup.sh
+
+  2. DEPLOY.md viết lại cho Wispbyte:
+     - Bước upload source qua File Manager / SFTP
+     - Set Startup Command, Environment Variables
+     - Hướng dẫn DNS Cloudflare → wispbyte subdomain
+     - Cloudflare Worker ping (giữ container alive)
+     - Quy trình cập nhật code thủ công
+
+  3. replit.md cập nhật platform → Wispbyte
+  4. zbpack.json giữ nguyên (không ảnh hưởng Wispbyte)
+
+Push lên GitHub: commit 4bf6c030 (session 15) + commit mới (session 16)
+
+NEXT STEPS cho Khang:
+  1. Đăng ký wispbyte.com → Create Server (Generic Node.js)
+  2. Upload source code (trừ node_modules/, .git/, attached_assets/)
+  3. Startup Command: bash startup.sh
+  4. Set Environment Variables
+  5. Start → đợi build lần đầu ~5 phút
+  6. Lấy subdomain → cập nhật Cloudflare DNS
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[08/04/2026 session 15] MIGRATE — Bỏ Render, chuyển sang Zeabur (đã hủy)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Lý do: Render free tier lag nặng, nhiều người deploy → timeout liên tục.

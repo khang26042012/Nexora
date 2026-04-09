@@ -1,21 +1,59 @@
-# Hướng dẫn Deploy NexoraGarden — Zeabur
+# Hướng dẫn Deploy NexoraGarden — Wispbyte
 
-## 1. Zeabur — Web Service (thay thế Render)
+## 1. Wispbyte — Free Container Hosting
 
-### Bước deploy
+### Đặc điểm
+- Free, 24/7, 1GB storage
+- Node.js / Python / Java / Bun hỗ trợ
+- Upload file qua File Manager hoặc SFTP
+- Custom startup command + custom domain
 
-1. Vào [zeabur.com](https://zeabur.com) → **New Project**
-2. Kết nối GitHub → chọn repo `khang26042012/Nexora`
-3. Zeabur tự detect `zbpack.json` ở root → chọn **1 service duy nhất** (API Server)
-4. Deploy → Zeabur tự chạy:
-   - Install: `pnpm install`
-   - Build: build nexora-garden + portfolio + api-server
-   - Start: `node packages/api-server/dist/index.mjs`
+### Bước 1 — Tạo account và server
 
-### Environment Variables (thêm trong Zeabur Dashboard → Service → Variables)
+1. Vào [wispbyte.com](https://wispbyte.com) → **Sign Up** (miễn phí)
+2. Dashboard → **Create Server** → chọn **Generic Hosting** → Runtime: **Node.js**
+3. Đặt tên server (vd: `nexoragarden`)
+
+### Bước 2 — Upload source code lên Wispbyte
+
+**Option A — File Manager (UI):**
+- Nén toàn bộ source (trừ `node_modules/`, `.git/`, `attached_assets/`) thành `.zip`
+- Upload qua File Manager trong panel Wispbyte → Extract
+
+**Option B — SFTP (nhanh hơn):**
+- Lấy SFTP credentials từ Wispbyte dashboard
+- Dùng FileZilla hoặc terminal:
+  ```bash
+  sftp user@host
+  put -r /path/to/nexora .
+  ```
+
+> **Lưu ý:** KHÔNG upload thư mục `node_modules/` và `attached_assets/` — nặng, không cần thiết
+
+### Bước 3 — Set Startup Command
+
+Trong Wispbyte panel → **Startup Settings** → **Startup Command**:
+
+```
+bash startup.sh
+```
+
+Script `startup.sh` (đã có sẵn trong repo) sẽ tự động:
+- Cài `pnpm` nếu chưa có
+- Cài dependencies
+- Build native `better-sqlite3`
+- Build frontend + api-server (chỉ lần đầu)
+- Start server
+
+**Các lần restart sau:** script detect `dist/` đã tồn tại → skip build → start ngay (~5 giây).
+
+### Bước 4 — Set Environment Variables
+
+Trong Wispbyte panel → **Startup / Environment Variables**:
 
 | Key | Value |
 |-----|-------|
+| `NODE_ENV` | `production` |
 | `TELEGRAM_TOKEN` | *(token bot Telegram)* |
 | `TELEGRAM_CHAT_ID` | *(chat ID nhận thông báo)* |
 | `GEMINI_API_KEY` | *(API key Gemini)* |
@@ -23,42 +61,57 @@
 | `TELEGRAM_WEBHOOK_SECRET` | *(secret webhook)* |
 | `WEATHER_API_KEY` | *(WeatherAPI key)* |
 | `YOUTUBE_COOKIES` | *(nội dung cookies.txt — tùy chọn)* |
-| `NODE_ENV` | `production` |
 
-### File cấu hình Zeabur
+> **PORT** sẽ được Wispbyte tự set — code đã đọc `process.env.PORT` đúng cách.
 
-`zbpack.json` ở root repo — Zeabur đọc tự động:
-```json
-{
-  "install_command": "pnpm install",
-  "build_command": "pnpm --filter @workspace/nexora-garden run build && pnpm --filter @workspace/portfolio run build && pnpm --filter @workspace/api-server run build",
-  "start_command": "node packages/api-server/dist/index.mjs",
-  "cache_dependencies": false
-}
+### Bước 5 — Start Server
+
+Panel → **Start** → đợi lần đầu build (~3-5 phút)
+
+Log sẽ hiện:
+```
+[pnpm] Installing pnpm...
+[deps] Installing packages...
+[sqlite3] Building native binary...
+[build] Building all packages...
+[start] Starting API server on port 8080...
 ```
 
 ---
 
-## 2. DNS — Cloudflare
+## 2. Cập nhật code (khi push GitHub)
 
-1. Đăng nhập [dash.cloudflare.com](https://dash.cloudflare.com) → chọn domain **nexorax.cloud** → vào **DNS**
-2. Cập nhật CNAME record trỏ về Zeabur URL:
+Sau mỗi lần push GitHub → cần update Wispbyte thủ công:
 
-| Type | Name | Target | Proxy |
-|------|------|--------|-------|
-| CNAME | `@` (hoặc `nexorax.cloud`) | `<zeabur-service>.zeabur.app` | Proxied (đám mây màu cam) |
+**Cách nhanh nhất:**
+1. Trên Replit: build lại `pnpm --filter @workspace/api-server run build` (+ frontend nếu cần)
+2. SFTP upload file đã thay đổi lên Wispbyte
+3. Panel → **Restart**
 
-> Zeabur URL dạng: `nexorax-xxx.zeabur.app` — lấy trong Zeabur Dashboard → Service → Domains
+**Hoặc xóa `dist/` để force rebuild:**
+- File Manager → xóa `packages/api-server/dist/`
+- Restart → script tự build lại
 
 ---
 
-## 3. Cloudflare Worker — Ping Keep-Alive
+## 3. DNS — Cloudflare
 
-Worker này tự động ping server mỗi 3 phút (Zeabur free tier cũng có thể sleep).
+1. Đăng nhập [dash.cloudflare.com](https://dash.cloudflare.com) → chọn domain **nexorax.cloud** → **DNS**
+2. Cập nhật CNAME trỏ về Wispbyte subdomain:
 
-### Tên worker: `ping`
-### Cron trigger: `*/3 * * * *`
+| Type | Name | Target | Proxy |
+|------|------|--------|-------|
+| CNAME | `@` | `<server-name>.wispbyte.com` | Proxied ☁️ |
 
+> Wispbyte subdomain lấy từ dashboard → server URL của bạn
+
+---
+
+## 4. Cloudflare Worker — Ping Keep-Alive
+
+Worker ping mỗi 3 phút để tránh Wispbyte sleep.
+
+### Code worker:
 ```js
 export default {
   async scheduled(event, env, ctx) {
@@ -70,11 +123,13 @@ export default {
 };
 ```
 
+**Tạo:** Cloudflare Dashboard → Workers & Pages → Create Worker → đặt tên `ping` → paste code → Deploy → Settings → Triggers → Add Cron `*/3 * * * *`
+
 ---
 
-## 4. ESP32 Firmware
+## 5. ESP32 Firmware
 
-Giữ nguyên — server vẫn chạy tại `nexorax.cloud`:
+Giữ nguyên — server vẫn tại `nexorax.cloud`:
 
 ```cpp
 const char* SERVER_HOST = "nexorax.cloud";
@@ -84,19 +139,21 @@ const char* WS_PATH     = "/NexoraGarden/ws";
 
 ---
 
-## 5. YtDownloader Tool
+## 6. YtDownloader Tool
 
-- Zeabur có **ffmpeg native** → tất cả quality kể cả 4K hoạt động ngay
-- Set `YOUTUBE_COOKIES` trong Zeabur Variables nếu cần bypass geo-block
+- Wispbyte Linux container có thể có native `ffmpeg` → kiểm tra sau deploy
+- Set `YOUTUBE_COOKIES` trong Environment Variables nếu cần
 
 ---
 
 ## Thứ tự thực hiện
 
-1. Push `zbpack.json` lên GitHub (đã có sẵn)
-2. Deploy lên Zeabur → lấy URL service
-3. Cập nhật DNS Cloudflare → CNAME trỏ về Zeabur URL
-4. Cập nhật/tạo Cloudflare Worker `ping`
-5. Thêm tất cả Environment Variables trong Zeabur
-6. Kiểm tra hệ thống hoạt động
-7. (Tùy chọn) Xóa service cũ trên Render
+1. Tạo account Wispbyte → Create Server (Generic/Node.js)
+2. Upload source code (trừ `node_modules/`, `.git/`, `attached_assets/`)
+3. Set Startup Command: `bash startup.sh`
+4. Set tất cả Environment Variables
+5. Start server → đợi build lần đầu (~5 phút)
+6. Lấy Wispbyte subdomain → cập nhật Cloudflare DNS
+7. Tạo/cập nhật Cloudflare Worker `ping`
+8. Cập nhật `TELEGRAM_WEBHOOK_URL` nếu cần
+9. Kiểm tra hệ thống
