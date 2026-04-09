@@ -44,57 +44,67 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ─── Always deep-space dark ─── */
+/* ─── Arcane dark theme ─── */
 :root {
   --background: 264 100% 2%;
   --foreground: 210 20% 96%;
-  --card: 264 50% 5%;
+  --card: 264 50% 4%;
   --card-foreground: 210 20% 96%;
-  --card-border: 264 30% 10%;
-  --popover: 264 50% 5%;
+  --card-border: 264 40% 8%;
+  --popover: 264 50% 4%;
   --popover-foreground: 210 20% 96%;
-  --popover-border: 264 30% 10%;
-  --primary: 265 80% 65%;
+  --popover-border: 264 40% 8%;
+  --primary: 270 85% 62%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 264 30% 10%;
+  --secondary: 264 35% 8%;
   --secondary-foreground: 210 20% 90%;
-  --muted: 264 30% 8%;
-  --muted-foreground: 210 10% 50%;
-  --accent: 265 70% 60%;
+  --muted: 264 30% 6%;
+  --muted-foreground: 210 10% 45%;
+  --accent: 270 75% 58%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 62% 40%;
   --destructive-foreground: 0 0% 100%;
-  --border: 264 30% 10%;
-  --input: 264 30% 10%;
-  --ring: 265 80% 65%;
+  --border: 264 30% 9%;
+  --input: 264 30% 9%;
+  --ring: 270 85% 62%;
   --radius: 0.75rem;
   --app-font-sans: 'Inter', system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+
+  /* Arcane palette */
+  --arcane-void: #000010;
+  --arcane-deep: #04000f;
+  --arcane-purple: #7c3aed;
+  --arcane-violet: #a78bfa;
+  --arcane-cyan: #38bdf8;
+  --arcane-green: #34d399;
+  --arcane-pink: #e879f9;
+  --arcane-gold: #fbbf24;
 }
 
 .dark {
   --background: 264 100% 2%;
   --foreground: 210 20% 96%;
-  --card: 264 50% 5%;
+  --card: 264 50% 4%;
   --card-foreground: 210 20% 96%;
-  --card-border: 264 30% 10%;
-  --popover: 264 50% 5%;
+  --card-border: 264 40% 8%;
+  --popover: 264 50% 4%;
   --popover-foreground: 210 20% 96%;
-  --popover-border: 264 30% 10%;
-  --primary: 265 80% 65%;
+  --popover-border: 264 40% 8%;
+  --primary: 270 85% 62%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 264 30% 10%;
+  --secondary: 264 35% 8%;
   --secondary-foreground: 210 20% 90%;
-  --muted: 264 30% 8%;
-  --muted-foreground: 210 10% 50%;
-  --accent: 265 70% 60%;
+  --muted: 264 30% 6%;
+  --muted-foreground: 210 10% 45%;
+  --accent: 270 75% 58%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 62% 40%;
   --destructive-foreground: 0 0% 100%;
-  --border: 264 30% 10%;
-  --input: 264 30% 10%;
-  --ring: 265 80% 65%;
+  --border: 264 30% 9%;
+  --input: 264 30% 9%;
+  --ring: 270 85% 62%;
 }
 
 @layer base {
@@ -105,15 +115,84 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background: #020008;
+    background: #000010;
     overflow-x: hidden;
     max-width: 100%;
     width: 100%;
   }
 }
 
-/* scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #020008; }
-::-webkit-scrollbar-thumb { background: rgba(120,60,255,0.35); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(120,60,255,0.55); }
+/* Arcane scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #000010; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, rgba(120,60,255,0.4), rgba(80,0,200,0.3));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, rgba(160,100,255,0.6), rgba(100,20,240,0.5));
+}
+
+/* ─── Arcane keyframes ─── */
+@keyframes arcane-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.05); }
+}
+
+@keyframes arcane-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes arcane-spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes arcane-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(124,58,237,0.4), 0 0 20px rgba(124,58,237,0.1); }
+  50%       { box-shadow: 0 0 16px rgba(167,139,250,0.6), 0 0 40px rgba(124,58,237,0.2); }
+}
+
+@keyframes arcane-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.arcane-pulse { animation: arcane-pulse 3s ease-in-out infinite; }
+.arcane-float { animation: arcane-float 4s ease-in-out infinite; }
+.arcane-spin-slow { animation: arcane-spin-slow 12s linear infinite; }
+.arcane-glow  { animation: arcane-glow  3s ease-in-out infinite; }
+
+.arcane-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(167,139,250,0.15) 50%,
+    rgba(255,255,255,0) 100%
+  );
+  background-size: 200% 100%;
+  animation: arcane-shimmer 2.5s linear infinite;
+}
+
+/* Gradient text utility */
+.arcane-text {
+  background: linear-gradient(135deg, #e2d9ff 0%, #c084fc 35%, #818cf8 65%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass card utility */
+.arcane-glass {
+  background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Selection */
+::selection {
+  background: rgba(124,58,237,0.35);
+  color: #e2d9ff;
+}

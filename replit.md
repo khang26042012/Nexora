@@ -11,7 +11,7 @@ GitHub: `khang26042012/Nexora` | Deploy: **Railway** (Docker auto-deploy từ Gi
 - **Backend**: Express 5 + WebSocket (`ws`) — `packages/api-server`
 - **IoT Server logic**: `apps/nexora-garden/server/` (db, telegram, websocket, routes, gemini)
 - **Frontend Dashboard**: React 19 + Vite + Tailwind 4 — `apps/nexora-garden/`
-- **Portfolio**: React 19 + Three.js/R3F — `apps/portfolio`
+- **Portfolio**: React 19 + Three.js/R3F — `apps/portfolio` (arcane/mystical theme — Void Portal scene, rune rings, LoadingScreen, full redesign)
 - **Database**: SQLite (`better-sqlite3`) via thư viện tự viết (không dùng Drizzle ORM)
 - **AI**: Google Gemini 2.5 Flash (`@google/generative-ai`)
 - **Telegram Bot**: `node-telegram-bot-api`
