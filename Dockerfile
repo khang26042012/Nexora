@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:22-slim
 
 # Build tools cho better-sqlite3 native module
 RUN apt-get update && \
