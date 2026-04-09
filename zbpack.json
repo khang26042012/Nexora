@@ -1,6 +1,0 @@
-{
-  "install_command": "pnpm install",
-  "build_command": "pnpm --filter @workspace/nexora-garden run build && pnpm --filter @workspace/portfolio run build && pnpm --filter @workspace/api-server run build",
-  "start_command": "node packages/api-server/dist/index.mjs",
-  "cache_dependencies": false
-}

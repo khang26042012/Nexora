@@ -1,11 +1,51 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 09/04/2026 (session 16)
+  Cập nhật: 09/04/2026 (session 17)
 ================================================================
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[09/04/2026 session 16] MIGRATE — Bỏ Zeabur, chuyển sang Wispbyte
+[09/04/2026 session 17] MIGRATE — Bỏ Wispbyte, chuyển sang Northflank
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lý do: Wispbyte dùng Pterodactyl panel — startup command phức tạp,
+không đủ linh hoạt cho pnpm monorepo. Northflank: Docker container,
+GitHub auto-deploy, free tier 2 services + 500 build minutes/tháng.
+
+Đã làm:
+  1. Tạo Dockerfile (root repo):
+     - Base: node:20-slim + python3/make/g++ cho better-sqlite3
+     - pnpm install --frozen-lockfile (better-sqlite3 tự build)
+     - Build: nexora-garden + portfolio + api-server
+     - CMD: node packages/api-server/dist/index.mjs
+     - Layer cache tối ưu: copy package.json trước, install, rồi copy source
+
+  2. Tạo .dockerignore:
+     - Bỏ qua node_modules, .git, attached_assets, mockup-sandbox
+     - Bỏ qua dist/ (build lại trong Docker)
+
+  3. DEPLOY.md viết lại cho Northflank:
+     - Bước tạo account + kết nối GitHub
+     - Tạo Deployment Service (Dockerfile, port 8080, auto-deploy)
+     - Set Environment Variables
+     - Mount Persistent Volume tại /app/packages/api-server/data (SQLite)
+     - DNS Cloudflare → Northflank domain
+     - Cloudflare Worker ping
+
+  4. replit.md cập nhật platform → Northflank
+
+SQLite DB path: /app/packages/api-server/data/nexora.db
+Persistent volume cần mount tại: /app/packages/api-server/data
+
+NEXT STEPS cho Khang:
+  1. northflank.com → Sign Up → thêm payment method
+  2. Tạo Project → Add Service → Deployment Service → GitHub
+  3. Chọn repo Nexora, branch main, Dockerfile
+  4. Set ENV vars + mount volume /app/packages/api-server/data
+  5. Deploy → cập nhật Cloudflare DNS
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[09/04/2026 session 16] MIGRATE — Bỏ Zeabur, chuyển sang Wispbyte (đã hủy)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Lý do: Zeabur yêu cầu mua dedicated server ($2+/tháng), không còn free tier.

@@ -1,59 +1,53 @@
-# Hướng dẫn Deploy NexoraGarden — Wispbyte
+# Hướng dẫn Deploy NexoraGarden — Northflank
 
-## 1. Wispbyte — Free Container Hosting
+## 1. Northflank — Docker Container Hosting
 
 ### Đặc điểm
-- Free, 24/7, 1GB storage
-- Node.js / Python / Java / Bun hỗ trợ
-- Upload file qua File Manager hoặc SFTP
-- Custom startup command + custom domain
+- Free tier: 2 services, 500 build minutes/tháng, 2GB storage
+- GitHub auto-deploy: mỗi lần push → tự build Docker + deploy
+- Cần thêm payment method (dù dùng free tier — để xác minh danh tính)
+- Persistent volume: dữ liệu không mất khi restart
 
-### Bước 1 — Tạo account và server
+---
 
-1. Vào [wispbyte.com](https://wispbyte.com) → **Sign Up** (miễn phí)
-2. Dashboard → **Create Server** → chọn **Generic Hosting** → Runtime: **Node.js**
-3. Đặt tên server (vd: `nexoragarden`)
+## Bước 1 — Tạo account Northflank
 
-### Bước 2 — Upload source code lên Wispbyte
+1. Vào [northflank.com](https://northflank.com) → **Sign Up**
+2. Thêm payment method (bắt buộc, kể cả free tier)
+3. Tạo Project mới → đặt tên `nexoragarden`
 
-**Option A — File Manager (UI):**
-- Nén toàn bộ source (trừ `node_modules/`, `.git/`, `attached_assets/`) thành `.zip`
-- Upload qua File Manager trong panel Wispbyte → Extract
+---
 
-**Option B — SFTP (nhanh hơn):**
-- Lấy SFTP credentials từ Wispbyte dashboard
-- Dùng FileZilla hoặc terminal:
-  ```bash
-  sftp user@host
-  put -r /path/to/nexora .
-  ```
+## Bước 2 — Kết nối GitHub
 
-> **Lưu ý:** KHÔNG upload thư mục `node_modules/` và `attached_assets/` — nặng, không cần thiết
+Dashboard → **Account Settings** → **GitHub** → **Connect** → cấp quyền repo `khang26042012/Nexora`
 
-### Bước 3 — Set Startup Command
+---
 
-Trong Wispbyte panel → **Startup Settings** → **Startup Command**:
+## Bước 3 — Tạo Service
 
-```
-bash startup.sh
-```
+Project → **Add Service** → **Deployment Service** → **GitHub Repo**
 
-Script `startup.sh` (đã có sẵn trong repo) sẽ tự động:
-- Cài `pnpm` nếu chưa có
-- Cài dependencies
-- Build native `better-sqlite3`
-- Build frontend + api-server (chỉ lần đầu)
-- Start server
+Cấu hình:
+| Trường | Giá trị |
+|--------|---------|
+| Repository | `khang26042012/Nexora` |
+| Branch | `main` |
+| Build type | **Dockerfile** |
+| Dockerfile path | `/Dockerfile` |
+| Port | `8080` |
+| Auto deploy | ✅ bật |
 
-**Các lần restart sau:** script detect `dist/` đã tồn tại → skip build → start ngay (~5 giây).
+---
 
-### Bước 4 — Set Environment Variables
+## Bước 4 — Environment Variables
 
-Trong Wispbyte panel → **Startup / Environment Variables**:
+Service → **Environment** → **Add Variables**:
 
 | Key | Value |
 |-----|-------|
 | `NODE_ENV` | `production` |
+| `PORT` | `8080` |
 | `TELEGRAM_TOKEN` | *(token bot Telegram)* |
 | `TELEGRAM_CHAT_ID` | *(chat ID nhận thông báo)* |
 | `GEMINI_API_KEY` | *(API key Gemini)* |
@@ -62,72 +56,84 @@ Trong Wispbyte panel → **Startup / Environment Variables**:
 | `WEATHER_API_KEY` | *(WeatherAPI key)* |
 | `YOUTUBE_COOKIES` | *(nội dung cookies.txt — tùy chọn)* |
 
-> **PORT** sẽ được Wispbyte tự set — code đã đọc `process.env.PORT` đúng cách.
+---
 
-### Bước 5 — Start Server
+## Bước 5 — Persistent Volume (SQLite)
 
-Panel → **Start** → đợi lần đầu build (~3-5 phút)
+SQLite database lưu tại: `/app/packages/api-server/data/nexora.db`
+
+Service → **Volumes** → **Add Volume**:
+
+| Trường | Giá trị |
+|--------|---------|
+| Mount path | `/app/packages/api-server/data` |
+| Size | `1GB` |
+
+> Nếu không mount volume → dữ liệu sensor/log bị mất mỗi lần restart!
+
+---
+
+## Bước 6 — Deploy lần đầu
+
+Service → **Deploy** → đợi build (~5-10 phút lần đầu vì cần build Docker image)
 
 Log sẽ hiện:
 ```
-[pnpm] Installing pnpm...
-[deps] Installing packages...
-[sqlite3] Building native binary...
-[build] Building all packages...
-[start] Starting API server on port 8080...
+Step 1/10 : FROM node:20-slim
+...
+Step 10/10 : CMD ["node", "packages/api-server/dist/index.mjs"]
+✅ Build complete
+✅ Server listening on port 8080
 ```
 
 ---
 
-## 2. Cập nhật code (khi push GitHub)
+## Bước 7 — DNS — Cloudflare
 
-Sau mỗi lần push GitHub → cần update Wispbyte thủ công:
+Service → **Networking** → lấy public URL dạng `xxx.northflank.app`
 
-**Cách nhanh nhất:**
-1. Trên Replit: build lại `pnpm --filter @workspace/api-server run build` (+ frontend nếu cần)
-2. SFTP upload file đã thay đổi lên Wispbyte
-3. Panel → **Restart**
-
-**Hoặc xóa `dist/` để force rebuild:**
-- File Manager → xóa `packages/api-server/dist/`
-- Restart → script tự build lại
-
----
-
-## 3. DNS — Cloudflare
-
-1. Đăng nhập [dash.cloudflare.com](https://dash.cloudflare.com) → chọn domain **nexorax.cloud** → **DNS**
-2. Cập nhật CNAME trỏ về Wispbyte subdomain:
+Cloudflare Dashboard → domain **nexorax.cloud** → **DNS**:
 
 | Type | Name | Target | Proxy |
 |------|------|--------|-------|
-| CNAME | `@` | `<server-name>.wispbyte.com` | Proxied ☁️ |
+| CNAME | `@` | `xxx.northflank.app` | Proxied ☁️ |
 
-> Wispbyte subdomain lấy từ dashboard → server URL của bạn
+> Hoặc: Northflank → **Custom Domain** → thêm `nexorax.cloud` → Cloudflare verify
 
 ---
 
-## 4. Cloudflare Worker — Ping Keep-Alive
+## Bước 8 — Cloudflare Worker Ping (chống sleep)
 
-Worker ping mỗi 3 phút để tránh Wispbyte sleep.
+Northflank free tier không ngủ, nhưng nên có worker để đảm bảo:
 
-### Code worker:
+Cloudflare Dashboard → **Workers & Pages** → Create Worker `ping`:
+
 ```js
 export default {
   async scheduled(event, env, ctx) {
     await fetch("https://nexorax.cloud/NexoraGarden");
   },
   async fetch(request, env, ctx) {
-    return new Response("Worker is alive!");
+    return new Response("Worker alive");
   }
 };
 ```
 
-**Tạo:** Cloudflare Dashboard → Workers & Pages → Create Worker → đặt tên `ping` → paste code → Deploy → Settings → Triggers → Add Cron `*/3 * * * *`
+Settings → Triggers → Add Cron: `*/3 * * * *`
 
 ---
 
-## 5. ESP32 Firmware
+## Auto-deploy sau khi push GitHub
+
+Sau khi setup xong:
+```
+git push origin main → Northflank detect → build Docker → deploy tự động
+```
+Không cần làm gì thêm!
+
+---
+
+## ESP32 Firmware
 
 Giữ nguyên — server vẫn tại `nexorax.cloud`:
 
@@ -139,21 +145,13 @@ const char* WS_PATH     = "/NexoraGarden/ws";
 
 ---
 
-## 6. YtDownloader Tool
-
-- Wispbyte Linux container có thể có native `ffmpeg` → kiểm tra sau deploy
-- Set `YOUTUBE_COOKIES` trong Environment Variables nếu cần
-
----
-
 ## Thứ tự thực hiện
 
-1. Tạo account Wispbyte → Create Server (Generic/Node.js)
-2. Upload source code (trừ `node_modules/`, `.git/`, `attached_assets/`)
-3. Set Startup Command: `bash startup.sh`
-4. Set tất cả Environment Variables
-5. Start server → đợi build lần đầu (~5 phút)
-6. Lấy Wispbyte subdomain → cập nhật Cloudflare DNS
-7. Tạo/cập nhật Cloudflare Worker `ping`
-8. Cập nhật `TELEGRAM_WEBHOOK_URL` nếu cần
-9. Kiểm tra hệ thống
+1. Tạo account + project Northflank
+2. Kết nối GitHub → chọn repo `Nexora`
+3. Tạo Deployment Service (Dockerfile, port 8080, auto-deploy)
+4. Set Environment Variables
+5. Mount Persistent Volume tại `/app/packages/api-server/data`
+6. Deploy → đợi build
+7. Lấy URL → cập nhật Cloudflare DNS
+8. Tạo Cloudflare Worker ping

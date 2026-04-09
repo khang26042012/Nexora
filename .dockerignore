@@ -1,0 +1,11 @@
+node_modules
+.git
+attached_assets
+apps/mockup-sandbox
+*.log
+.env
+.env.*
+packages/api-server/data
+packages/api-server/dist
+apps/nexora-garden/dist
+apps/portfolio/dist
