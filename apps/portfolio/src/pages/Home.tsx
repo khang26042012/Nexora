@@ -25,7 +25,7 @@ function Reveal({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: false, margin: "-80px" });
+  const inView = useInView(ref, { once: true, margin: "-60px" });
   return (
     <motion.div
       ref={ref}
@@ -152,7 +152,7 @@ function AvatarOrb() {
 /* ─── Section title ─── */
 function SectionTitle({ label, title }: { label: string; title: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: false, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: "-40px" });
   return (
     <div ref={ref} className="mb-12">
       <motion.p
@@ -189,7 +189,7 @@ const skillsData = [
 
 function SkillBar({ label, pct, icon: Icon, color, delay }: { label: string; pct: number; icon: React.ElementType; color: string; delay: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: false, margin: "-50px" });
+  const inView = useInView(ref, { once: true, margin: "-30px" });
   return (
     <motion.div ref={ref}
       initial={{ opacity: 0, x: -20 }} animate={inView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
@@ -198,13 +198,13 @@ function SkillBar({ label, pct, icon: Icon, color, delay }: { label: string; pct
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Icon className="w-4 h-4" style={{ color }} />
-          <span className="text-sm font-medium text-white/70">{label}</span>
+          <span className="text-sm font-medium text-white/90">{label}</span>
         </div>
         <motion.span className="text-xs font-mono" style={{ color }}
           initial={{ opacity: 0 }} animate={inView ? { opacity: 1 } : { opacity: 0 }}
           transition={{ delay: delay + 0.4 }}>{pct}%</motion.span>
       </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.18)" }}>
         <motion.div className="h-full rounded-full"
           style={{ background: `linear-gradient(90deg,${color}70,${color})` }}
           initial={{ width: 0 }} animate={inView ? { width: `${pct}%` } : { width: 0 }}
@@ -228,7 +228,7 @@ const timelineData = [
 
 function TimelineItem({ item, i }: { item: (typeof timelineData)[0]; i: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: false, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: "-40px" });
   const Icon = item.icon;
   return (
     <motion.div ref={ref}
@@ -251,8 +251,8 @@ function TimelineItem({ item, i }: { item: (typeof timelineData)[0]; i: number }
       </div>
       <div className="pb-8">
         <span className="text-xs font-mono tracking-widest mb-1 block" style={{ color: item.color }}>{item.year}</span>
-        <h3 className="text-base md:text-lg font-bold text-white/85 mb-1">{item.title}</h3>
-        <p className="text-sm text-white/45 leading-relaxed">{item.desc}</p>
+        <h3 className="text-base md:text-lg font-bold text-white mb-1">{item.title}</h3>
+        <p className="text-sm text-white/75 leading-relaxed">{item.desc}</p>
       </div>
     </motion.div>
   );
@@ -283,7 +283,7 @@ function ProjectCard({ project, i }: { project: (typeof projects)[0]; i: number 
     <motion.div
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false, margin: "-50px" }}
+      viewport={{ once: true, margin: "-30px" }}
       transition={{ duration: 0.65, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
       style={{
         rotateX: sRotX, rotateY: sRotY, perspective: 900,
@@ -310,12 +310,12 @@ function ProjectCard({ project, i }: { project: (typeof projects)[0]; i: number 
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full animate-pulse"
               style={{ background: project.status === "Live" ? "#34d399" : project.status === "Active" ? "#34d399" : "#fbbf24" }} />
-            <span className="text-xs font-mono text-white/40">{project.status}</span>
+            <span className="text-xs font-mono text-white/70">{project.status}</span>
           </div>
         </div>
         <motion.h3 animate={hovered ? { x: 4 } : { x: 0 }} transition={{ duration: 0.25 }}
-          className="text-xl font-bold text-white/85 mb-2">{project.title}</motion.h3>
-        <p className="text-sm text-white/45 mb-5 leading-relaxed">{project.desc}</p>
+          className="text-xl font-bold text-white mb-2">{project.title}</motion.h3>
+        <p className="text-sm text-white/80 mb-5 leading-relaxed">{project.desc}</p>
         <div className="flex flex-wrap gap-1.5 mb-5">
           {project.tech.map((t) => (
             <span key={t} className="px-2 py-0.5 text-xs rounded font-mono"
@@ -338,7 +338,7 @@ function ProjectCard({ project, i }: { project: (typeof projects)[0]; i: number 
 /* ─── Stat counter ─── */
 function StatCounter({ value, label, delay, color }: { value: string; label: string; delay: number; color: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: false, margin: "-40px" });
+  const inView = useInView(ref, { once: true, margin: "-20px" });
   return (
     <motion.div ref={ref}
       initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
@@ -503,7 +503,7 @@ export function Home() {
           <motion.p initial={{ y: 20, opacity: 0, filter: "blur(4px)" }} animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
             transition={{ duration: 0.7, delay: 0.45 }}
             className="max-w-xl text-base md:text-lg leading-relaxed"
-            style={{ color: "rgba(180,150,255,0.6)" }}>
+            style={{ color: "rgba(210,185,255,0.92)" }}>
             Người điều khiển và sản xuất phần mềm bằng AI · Prompt Master · Kiến tạo tương lai từ hôm nay
           </motion.p>
 
@@ -589,12 +589,12 @@ export function Home() {
             ].map((item, i) => (
               <Reveal key={i} delay={i * 0.12}>
                 <div className="flex gap-4 items-start p-5 rounded-2xl"
-                  style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)" }}>
                   <div className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center"
                     style={{ background: `${item.color}15`, border: `1px solid ${item.color}30` }}>
                     <item.icon className="w-4 h-4" style={{ color: item.color }} />
                   </div>
-                  <p className="text-sm text-white/55 leading-relaxed">{item.text}</p>
+                  <p className="text-sm text-white/85 leading-relaxed">{item.text}</p>
                 </div>
               </Reveal>
             ))}
@@ -623,7 +623,7 @@ export function Home() {
         <div className="max-w-4xl mx-auto relative z-10">
           <SectionTitle label="Liên Hệ" title={<>Kết Nối Với Tôi</>} />
           <Reveal>
-            <p className="text-white/50 mb-10 max-w-lg text-sm md:text-base leading-relaxed">
+            <p className="text-white/85 mb-10 max-w-lg text-sm md:text-base leading-relaxed">
               Bạn có ý tưởng muốn biến thành hiện thực? Hãy liên hệ — tôi luôn sẵn sàng cộng tác và xây dựng điều gì đó phi thường.
             </p>
           </Reveal>
@@ -641,8 +641,8 @@ export function Home() {
                       <Icon className="w-5 h-5" style={{ color: c.color }} />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-white/80 group-hover:text-white transition-colors">{c.label}</div>
-                      <div className="text-xs text-white/40 truncate">{c.sub}</div>
+                      <div className="text-sm font-semibold text-white group-hover:text-white transition-colors">{c.label}</div>
+                      <div className="text-xs text-white/70 truncate">{c.sub}</div>
                     </div>
                     <ExternalLink className="w-3.5 h-3.5 ml-auto flex-shrink-0 opacity-0 group-hover:opacity-40 transition-opacity" style={{ color: c.color }} />
                   </motion.a>
