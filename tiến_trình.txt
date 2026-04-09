@@ -1,8 +1,89 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 09/04/2026 (session 20)
+  Cập nhật: 09/04/2026 (session 21)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[09/04/2026 session 21] MIGRATION — Replit environment mới (lần 5)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install → 730 packages OK
+  2. npm install -g node-gyp
+  3. Rebuild better-sqlite3 native binary:
+     - cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     - node-gyp configure && node-gyp build
+     → build/Release/better_sqlite3.node ✅
+  4. Restart "Start application" (Portfolio port 21113) → RUNNING ✅
+  5. Tạo workflow "API Server":
+     - Lệnh: PORT=8080 pnpm --filter @workspace/api-server run dev
+     → RUNNING ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - WebSocket /ws và /ws-browser: sẵn sàng ✅
+  - SQLite DB initialized ✅
+  - ffmpeg native: /nix/store/.../bin/ffmpeg ✅
+  - yt-dlp: ready ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt (set trong Secrets nếu cần)
+
+Lưu ý WARN (không phải lỗi):
+  - "NexoraGarden dist not found" + "Portfolio dist not found":
+    → Chỉ ảnh hưởng khi api-server serve static (production mode)
+    → Dev mode: frontend dùng Vite dev server riêng → không cần build dist
+
+Lưu ý mỗi khi env reset:
+  1. pnpm install
+  2. npm install -g node-gyp
+  3. cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     node-gyp configure && node-gyp build
+  4. Restart "Start application" + "API Server"
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[09/04/2026 session 21b] PORTFOLIO REBUILD — Single HTML file + Three.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Xóa toàn bộ React structure, viết lại apps/portfolio/index.html
+thành single HTML file (HTML + CSS + JS inline, no framework).
+
+Tính năng:
+  - Three.js từ CDN (r0.160.0) — full galaxy background
+  - Galaxy band 16,000 particles (spiral arms, 3 nhánh)
+  - Deep stars 3,500 điểm (spectral colors)
+  - Nebula 4 cụm (additive blending)
+  - Crystals x6 (Icosahedron/Octahedron/Dodecahedron wireframe + glow)
+  - Connection lines giữa crystals
+  - Data stream 180 particles chạy dọc connections
+  - Aurora ribbons x5 (wave animation realtime)
+  - Shooting stars x8 (ngẫu nhiên)
+  - Mouse parallax camera
+  - Custom cursor với ring effect
+
+UI:
+  - Hamburger menu góc trên trái → sidebar (Nav: Trang chủ/Dự án/Liên hệ)
+  - Hero: "Phan Trọng Khang", "AI Architect & Developer", bio tiếng Việt
+  - Scroll reveal animations
+  - Projects grid: NexoraGarden (đang PT) + 3 placeholder "Sắp ra mắt"
+  - Contact grid: GitHub, Email, Facebook, Telegram, SĐT, Zalo, Instagram, TikTok
+  - Footer
+
+Liên hệ đã thêm:
+  - GitHub: khang26042012
+  - Email: trongkhabgphan@gmail.com
+  - Facebook: https://www.facebook.com/share/1CAZqbwCgB/
+  - Telegram: +84352234521
+  - SĐT: 0352234521
+  - Zalo: 0352234521
+  - Instagram: khang.trong.809039
+  - TikTok: @phantrongkhangg
+
+Fonts: Orbitron (headings) + Inter (body) từ Google Fonts
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [09/04/2026 session 20] MIGRATION — Replit environment mới (lần 4)
