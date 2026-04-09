@@ -1,0 +1,5 @@
+[phases.setup]
+nixPkgs = []
+
+[start]
+cmd = "echo 'Not a standalone service — built via root Dockerfile'"
