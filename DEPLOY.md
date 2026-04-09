@@ -1,57 +1,40 @@
-# Hướng dẫn Deploy NexoraGarden — Back4App Containers
+# Hướng dẫn Deploy NexoraGarden — Railway
 
-## 1. Back4App Containers — Docker Hosting
+## Đặc điểm Railway
 
-### Đặc điểm
-- **Miễn phí hoàn toàn** — không cần thẻ thanh toán
-- GitHub auto-deploy: mỗi lần push → tự build Docker + deploy
-- Zero-downtime deployment
-- CPU: 0.25 vCPU | RAM: 256 MB | Transfer: 100 GB/tháng
-- Sử dụng Dockerfile (đã có sẵn trong repo)
-
----
-
-## Bước 1 — Tạo account Back4App
-
-1. Vào [back4app.com](https://back4app.com) → **Sign Up** (miễn phí, không cần thẻ)
-2. Chọn **Containers** (không phải Parse Server)
+- **$5 credit miễn phí/tháng** — không cần thẻ để đăng ký
+- GitHub auto-deploy: push code → Railway tự build Docker + deploy
+- PORT inject tự động qua `$PORT` env var
+- Persistent Volume: hỗ trợ mount thư mục (SQLite persist)
+- Custom domain: miễn phí (subdomain `railway.app` hoặc domain riêng)
+- Sleep policy: không sleep (khác Render)
 
 ---
 
-## Bước 2 — Tạo Container App
+## Bước 1 — Tạo account Railway
 
-Dashboard → **Build new app** → **Containers as a Service**
+1. Vào [railway.app](https://railway.app) → **Start a New Project**
+2. **Sign Up with GitHub** — dùng tài khoản GitHub `khang26042012`
 
 ---
 
-## Bước 3 — Kết nối GitHub
+## Bước 2 — Tạo Project mới
 
-- Chọn **GitHub** → cấp quyền → chọn repo `khang26042012/Nexora`
+Dashboard → **New Project** → **Deploy from GitHub repo**
+
+- Chọn repo `khang26042012/Nexora`
 - Branch: `main`
-- Back4App tự detect `Dockerfile` tại root ✅
+- Railway tự detect `Dockerfile` + `railway.json` tại root ✅
 
 ---
 
-## Bước 4 — Cấu hình
+## Bước 3 — Environment Variables
 
-| Trường | Giá trị |
-|--------|---------|
-| App name | `nexoragarden` |
-| Branch | `main` |
-| Dockerfile | `/Dockerfile` (tự detect) |
-| Port | `8080` |
-| Auto deploy | ✅ bật |
-
----
-
-## Bước 5 — Environment Variables
-
-Trong phần **Environment Variables** khi tạo app hoặc sau khi tạo:
+Vào Service → **Variables** → thêm từng biến:
 
 | Key | Value |
 |-----|-------|
 | `NODE_ENV` | `production` |
-| `PORT` | `8080` |
 | `TELEGRAM_TOKEN` | *(token bot Telegram)* |
 | `TELEGRAM_CHAT_ID` | *(chat ID nhận thông báo)* |
 | `GEMINI_API_KEY` | *(API key Gemini)* |
@@ -60,35 +43,15 @@ Trong phần **Environment Variables** khi tạo app hoặc sau khi tạo:
 | `WEATHER_API_KEY` | *(WeatherAPI key)* |
 | `YOUTUBE_COOKIES` | *(nội dung cookies.txt — tùy chọn)* |
 
-→ Nhấn **Create App**
+> `PORT` **không cần set** — Railway inject tự động.
 
 ---
 
-## Bước 6 — Deploy lần đầu
-
-Back4App tự build Docker → đợi ~5-10 phút. Log hiển thị trong dashboard.
-
-Sau khi build xong, app có URL dạng: `https://nexoragarden-xxx.b4a.run`
-
----
-
-## Bước 7 — DNS — Cloudflare
-
-App → **Settings** → **Custom Domain** → thêm `nexorax.cloud`
-
-Cloudflare Dashboard → domain **nexorax.cloud** → **DNS**:
-
-| Type | Name | Target | Proxy |
-|------|------|--------|-------|
-| CNAME | `@` | `nexoragarden-xxx.b4a.run` | Proxied ☁️ |
-
----
-
-## Bước 8 — Persistent Volume (SQLite)
+## Bước 4 — Persistent Volume (SQLite)
 
 SQLite database lưu tại: `/app/packages/api-server/data/nexora.db`
 
-Back4App → App → **Storage** → **Add Volume**:
+Service → **Volumes** → **Add Volume**:
 
 | Mount path | Size |
 |-----------|------|
@@ -98,9 +61,25 @@ Back4App → App → **Storage** → **Add Volume**:
 
 ---
 
-## Bước 9 — Cloudflare Worker Ping
+## Bước 5 — Custom Domain
 
-Cloudflare Dashboard → **Workers & Pages** → Create Worker `ping`:
+Service → **Settings** → **Networking** → **Custom Domain** → thêm `nexorax.cloud`
+
+Railway cấp subdomain mặc định: `xxx.railway.app`
+
+Cloudflare DNS → domain **nexorax.cloud**:
+
+| Type | Name | Target | Proxy |
+|------|------|--------|-------|
+| CNAME | `@` | `xxx.railway.app` | Proxied ☁️ |
+
+---
+
+## Bước 6 — Cloudflare Worker Ping (tùy chọn)
+
+Nếu muốn giữ container luôn hoạt động:
+
+Cloudflare → **Workers & Pages** → Create Worker `ping`:
 
 ```js
 export default {
@@ -121,7 +100,7 @@ Settings → Triggers → Add Cron: `*/3 * * * *`
 
 Sau khi setup xong — mỗi lần push GitHub:
 ```
-git push origin main → Back4App detect → build Docker → deploy tự động ✅
+git push origin main → Railway detect → build Docker → deploy tự động ✅
 ```
 
 ---
@@ -140,11 +119,10 @@ const char* WS_PATH     = "/NexoraGarden/ws";
 
 ## Thứ tự thực hiện
 
-1. back4app.com → Sign Up → Containers as a Service
-2. Build new app → GitHub → repo `Nexora`, branch `main`
-3. Port `8080`, auto-deploy ON
-4. Set tất cả Environment Variables
-5. Create App → đợi build (~10 phút)
-6. Add Volume tại `/app/packages/api-server/data`
-7. Lấy URL `b4a.run` → Cloudflare DNS + Custom Domain
-8. Tạo Cloudflare Worker ping
+1. railway.app → Sign Up with GitHub
+2. New Project → Deploy from GitHub → repo `Nexora`, branch `main`
+3. Variables: set tất cả env vars (không cần PORT)
+4. Volumes: mount `/app/packages/api-server/data`
+5. Đợi build lần đầu (~5-10 phút)
+6. Lấy domain `railway.app` → Cloudflare DNS + Custom Domain
+7. (Tùy chọn) Tạo Cloudflare Worker ping

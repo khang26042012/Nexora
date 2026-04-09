@@ -33,7 +33,7 @@ RUN pnpm --filter @workspace/nexora-garden run build && \
     pnpm --filter @workspace/portfolio run build && \
     pnpm --filter @workspace/api-server run build
 
-# Port mặc định (Northflank inject $PORT)
+# Railway inject $PORT tự động — EXPOSE chỉ để tham khảo
 EXPOSE 8080
 
 CMD ["node", "packages/api-server/dist/index.mjs"]

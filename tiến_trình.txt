@@ -1,11 +1,36 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 09/04/2026 (session 18)
+  Cập nhật: 09/04/2026 (session 19)
 ================================================================
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[09/04/2026 session 18] MIGRATE — Bỏ Northflank, chuyển sang Back4App Containers
+[09/04/2026 session 19] MIGRATE — Bỏ Back4App, chuyển sang Railway
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lý do: Chuyển sang Railway — $5 credit/tháng miễn phí, không cần thẻ,
+GitHub auto-deploy, Docker, PORT inject tự động, không sleep.
+
+Đã làm:
+  - railway.json tạo mới (build: DOCKERFILE, deploy: startCommand + healthcheck)
+  - DEPLOY.md viết lại hoàn toàn cho Railway (step-by-step)
+  - Dockerfile cập nhật comment (PORT từ Railway inject, không cố định)
+  - replit.md cập nhật platform → Railway
+
+NEXT STEPS cho Khang:
+  1. railway.app → Sign Up with GitHub (khang26042012)
+  2. New Project → Deploy from GitHub → repo Nexora, branch main
+  3. Variables: set TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY,
+     TELEGRAM_WEBHOOK_URL, TELEGRAM_WEBHOOK_SECRET, WEATHER_API_KEY
+     (PORT không cần set — Railway inject tự động)
+  4. Volumes: mount /app/packages/api-server/data
+  5. Đợi build lần đầu (~5-10 phút)
+  6. Lấy domain railway.app → Cloudflare DNS + Custom Domain
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[09/04/2026 session 18] MIGRATE — Bỏ Northflank, chuyển sang Back4App Containers (đã hủy)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Lý do: Northflank yêu cầu thêm thẻ thanh toán (dù free).
@@ -17,14 +42,6 @@ GitHub auto-deploy, Docker, 0.25vCPU + 256MB RAM.
   - replit.md cập nhật platform → Back4App Containers
   - Dockerfile + .dockerignore giữ nguyên (Back4App cũng dùng Docker)
   - Không cần thay đổi code gì thêm
-
-NEXT STEPS cho Khang:
-  1. back4app.com → Sign Up → Containers as a Service
-  2. Build new app → GitHub → repo Nexora, branch main
-  3. Port 8080, auto-deploy ON, set ENV vars
-  4. Create App → đợi build ~10 phút
-  5. Add Volume /app/packages/api-server/data (SQLite persist)
-  6. Cloudflare DNS + Custom Domain
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [09/04/2026 session 17] MIGRATE — Bỏ Wispbyte, chuyển sang Northflank (đã hủy)

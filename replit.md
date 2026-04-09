@@ -3,7 +3,7 @@
 ## Tổng quan
 
 Monorepo pnpm cho dự án **NexoraGarden** — hệ thống IoT tưới cây thông minh của Phan Trọng Khang.
-GitHub: `khang26042012/Nexora` | Deploy: **Back4App Containers** (Docker auto-deploy từ GitHub, miễn phí không cần thẻ)
+GitHub: `khang26042012/Nexora` | Deploy: **Railway** (Docker auto-deploy từ GitHub, $5 credit/tháng miễn phí)
 
 ## Stack
 
@@ -44,9 +44,9 @@ attached_assets/
 | `Start application` | ✅ RUNNING | Portfolio tại port 21113 |
 | `packages/api-server: API Server` | ✅ RUNNING | API + WebSocket + Telegram tại PORT env |
 
-## Environment Variables cần thiết (Northflank)
+## Environment Variables cần thiết (Railway)
 
-Set trong **Northflank → Service → Environment**:
+Set trong **Railway → Service → Variables**:
 
 - `TELEGRAM_TOKEN` — Token bot Telegram
 - `TELEGRAM_CHAT_ID` — Chat ID của Khang
