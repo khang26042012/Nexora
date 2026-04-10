@@ -1,10 +1,24 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const TOOLS = [
+  {
+    id: "video-trimmer",
+    icon: Scissors,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Video Trimmer",
+    desc: "Cắt video theo mốc thời gian. Nhập điểm bắt đầu & kết thúc, tool tự cắt đoạn giữa.",
+    tag: "Video",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/video-trimmer",
+  },
   {
     id: "yt-downloader",
     icon: Video,
