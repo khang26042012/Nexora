@@ -183,6 +183,11 @@
   z-index: 1;
 }
 
+/* pause running-border when section not in view */
+.animation-paused::before {
+  animation-play-state: paused !important;
+}
+
 /* ring animations for avatar */
 @keyframes ring-cw  { to { transform: rotate(360deg);  } }
 @keyframes ring-ccw { to { transform: rotate(-360deg); } }

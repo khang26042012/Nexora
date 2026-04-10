@@ -244,11 +244,12 @@ export function Navigation() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.06 + i * 0.055, type: "spring", stiffness: 300, damping: 24 }}
                     >
+                      {isActive ? (
                       <AnimBorderItem
                         speed={4 + i * 0.5}
                         color="rgba(255,255,255,0.45)"
                         radius={12}
-                        isActive={isActive}
+                        isActive={true}
                       >
                         <motion.a
                           href={link.href}
@@ -299,6 +300,27 @@ export function Navigation() {
                           )}
                         </motion.a>
                       </AnimBorderItem>
+                      ) : (
+                        <motion.a
+                          href={link.href}
+                          onClick={(e) => handleNavClick(e, link.href, link.route)}
+                          whileHover={{ x: 3 }}
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                          className="relative flex items-center gap-3 px-3 py-3 rounded-[11px] transition-all duration-150 cursor-pointer"
+                          style={{ background: "rgba(255,255,255,0.01)", borderRadius: 12 }}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+                          >
+                            <Icon className="w-4 h-4" style={{ color: "rgba(255,255,255,0.40)" }} />
+                          </div>
+                          <span className="text-sm font-medium flex-1" style={{ color: "rgba(255,255,255,0.55)" }}>
+                            {link.name}
+                          </span>
+                        </motion.a>
+                      )}
                     </motion.div>
                   );
                 })}

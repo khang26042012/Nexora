@@ -1,6 +1,6 @@
-import { motion, useMotionValue, useSpring, AnimatePresence } from "framer-motion";
+import { motion, useMotionValue, useSpring, AnimatePresence, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
-import { Mail, Phone, Github, ArrowUpRight, ChevronDown, ExternalLink } from "lucide-react";
+import { Mail, Phone, Github, ChevronDown, ExternalLink } from "lucide-react";
 import {
   FaFacebook, FaTelegram, FaInstagram, FaTiktok,
 } from "react-icons/fa";
@@ -63,6 +63,7 @@ function AnimBorderCard({
   radius = 20,
   innerStyle = {},
   glowOnHover: _goh = false,
+  animate = true,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -71,10 +72,11 @@ function AnimBorderCard({
   radius?: number;
   innerStyle?: React.CSSProperties;
   glowOnHover?: boolean;
+  animate?: boolean;
 }) {
   return (
     <div
-      className={`running-border ${className}`}
+      className={`running-border ${!animate ? "animation-paused" : ""} ${className}`}
       style={{
         "--rb-speed": `${speed}s`,
         "--rb-color": color,
@@ -86,51 +88,6 @@ function AnimBorderCard({
       } as React.CSSProperties}
     >
       {children}
-    </div>
-  );
-}
-
-/* ── Floating Particles ── */
-function FloatingParticles() {
-  const particles = Array.from({ length: 22 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    duration: Math.random() * 12 + 8,
-    delay: Math.random() * 6,
-    opacity: Math.random() * 0.25 + 0.05,
-  }));
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      {particles.map(p => (
-        <motion.div
-          key={p.id}
-          style={{
-            position: "absolute",
-            left: `${p.x}%`,
-            top: `${p.y}%`,
-            width: p.size,
-            height: p.size,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.6)",
-            opacity: p.opacity,
-          }}
-          animate={{
-            y: [0, -60, 0],
-            x: [0, Math.random() * 30 - 15, 0],
-            opacity: [p.opacity, p.opacity * 2.5, p.opacity],
-            scale: [1, 1.4, 1],
-          }}
-          transition={{
-            duration: p.duration,
-            delay: p.delay,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-      ))}
     </div>
   );
 }
@@ -204,6 +161,13 @@ export function Home() {
   const springX = useSpring(mouseX, { stiffness: 50, damping: 20 });
   const springY = useSpring(mouseY, { stiffness: 50, damping: 20 });
 
+  const aboutRef = useRef<HTMLElement>(null);
+  const timelineRef = useRef<HTMLElement>(null);
+  const projectsRef = useRef<HTMLElement>(null);
+  const isAboutInView = useInView(aboutRef, { margin: "0px 0px -100px 0px" });
+  const isTimelineInView = useInView(timelineRef, { margin: "0px 0px -100px 0px" });
+  const isProjectsInView = useInView(projectsRef, { margin: "0px 0px -100px 0px" });
+
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
@@ -239,7 +203,6 @@ export function Home() {
         <MorphOrb x="10%" y="60%" size="40vw" color="radial-gradient(ellipse, rgba(255,255,255,0.02) 0%, transparent 70%)" duration={14} />
       </div>
 
-      <FloatingParticles />
       <ScrollProgress />
       <Navigation />
 
@@ -427,7 +390,7 @@ export function Home() {
       </section>
 
       {/* ══════ GIỚI THIỆU ══════ */}
-      <section id="gioi-thieu" className="relative py-24 px-5">
+      <section ref={aboutRef} id="gioi-thieu" className="relative py-24 px-5">
         <div className="max-w-4xl mx-auto">
           <SectionHeader label="Về mình" title="Giới thiệu" />
 
@@ -439,7 +402,7 @@ export function Home() {
               viewport={{ once: true }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             >
-              <AnimBorderCard speed={6} color="rgba(255,255,255,0.45)" radius={20} innerStyle={{ padding: "28px" }}>
+              <AnimBorderCard speed={6} color="rgba(255,255,255,0.45)" radius={20} innerStyle={{ padding: "28px" }} animate={isAboutInView}>
                 <div className="flex flex-col items-center gap-5">
                   {/* Avatar with mini rings — CSS */}
                   <div style={{ position: "relative" }}>
@@ -517,7 +480,7 @@ export function Home() {
                   viewport={{ once: true }}
                   transition={{ delay: 0.15 + i * 0.12, duration: 0.6 }}
                 >
-                  <AnimBorderCard speed={7 + i * 2} color="rgba(255,255,255,0.35)" radius={16} innerStyle={{ padding: "24px" }}>
+                  <div style={{ ...glass, borderRadius: 16, padding: "24px" }}>
                     <p
                       className="text-white/65 text-sm leading-[1.85] font-light"
                       dangerouslySetInnerHTML={{
@@ -528,7 +491,7 @@ export function Home() {
                           .replace(/<\/b2>/g, "</span>"),
                       }}
                     />
-                  </AnimBorderCard>
+                  </div>
                 </motion.div>
               ))}
 
@@ -539,7 +502,7 @@ export function Home() {
                 viewport={{ once: true }}
                 transition={{ delay: 0.3, duration: 0.6 }}
               >
-                <AnimBorderCard speed={9} color="rgba(255,255,255,0.3)" radius={16} innerStyle={{ padding: "24px" }}>
+                <div style={{ ...glass, borderRadius: 16, padding: "24px" }}>
                   <p className="text-[11px] font-semibold tracking-[0.16em] uppercase text-white/35 mb-3">Kỹ năng</p>
                   <div className="flex flex-wrap gap-2">
                     {SKILLS.map((s, idx) => (
@@ -549,7 +512,7 @@ export function Home() {
                         whileInView={{ opacity: 1, scale: 1 }}
                         viewport={{ once: true }}
                         transition={{ delay: idx * 0.04, duration: 0.3 }}
-                        whileHover={{ scale: 1.08, y: -2 }}
+                        whileHover={{ scale: 1.06 }}
                         className="px-3 py-1 rounded-xl text-xs font-medium text-white/55 cursor-default"
                         style={{
                           background: "rgba(255,255,255,0.06)",
@@ -560,7 +523,7 @@ export function Home() {
                       </motion.span>
                     ))}
                   </div>
-                </AnimBorderCard>
+                </div>
               </motion.div>
             </motion.div>
           </div>
@@ -568,7 +531,7 @@ export function Home() {
       </section>
 
       {/* ══════ LỊCH SỬ ══════ */}
-      <section id="lich-su" className="relative py-24 px-5">
+      <section ref={timelineRef} id="lich-su" className="relative py-24 px-5">
         <div className="max-w-3xl mx-auto">
           <SectionHeader label="Hành trình" title="Lịch sử" />
 
@@ -612,19 +575,18 @@ export function Home() {
                   </div>
 
                   <div className="flex-1">
-                    <AnimBorderCard speed={8 + i} color="rgba(255,255,255,0.3)" radius={16} glowOnHover innerStyle={{ padding: "20px" }}>
+                    <div style={{ ...glass, borderRadius: 16, padding: "20px" }}>
                       <div className="flex items-center gap-3 mb-2">
-                        <motion.span
-                          whileHover={{ scale: 1.05 }}
+                        <span
                           className="text-[11px] font-bold tracking-widest uppercase text-white/40 px-2.5 py-0.5 rounded-lg"
                           style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}
                         >
                           {item.year}
-                        </motion.span>
+                        </span>
                         <h3 className="text-sm font-semibold text-white/85" style={{ fontFamily: FONT }}>{item.title}</h3>
                       </div>
                       <p className="text-sm text-white/45 leading-[1.8] font-light">{item.desc}</p>
-                    </AnimBorderCard>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -634,13 +596,13 @@ export function Home() {
       </section>
 
       {/* ══════ PROJECTS ══════ */}
-      <section id="du-an" className="relative py-24 px-5">
+      <section ref={projectsRef} id="du-an" className="relative py-24 px-5">
         <div className="max-w-4xl mx-auto">
           <SectionHeader label="Dự án" title="Projects" />
 
           <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {PROJECTS.map((p, i) => (
-              <ProjectCard key={i} p={p} i={i} />
+              <ProjectCard key={i} p={p} i={i} animateBorder={isProjectsInView} />
             ))}
           </div>
         </div>
@@ -733,7 +695,7 @@ function SectionHeader({ label, title }: { label: string; title: string }) {
 }
 
 /* ── Project Card ── */
-function ProjectCard({ p, i }: { p: typeof PROJECTS[0]; i: number }) {
+function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i: number; animateBorder?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);
@@ -783,6 +745,7 @@ function ProjectCard({ p, i }: { p: typeof PROJECTS[0]; i: number }) {
         color="rgba(255,255,255,0.5)"
         radius={20}
         glowOnHover
+        animate={animateBorder}
       >
         <motion.div
           style={{ rotateX: springRX, rotateY: springRY, transformStyle: "preserve-3d", padding: "20px" }}
@@ -839,35 +802,31 @@ function ContactCard({ c, i }: { c: typeof CONTACTS[0]; i: number }) {
       href={c.href}
       target={c.href.startsWith("tel:") || c.href.startsWith("mailto:") ? "_self" : "_blank"}
       rel="noopener noreferrer"
-      initial={{ opacity: 0, y: 24, scale: 0.9 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: i * 0.055, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4, scale: 1.03 }}
-      whileTap={{ scale: 0.95 }}
-      style={{ display: "block", position: "relative" }}
+      transition={{ duration: 0.45, delay: i * 0.05 }}
+      style={{ display: "block" }}
     >
-      <AnimBorderCard speed={6 + i * 0.4} color="rgba(255,255,255,0.45)" radius={16} glowOnHover>
-        <div className="group relative flex flex-col items-center gap-2.5 px-3 py-5 text-center">
-          <motion.div
-            whileHover={{ scale: 1.15, rotate: 8 }}
-            transition={{ type: "spring", stiffness: 400, damping: 15 }}
-            className="flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0"
-            style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}
-          >
-            {c.isReactIcon ? (
-              <Icon style={{ color: "rgba(255,255,255,0.65)", fontSize: 18 }} />
-            ) : (
-              <Icon className="w-[18px] h-[18px]" style={{ color: "rgba(255,255,255,0.65)" }} />
-            )}
-          </motion.div>
-          <div className="flex flex-col items-center gap-0.5 min-w-0 w-full">
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-white/30">{c.label}</p>
-            <p className="text-xs font-medium text-white/55 truncate w-full text-center leading-tight" title={c.value}>{c.value}</p>
-          </div>
-          <ArrowUpRight className="absolute top-2.5 right-2.5 w-3 h-3 opacity-0 group-hover:opacity-35 transition-opacity text-white/60" />
+      <div
+        style={{ ...glass, borderRadius: 16 }}
+        className="flex flex-col items-center gap-2.5 px-3 py-5 text-center"
+      >
+        <div
+          className="flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0"
+          style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}
+        >
+          {c.isReactIcon ? (
+            <Icon style={{ color: "rgba(255,255,255,0.65)", fontSize: 18 }} />
+          ) : (
+            <Icon className="w-[18px] h-[18px]" style={{ color: "rgba(255,255,255,0.65)" }} />
+          )}
         </div>
-      </AnimBorderCard>
+        <div className="flex flex-col items-center gap-0.5 min-w-0 w-full">
+          <p className="text-[10px] font-semibold tracking-widest uppercase text-white/30">{c.label}</p>
+          <p className="text-xs font-medium text-white/55 truncate w-full text-center leading-tight" title={c.value}>{c.value}</p>
+        </div>
+      </div>
     </motion.a>
   );
 }

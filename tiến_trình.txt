@@ -1,8 +1,42 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 28 — Running border đúng kiểu)
+  Cập nhật: 10/04/2026 (session 29 — Tối ưu animation hiệu năng)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 29] PERF — Tối ưu animation, giảm lag portfolio
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề: Quá nhiều animation đồng thời → lag trên thiết bị yếu
+
+Đã làm:
+  1. Xóa FloatingParticles (22 Framer Motion anims liên tục) khỏi Home.tsx
+  2. Bio/Skills/Timeline cards: thay AnimBorderCard → plain glass div (không running-border)
+  3. AnimBorderCard dùng prop animate={boolean} để pause/resume:
+     - Thêm prop `animate` vào AnimBorderCard + AnimBorderItem
+     - CSS: .animation-paused::before { animation-play-state: paused }
+     - Avatar card, Project cards chỉ animate khi section đang in viewport (useInView)
+  4. Navigation: chỉ tab active mới có running-border (inactive = plain motion.a)
+  5. ContactCard rewritten: xóa AnimBorderCard, xóa whileHover phức tạp
+     → plain glass div + chỉ fade-in entrance (1 lần, không lặp)
+  6. ProjectCard: truyền animate={isProjectsInView} vào AnimBorderCard
+  7. Xóa import ArrowUpRight không dùng
+
+Kết quả:
+  - Từ ~15+ running-border đồng thời → còn 1-3 (chỉ khi in viewport)
+  - Xóa 22 particle animations
+  - Contact: từ 8 running-border → 0
+  - Menu: từ 6 running-border → 1
+
+Files thay đổi:
+  - apps/portfolio/src/pages/Home.tsx
+  - apps/portfolio/src/components/navigation.tsx
+  - apps/portfolio/src/index.css
+  - .replit
+
+GitHub commit: (session 29)
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 28] FIX — Running border đúng kiểu (mask-composite)
