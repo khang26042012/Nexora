@@ -17,14 +17,13 @@ const NAV_LINKS: NavLink[] = [
   { name: "Tool",        href: "/tool",       icon: Wrench, route: true },
 ];
 
-/* ── Animated Border Ring (for circles) ── */
+/* ── Spin Ring — CSS only (GPU composited, không xoay DOM) ── */
 function SpinRing({ inset, duration, reverse = false, opacity = 0.5, dashed = false }: {
   inset: number; duration: number; reverse?: boolean; opacity?: number; dashed?: boolean;
 }) {
   return (
-    <motion.div
-      animate={{ rotate: reverse ? -360 : 360 }}
-      transition={{ duration, repeat: Infinity, ease: "linear" }}
+    <div
+      className={reverse ? "ring-ccw" : "ring-cw"}
       style={{
         position: "absolute",
         inset,
@@ -35,12 +34,13 @@ function SpinRing({ inset, duration, reverse = false, opacity = 0.5, dashed = fa
         borderTopColor: dashed ? undefined : `rgba(255,255,255,${opacity})`,
         borderRightColor: dashed ? undefined : `rgba(255,255,255,${opacity * 0.3})`,
         pointerEvents: "none",
-      }}
+        "--ring-speed": `${duration}s`,
+      } as React.CSSProperties}
     />
   );
 }
 
-/* ── Animated Border Card (rounded rect) ── */
+/* ── Animated Border Card (CSS @property — không xoay DOM) ── */
 function AnimBorderItem({
   children, speed = 5, color = "rgba(255,255,255,0.4)", radius = 12, isActive = false,
   style: extraStyle = {}, className = "",
@@ -49,19 +49,16 @@ function AnimBorderItem({
   radius?: number; isActive?: boolean; style?: React.CSSProperties; className?: string;
 }) {
   return (
-    <div style={{ position: "relative", borderRadius: radius, padding: "1px", overflow: "hidden", ...extraStyle }}>
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: isActive ? speed : speed * 1.8, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: "absolute",
-          inset: "-100%",
-          background: isActive
-            ? `conic-gradient(from 0deg, transparent 50%, ${color} 68%, rgba(255,255,255,0.9) 75%, ${color} 82%, transparent 92%)`
-            : `conic-gradient(from 0deg, transparent 65%, ${color} 78%, transparent 92%)`,
-        }}
-      />
-      <div className={className} style={{ position: "relative", borderRadius: radius - 1 }}>
+    <div
+      className="anim-border"
+      style={{
+        "--ab-speed": isActive ? `${speed}s` : `${speed * 1.8}s`,
+        "--ab-color": color,
+        "--ab-radius": `${radius}px`,
+        ...extraStyle,
+      } as React.CSSProperties}
+    >
+      <div className={`anim-border-inner ${className}`} style={{ borderRadius: `calc(${radius}px - 1px)` }}>
         {children}
       </div>
     </div>

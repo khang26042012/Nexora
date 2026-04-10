@@ -52,7 +52,7 @@ async function fetchVideoInfo(url: string): Promise<VideoInfo> {
   return data as VideoInfo;
 }
 
-/* ── Animated Border Card ── */
+/* ── Animated Border Card (CSS @property — nhẹ, không xoay DOM) ── */
 function AnimBorderCard({
   children, speed = 5, color = "rgba(255,255,255,0.4)",
   radius = 16, innerStyle = {}, className = "",
@@ -61,16 +61,11 @@ function AnimBorderCard({
   radius?: number; innerStyle?: React.CSSProperties; className?: string;
 }) {
   return (
-    <div style={{ position: "relative", borderRadius: radius, padding: "1px", overflow: "hidden" }}>
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: speed, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: "absolute", inset: "-100%",
-          background: `conic-gradient(from 0deg, transparent 62%, ${color} 76%, transparent 90%)`,
-        }}
-      />
-      <div className={className} style={{ position: "relative", borderRadius: radius - 1, ...innerStyle }}>
+    <div
+      className="anim-border"
+      style={{ "--ab-speed": `${speed}s`, "--ab-color": color, "--ab-radius": `${radius}px` } as React.CSSProperties}
+    >
+      <div className={`anim-border-inner ${className}`} style={innerStyle}>
         {children}
       </div>
     </div>

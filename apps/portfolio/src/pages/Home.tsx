@@ -54,15 +54,15 @@ const glass: React.CSSProperties = {
   WebkitBackdropFilter: "blur(16px)",
 };
 
-/* ── Animated Border Card ── */
+/* ── Animated Border Card (CSS @property — không xoay DOM, nhẹ hơn nhiều) ── */
 function AnimBorderCard({
   children,
   className = "",
   speed = 5,
-  color = "rgba(255,255,255,0.5)",
+  color = "rgba(255,255,255,0.55)",
   radius = 20,
   innerStyle = {},
-  glowOnHover = false,
+  glowOnHover: _goh = false,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -72,36 +72,12 @@ function AnimBorderCard({
   innerStyle?: React.CSSProperties;
   glowOnHover?: boolean;
 }) {
-  const [hovered, setHovered] = useState(false);
   return (
     <div
-      style={{ position: "relative", borderRadius: radius, padding: "1px", overflow: "hidden" }}
-      onMouseEnter={() => glowOnHover && setHovered(true)}
-      onMouseLeave={() => glowOnHover && setHovered(false)}
+      className="anim-border"
+      style={{ "--ab-speed": `${speed}s`, "--ab-color": color, "--ab-radius": `${radius}px` } as React.CSSProperties}
     >
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: speed, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: "absolute",
-          inset: "-100%",
-          background: hovered
-            ? `conic-gradient(from 0deg, transparent 50%, ${color} 68%, rgba(255,255,255,0.9) 75%, ${color} 82%, transparent 92%)`
-            : `conic-gradient(from 0deg, transparent 60%, ${color} 75%, transparent 90%)`,
-          transition: "background 0.3s",
-        }}
-      />
-      <div
-        className={className}
-        style={{
-          position: "relative",
-          borderRadius: radius - 1,
-          background: "rgba(255,255,255,0.04)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          ...innerStyle,
-        }}
-      >
+      <div className={`anim-border-inner ${className}`} style={innerStyle}>
         {children}
       </div>
     </div>
@@ -278,20 +254,19 @@ export function Home() {
             x={springX}
             y={springY}
           >
-            {/* Outer dashed ring - counter-rotate */}
-            <motion.div
-              animate={{ rotate: -360 }}
-              transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            {/* Outer dashed ring — CSS ccw */}
+            <div
+              className="ring-ccw"
               style={{
                 position: "absolute", inset: -22, borderRadius: "50%",
                 border: "1px dashed rgba(255,255,255,0.18)",
-              }}
+                "--ring-speed": "25s",
+              } as React.CSSProperties}
             />
 
-            {/* Middle scan ring */}
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
+            {/* Middle scan ring — CSS cw */}
+            <div
+              className="ring-cw"
               style={{
                 position: "absolute", inset: -14, borderRadius: "50%",
                 border: "2px solid transparent",
@@ -299,13 +274,13 @@ export function Home() {
                 borderRightColor: "rgba(255,255,255,0.2)",
                 borderBottomColor: "transparent",
                 borderLeftColor: "rgba(255,255,255,0.1)",
-              }}
+                "--ring-speed": "9s",
+              } as React.CSSProperties}
             />
 
-            {/* Inner ring */}
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+            {/* Inner ring — CSS cw fast */}
+            <div
+              className="ring-cw"
               style={{
                 position: "absolute", inset: -6, borderRadius: "50%",
                 border: "1.5px solid transparent",
@@ -313,7 +288,8 @@ export function Home() {
                 borderRightColor: "transparent",
                 borderBottomColor: "rgba(255,255,255,0.2)",
                 borderLeftColor: "transparent",
-              }}
+                "--ring-speed": "5s",
+              } as React.CSSProperties}
             />
 
             {/* Pulse glow */}
@@ -459,25 +435,25 @@ export function Home() {
             >
               <AnimBorderCard speed={6} color="rgba(255,255,255,0.45)" radius={20} innerStyle={{ padding: "28px" }}>
                 <div className="flex flex-col items-center gap-5">
-                  {/* Avatar with mini rings */}
+                  {/* Avatar with mini rings — CSS */}
                   <div style={{ position: "relative" }}>
-                    <motion.div
-                      animate={{ rotate: -360 }}
-                      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    <div
+                      className="ring-ccw"
                       style={{
                         position: "absolute", inset: -10, borderRadius: "14px",
                         border: "1px dashed rgba(255,255,255,0.15)",
-                      }}
+                        "--ring-speed": "20s",
+                      } as React.CSSProperties}
                     />
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 7, repeat: Infinity, ease: "linear" }}
+                    <div
+                      className="ring-cw"
                       style={{
                         position: "absolute", inset: -5, borderRadius: "18px",
                         border: "1.5px solid transparent",
                         borderTopColor: "rgba(255,255,255,0.5)",
                         borderRightColor: "rgba(255,255,255,0.15)",
-                      }}
+                        "--ring-speed": "7s",
+                      } as React.CSSProperties}
                     />
                     <div
                       className="rounded-2xl overflow-hidden"

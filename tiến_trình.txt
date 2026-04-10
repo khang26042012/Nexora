@@ -1,8 +1,109 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 25 — Task #2)
+  Cập nhật: 10/04/2026 (session 27 — Fix AnimBorderCard lag)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 27] FIX — AnimBorderCard lag (CSS @property)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - AnimBorderCard dùng framer-motion rotate 360 trên div lớn inset: -100%
+  - Mỗi card = 1 div oversized xoay liên tục → nhiều card cùng xoay → lag
+
+Fix:
+  - Dùng CSS @property --ab-angle (typed angle, browser animate native)
+  - conic-gradient(from var(--ab-angle), ...) thay conic-gradient xoay DOM
+  - Không còn DOM element nào xoay → GPU handle hoàn toàn
+  - Tương tự: SpinRing (avatar rings) đổi sang @keyframes ring-cw/ring-ccw
+    → CSS transform rotate → vẫn GPU composited
+
+CSS thêm vào index.css:
+  @property --ab-angle { syntax: '<angle>'; ... }
+  @keyframes ab-spin { to { --ab-angle: 360deg } }
+  .anim-border { padding: 1px; background: conic-gradient(from var(--ab-angle),...) }
+  .anim-border-inner { backdrop-filter: blur(16px) }
+  @keyframes ring-cw/ring-ccw
+  .ring-cw / .ring-ccw { animation: ring-cw/ccw var(--ring-speed) linear infinite }
+
+Files thay đổi:
+  - apps/portfolio/src/index.css (thêm CSS @property animation)
+  - apps/portfolio/src/pages/Home.tsx (AnimBorderCard + 5 avatar rings → CSS)
+  - apps/portfolio/src/components/navigation.tsx (SpinRing + AnimBorderItem → CSS)
+  - apps/portfolio/src/pages/Tool.tsx (AnimBorderCard → CSS)
+  - apps/portfolio/src/pages/tools/YtDownloader.tsx (AnimBorderCard → CSS)
+
+Portfolio: RUNNING ✅ (apps/portfolio: web, port 21113)
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 26] Task #6 — Portfolio Heavy Animation Overhaul
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. Avatar Hero — 3 rings xoay bao bọc:
+     - Ring ngoài: dashed, counter-rotate chậm (25s)
+     - Ring giữa: solid, xoay nhanh (9s) với border gradient
+     - Ring trong: xoay rất nhanh (5s), mỏng
+     - Pulse glow 2 lớp với độ trễ lệch pha
+     - Online dot có animation pulse
+     - Parallax mouse-follow dùng useSpring
+
+  2. Năm sinh: 2007 → 2012
+
+  3. AnimBorderCard component (dùng lại toàn bộ):
+     - Rotating conic-gradient border (1px padding, inset -100%)
+     - Tốc độ tăng khi hover
+     - Áp dụng cho: tất cả timeline cards, project cards,
+       contact cards, bio cards, skill section, CTA button
+
+  4. Navigation menu avatar:
+     - Thay icon "N" bằng ảnh avatar thật của Khang
+     - 2 rings xoay bao bọc (dashed + solid)
+     - Pulse glow
+     - Online dot animated
+     - AnimBorderItem áp dụng cho mỗi nav item
+
+  5. Tool.tsx: đổi toàn bộ màu tím (#7c3aed, #a78bfa) → đen/trắng
+     - iconColor, iconBg, iconBorder, tagColor → monochrome
+     - Background → #050505
+     - Tất cả accent violet → rgba(255,255,255,0.x)
+     - AnimBorderCard cho search bar và tool cards
+     - 3D tilt với useSpring
+     - Floating particles, morphing orbs
+
+  6. YtDownloader.tsx: đổi màu tím → đen/trắng
+     - Download button: gradient tím → monochrome glass
+     - Input focus → white glow thay vì purple
+     - Quality buttons: purple active → white active
+     - AnimBorderCard cho input, icon header, download button
+     - Floating particles, animated orbs
+
+  7. Thêm rất nhiều animation (req #6):
+     - FloatingParticles (22 hạt bay)
+     - ScrollProgress bar (top of page)
+     - MorphOrb (3 orbs biến dạng liên tục)
+     - AnimCounter (đếm số: 3+ năm, 10+ projects)
+     - Mouse parallax trên hero
+     - SectionHeader: character-by-character reveal
+     - Skills chips: stagger + spring hover
+     - Timeline dots: scale bounce khi xuất hiện
+     - Project cards: 3D tilt dùng useSpring
+     - Contact cards: whileHover y-4 + scale + icon rotate
+     - Nav close button: rotate 90° on hover
+     - Orbs in Tool/YtDownloader animate scale+opacity
+     - Sparkles icon shake animation
+     - Platform badges animate on mount
+
+Files thay đổi:
+  - apps/portfolio/src/pages/Home.tsx (viết lại)
+  - apps/portfolio/src/components/navigation.tsx (viết lại)
+  - apps/portfolio/src/pages/Tool.tsx (viết lại)
+  - apps/portfolio/src/pages/tools/YtDownloader.tsx (viết lại)
+
+GitHub commit: 0f9c00d50a9af29f2acfd80c39927faa19771d7f
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 25] Task #2 — Portfolio Full Page Redesign

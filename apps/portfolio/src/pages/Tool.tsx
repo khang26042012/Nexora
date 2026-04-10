@@ -21,32 +21,20 @@ const TOOLS = [
   },
 ];
 
-/* ── Animated Border Card ── */
+/* ── Animated Border Card (CSS @property — nhẹ, không xoay DOM) ── */
 function AnimBorderCard({
   children, speed = 5, color = "rgba(255,255,255,0.45)",
-  radius = 16, glowOnHover = false, className = "", innerStyle = {},
+  radius = 16, glowOnHover: _goh = false, className = "", innerStyle = {},
 }: {
   children: React.ReactNode; speed?: number; color?: string;
   radius?: number; glowOnHover?: boolean; className?: string; innerStyle?: React.CSSProperties;
 }) {
-  const [hov, setHov] = useState(false);
   return (
     <div
-      style={{ position: "relative", borderRadius: radius, padding: "1px", overflow: "hidden" }}
-      onMouseEnter={() => glowOnHover && setHov(true)}
-      onMouseLeave={() => glowOnHover && setHov(false)}
+      className="anim-border"
+      style={{ "--ab-speed": `${speed}s`, "--ab-color": color, "--ab-radius": `${radius}px` } as React.CSSProperties}
     >
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: hov ? speed * 0.6 : speed, repeat: Infinity, ease: "linear" }}
-        style={{
-          position: "absolute", inset: "-100%",
-          background: hov
-            ? `conic-gradient(from 0deg, transparent 50%, ${color} 65%, rgba(255,255,255,0.85) 73%, ${color} 80%, transparent 92%)`
-            : `conic-gradient(from 0deg, transparent 62%, ${color} 76%, transparent 90%)`,
-        }}
-      />
-      <div className={className} style={{ position: "relative", borderRadius: radius - 1, ...innerStyle }}>
+      <div className={`anim-border-inner ${className}`} style={innerStyle}>
         {children}
       </div>
     </div>

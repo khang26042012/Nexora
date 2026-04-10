@@ -133,6 +133,58 @@
   background: linear-gradient(to bottom, rgba(160,100,255,0.6), rgba(100,20,240,0.5));
 }
 
+/* ─── Animated Border (CSS @property — no DOM rotation, GPU-friendly) ─── */
+@property --ab-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes ab-spin {
+  to { --ab-angle: 360deg; }
+}
+
+@keyframes ab-spin-ccw {
+  to { --ab-angle: -360deg; }
+}
+
+/* card border */
+.anim-border {
+  --ab-speed: 4s;
+  --ab-color: rgba(255,255,255,0.55);
+  --ab-radius: 20px;
+  position: relative;
+  padding: 1px;
+  border-radius: var(--ab-radius);
+  background: conic-gradient(
+    from var(--ab-angle),
+    transparent 0%,
+    transparent 68%,
+    var(--ab-color) 79%,
+    rgba(255,255,255,0.92) 84%,
+    var(--ab-color) 89%,
+    transparent 100%
+  );
+  animation: ab-spin var(--ab-speed) linear infinite;
+}
+
+.anim-border-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--ab-radius) - 1px);
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ring animations for avatar */
+@keyframes ring-cw  { to { transform: rotate(360deg);  } }
+@keyframes ring-ccw { to { transform: rotate(-360deg); } }
+
+.ring-cw  { animation: ring-cw  var(--ring-speed, 8s) linear infinite; }
+.ring-ccw { animation: ring-ccw var(--ring-speed, 20s) linear infinite; }
+
 /* ─── Arcane keyframes ─── */
 @keyframes arcane-pulse {
   0%, 100% { opacity: 0.6; transform: scale(1); }
