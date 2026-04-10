@@ -337,8 +337,26 @@ export function Home() {
             >
               <AnimBorderCard speed={6} color="rgba(255,255,255,0.45)" radius={20} innerStyle={{ padding: "28px" }} animate={isAboutInView}>
                 <div className="flex flex-col items-center gap-5">
-                  {/* Avatar — không có mini rings để tránh will-change chồng chéo */}
+                  {/* Avatar with mini rings */}
                   <div style={{ position: "relative" }}>
+                    <div
+                      className="ring-ccw"
+                      style={{
+                        position: "absolute", inset: -10, borderRadius: "14px",
+                        border: "1px dashed rgba(255,255,255,0.15)",
+                        "--ring-speed": "20s",
+                      } as React.CSSProperties}
+                    />
+                    <div
+                      className="ring-cw"
+                      style={{
+                        position: "absolute", inset: -5, borderRadius: "18px",
+                        border: "1.5px solid transparent",
+                        borderTopColor: "rgba(255,255,255,0.5)",
+                        borderRightColor: "rgba(255,255,255,0.15)",
+                        "--ring-speed": "7s",
+                      } as React.CSSProperties}
+                    />
                     <div
                       className="rounded-2xl overflow-hidden"
                       style={{ width: 140, height: 140, border: "2px solid rgba(255,255,255,0.18)" }}
