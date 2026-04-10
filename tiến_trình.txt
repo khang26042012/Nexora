@@ -1,8 +1,53 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 29 — Tối ưu animation hiệu năng)
+  Cập nhật: 10/04/2026 (session 30 — Fix lag triệt để toàn bộ Home.tsx)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 30] PERF — Fix lag triệt để portfolio (session 29 hết quota giữa chừng)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề (session 29 phát hiện, session 30 hoàn thiện):
+  1. backdropFilter: blur(16px) trong AnimBorderCard — killer #1 trên mobile
+  2. MorphOrb x3 — filter: blur(80px) + Framer Motion animate liên tục
+  3. Video CSS filter — brightness+grayscale mỗi frame (GPU tốn)
+  4. ~6 Framer Motion animate loops chạy vĩnh viễn:
+     - Avatar pulse glow (2 divs)
+     - Online dot scale pulse
+     - Badge dot opacity blink
+     - Tagline spans opacity pulse
+     - ChevronDown y bounce
+     - LIVE badge dot blink
+
+Đã fix:
+  1. AnimBorderCard: xóa backdropFilter hoàn toàn, chỉ giữ background solid
+  2. Xóa toàn bộ MorphOrb component + 3 instances khỏi JSX
+  3. Video: đổi filter CSS → opacity: 0.38 + tăng overlay rgba(0,0,0,0.65)
+  4. Xóa 6 animate loops:
+     - 2 pulse glow divs → xóa hẳn
+     - Online dot → <span> tĩnh
+     - Badge dot → <span> tĩnh
+     - Tagline spans → <span> HTML tĩnh
+     - ChevronDown → static icon (không bounce)
+     - LIVE badge dot → <span> tĩnh
+  5. Footer: xóa backdropFilter
+  6. Avatar trong giới-thiệu: xóa 2 mini rings (giảm will-change overlap)
+  7. ScrollProgress: đổi motion.div → plain <div> với width state
+  8. ProjectCard: xóa hover glow AnimatePresence + filter: blur(10px)
+  9. Xóa import AnimatePresence, useMotionValue (hero), springX/Y, handleMouseMove hero
+
+Kết quả:
+  - Từ ~6 Framer Motion loops liên tục → 0
+  - Xóa 3 filter: blur(80px) (MorphOrb)
+  - Xóa backdropFilter khỏi mọi AnimBorderCard card
+  - CSS rings (ring-cw/ring-ccw) giữ nguyên → GPU composited, không tốn JS
+
+Files thay đổi:
+  - apps/portfolio/src/pages/Home.tsx (rewrite)
+
+GitHub commit: d3cf4f6fced3f70a60b9264043c8593b824851b4
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 29] PERF — Tối ưu animation, giảm lag portfolio
