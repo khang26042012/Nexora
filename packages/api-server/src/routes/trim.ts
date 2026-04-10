@@ -7,6 +7,9 @@ import os from "os";
 import https from "https";
 import http from "http";
 
+/* __dirname được set trong banner của build.mjs → trỏ đến thư mục dist/ */
+declare const __dirname: string;
+
 const router = Router();
 
 /* ══════════════════════════════════════════════════════════════════
@@ -30,13 +33,15 @@ function tryBin(p: string): boolean {
 
 function findNative(): string | null {
   const candidates: string[] = [
+    /* dist/ffmpeg — bundled lúc build bởi build.mjs (ưu tiên cao nhất) */
+    path.join(__dirname, "ffmpeg"),
     process.env["FFMPEG_PATH"] ?? "",
     "/usr/bin/ffmpeg",
     "/usr/local/bin/ffmpeg",
   ];
   try {
     const w = execFileSync("which", ["ffmpeg"], { timeout: 3_000, stdio: "pipe" }).toString().trim();
-    if (w) candidates.unshift(w);
+    if (w) candidates.push(w);
   } catch {}
   for (const p of candidates) {
     if (p && tryBin(p)) return p;

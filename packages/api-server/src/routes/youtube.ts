@@ -5,6 +5,9 @@ import fs from "fs";
 import https from "https";
 import http from "http";
 
+/* __dirname được set trong banner của build.mjs → trỏ đến thư mục dist/ */
+declare const __dirname: string;
+
 const router = Router();
 
 /* ── Cookie setup ──────────────────────────────────────────────
@@ -176,8 +179,10 @@ let _ffmpegReady: string | null = null;
 let _ffmpegDownloading = false;
 
 function findNativeFfmpeg(): string | null {
-  /* Thử các path phổ biến + which */
-  const candidates = [
+  /* Ưu tiên: 1) bundled dist/ffmpeg  2) FFMPEG_PATH env  3) which  4) common paths */
+  const candidates: string[] = [
+    /* dist/ffmpeg — được copy/download lúc build bởi build.mjs */
+    path.join(__dirname, "ffmpeg"),
     process.env["FFMPEG_PATH"] ?? "",
     "/usr/bin/ffmpeg",
     "/usr/local/bin/ffmpeg",
@@ -185,7 +190,7 @@ function findNativeFfmpeg(): string | null {
   /* Replit đặt ffmpeg trong nix store, có sẵn qua PATH */
   try {
     const found = execFileSync("which", ["ffmpeg"], { timeout: 3_000, stdio: "pipe" }).toString().trim();
-    if (found) candidates.unshift(found);
+    if (found) candidates.push(found);
   } catch {}
 
   for (const p of candidates) {

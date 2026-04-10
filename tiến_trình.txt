@@ -1,8 +1,35 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 31 — Thêm lại avatar animation + scroll reveal 2 chiều)
+  Cập nhật: 10/04/2026 (session 32 — MIGRATION Replit environment mới lần 8)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 32] MIGRATION — Replit environment mới (lần 8)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → 740 packages OK
+  2. pnpm rebuild better-sqlite3 → build/Release/better_sqlite3.node ✅
+  3. Restart "apps/portfolio: web" (port 21113) → RUNNING ✅
+  4. Restart "packages/api-server: API Server" (port 8080) → RUNNING ✅
+  5. Gửi Telegram thông báo hoàn tất ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - SQLite DB initialized ✅
+  - WebSocket /ws + /ws-browser: sẵn sàng ✅
+  - ffmpeg native: /nix/store/.../bin/ffmpeg ✅
+  - yt-dlp: ready ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt
+
+WARN (không phải lỗi):
+  - NexoraGarden dist not found → bình thường dev mode
+  - Portfolio dist not found → bình thường dev mode
+  - attached_assets/* workflows: NOT_STARTED → bình thường (file tham khảo cũ)
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 31] FEAT — Thêm lại avatar animation + scroll reveal 2 chiều

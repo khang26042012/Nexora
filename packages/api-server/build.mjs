@@ -3,12 +3,125 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, chmod } from "node:fs/promises";
+import { existsSync, createWriteStream, renameSync, unlinkSync } from "node:fs";
+import { execFileSync, execFile } from "node:child_process";
+import https from "node:https";
 
-// Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+
+/* ── Tìm native ffmpeg trên host ── */
+function findNativeFfmpeg() {
+  try {
+    const found = execFileSync("which", ["ffmpeg"], { timeout: 3_000, stdio: "pipe" }).toString().trim();
+    if (found) {
+      execFileSync(found, ["-version"], { timeout: 3_000, stdio: "pipe" });
+      return found;
+    }
+  } catch {}
+  for (const p of ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg"]) {
+    try { execFileSync(p, ["-version"], { timeout: 3_000, stdio: "pipe" }); return p; } catch {}
+  }
+  return null;
+}
+
+/* ── Download file với redirect support ── */
+function downloadFile(url, dest) {
+  return new Promise((resolve, reject) => {
+    const tmp = dest + ".tmp";
+    const file = createWriteStream(tmp);
+    const get = (u) => https.get(u, { timeout: 120_000 }, (res) => {
+      if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
+        res.resume();
+        return get(res.headers.location);
+      }
+      if (res.statusCode !== 200) {
+        res.resume(); file.destroy();
+        try { unlinkSync(tmp); } catch {}
+        return reject(new Error(`HTTP ${res.statusCode} from ${u}`));
+      }
+      let downloaded = 0;
+      res.on("data", (chunk) => {
+        downloaded += chunk.length;
+        if (downloaded % (5 * 1024 * 1024) < chunk.length) {
+          process.stdout.write(`\r[build] ffmpeg: ${(downloaded / 1024 / 1024).toFixed(1)}MB downloaded...`);
+        }
+      });
+      res.pipe(file);
+      file.on("finish", () => {
+        process.stdout.write("\n");
+        try { renameSync(tmp, dest); resolve(); } catch (e) { reject(e); }
+      });
+      file.on("error", (e) => { try { unlinkSync(tmp); } catch {} reject(e); });
+    }).on("error", (e) => { file.destroy(); try { unlinkSync(tmp); } catch {} reject(e); });
+    get(url);
+  });
+}
+
+/* ── Download & bundle ffmpeg vào dist/ ── */
+async function downloadFfmpeg(distDir) {
+  const destBin = path.join(distDir, "ffmpeg");
+
+  if (existsSync(destBin)) {
+    try {
+      execFileSync(destBin, ["-version"], { timeout: 3_000, stdio: "pipe" });
+      console.log("[build] ffmpeg already bundled at dist/ffmpeg ✅");
+      return;
+    } catch {
+      unlinkSync(destBin); // binary hỏng → xóa, download lại
+    }
+  }
+
+  /* Nếu host có native ffmpeg (Replit) → copy vào dist/ để server dùng luôn */
+  const native = findNativeFfmpeg();
+  if (native) {
+    console.log("[build] native ffmpeg found:", native, "— copying to dist/ffmpeg…");
+    try {
+      const { copyFileSync } = await import("node:fs");
+      copyFileSync(native, destBin);
+      await chmod(destBin, 0o755);
+      console.log("[build] ffmpeg bundled → dist/ffmpeg ✅");
+      return;
+    } catch (e) {
+      console.warn("[build] could not copy native ffmpeg:", e.message, "— server will use native directly");
+      return;
+    }
+  }
+
+  /* Không có native → download static binary (cho Render/Railway) */
+  const FFMPEG_URL = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz";
+  const tarPath = path.join(distDir, "ffmpeg.tar.xz");
+
+  console.log("[build] No native ffmpeg — downloading static binary for deployment (~40MB)…");
+  console.log("[build] URL:", FFMPEG_URL);
+
+  try {
+    await downloadFile(FFMPEG_URL, tarPath);
+    console.log("[build] Extracting ffmpeg binary…");
+
+    await new Promise((resolve, reject) => {
+      execFile("tar", [
+        "-xJf", tarPath, "-C", distDir,
+        "--wildcards", "--no-anchored", "*/ffmpeg",
+        "--strip-components=2",
+      ], { timeout: 180_000 }, (err) => err ? reject(err) : resolve(undefined));
+    });
+
+    try { unlinkSync(tarPath); } catch {}
+
+    if (existsSync(destBin)) {
+      await chmod(destBin, 0o755);
+      console.log("[build] ffmpeg static binary bundled → dist/ffmpeg ✅");
+    } else {
+      console.warn("[build] ffmpeg binary not found after extract — server will download at runtime");
+    }
+  } catch (e) {
+    try { unlinkSync(tarPath); } catch {}
+    console.warn("[build] ffmpeg download failed:", e.message, "— server will download at runtime");
+  }
+}
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
@@ -22,11 +135,6 @@ async function buildAll() {
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
-    // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
-    // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
-    // Examples of unbundleable packages:
-    // - uses native modules and loads them dynamically (e.g. sharp)
-    // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
       "*.node",
       "sharp",
@@ -103,10 +211,8 @@ async function buildAll() {
     ],
     sourcemap: "linked",
     plugins: [
-      // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
       esbuildPluginPino({ transports: ["pino-pretty"] })
     ],
-    // Make sure packages that are cjs only (e.g. express) but are bundled continue to work in our esm output file
     banner: {
       js: `import { createRequire as __bannerCrReq } from 'node:module';
 import __bannerPath from 'node:path';
@@ -118,6 +224,9 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  /* Bundle ffmpeg vào dist/ sau khi esbuild xong */
+  await downloadFfmpeg(distDir);
 }
 
 buildAll().catch((err) => {
