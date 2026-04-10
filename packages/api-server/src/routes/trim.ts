@@ -1,48 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
-import { execFileSync, execFile } from "child_process";
+import { execFile } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { getFfmpegBin, ensureFfmpeg } from "./youtube.js";
 
 const router = Router();
-
-/* ── ffmpeg detection (chạy 1 lần khi module load, cache lại) ──────────────
- *  Thứ tự ưu tiên:
- *  1. Env var FFMPEG_PATH
- *  2. which ffmpeg (Replit nix store, Linux native)
- *  3. /usr/bin/ffmpeg, /usr/local/bin/ffmpeg
- *  4. /tmp/yt-ffmpeg — binary đã download bởi youtube.ts (Render)
- * ────────────────────────────────────────────────────────────────────────── */
-function detectFfmpeg(): string | null {
-  const candidates: string[] = [];
-
-  if (process.env["FFMPEG_PATH"]) candidates.push(process.env["FFMPEG_PATH"]);
-
-  try {
-    const found = execFileSync("which", ["ffmpeg"], {
-      timeout: 3_000,
-      stdio: "pipe",
-    })
-      .toString()
-      .trim();
-    if (found) candidates.push(found);
-  } catch {}
-
-  candidates.push("/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/tmp/yt-ffmpeg");
-
-  for (const p of candidates) {
-    if (!p) continue;
-    try {
-      execFileSync(p, ["-version"], { timeout: 3_000, stdio: "pipe" });
-      return p;
-    } catch {}
-  }
-  return null;
-}
-
-const FFMPEG_PATH = detectFfmpeg();
-console.log("[trim] ffmpeg:", FFMPEG_PATH ?? "NOT FOUND");
 
 /* ── Multer config ─────────────────────────────────────────────────────── */
 const upload = multer({
@@ -54,8 +18,23 @@ const upload = multer({
   },
 });
 
+/* ── Chờ ffmpeg sẵn sàng (polling tối đa 90s) ─────────────────────────── */
+function waitForFfmpeg(timeoutMs = 90_000): Promise<string | null> {
+  ensureFfmpeg(); // kick download nếu chưa bắt đầu
+  const start = Date.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      const bin = getFfmpegBin();
+      if (bin) return resolve(bin);
+      if (Date.now() - start >= timeoutMs) return resolve(null);
+      setTimeout(check, 2_000);
+    };
+    check();
+  });
+}
+
 /* ── POST /api/trim ─────────────────────────────────────────────────────── */
-router.post("/trim", upload.single("video"), (req: Request, res: Response) => {
+router.post("/trim", upload.single("video"), async (req: Request, res: Response) => {
   const file = req.file;
   if (!file) {
     res.status(400).json({ error: "Không có file video" });
@@ -71,13 +50,13 @@ router.post("/trim", upload.single("video"), (req: Request, res: Response) => {
     return;
   }
 
-  /* ffmpeg có sẵn không? Nếu chưa có lúc khởi động, thử lại một lần */
-  const ffmpeg = FFMPEG_PATH ?? detectFfmpeg();
+  /* Chờ ffmpeg — dùng chung state từ youtube router (đã download sẵn) */
+  const ffmpeg = await waitForFfmpeg(90_000);
   if (!ffmpeg) {
     fs.unlink(file.path, () => {});
-    res
-      .status(503)
-      .json({ error: "ffmpeg chưa sẵn sàng, thử lại sau vài giây" });
+    res.status(503).json({
+      error: "ffmpeg đang được tải về server, vui lòng thử lại sau 1-2 phút",
+    });
     return;
   }
 
@@ -90,16 +69,11 @@ router.post("/trim", upload.single("video"), (req: Request, res: Response) => {
 
   const args = [
     "-y",
-    "-i",
-    file.path,
-    "-ss",
-    String(startSec),
-    "-t",
-    String(duration),
-    "-c",
-    "copy",
-    "-avoid_negative_ts",
-    "1",
+    "-i", file.path,
+    "-ss", String(startSec),
+    "-t", String(duration),
+    "-c", "copy",
+    "-avoid_negative_ts", "1",
     outPath,
   ];
 
@@ -109,9 +83,7 @@ router.post("/trim", upload.single("video"), (req: Request, res: Response) => {
     if (err) {
       fs.unlink(outPath, () => {});
       res.status(500).json({
-        error:
-          "Cắt video thất bại: " +
-          (err.message ?? "lỗi không xác định"),
+        error: "Cắt video thất bại: " + (err.message ?? "lỗi không xác định"),
       });
       return;
     }

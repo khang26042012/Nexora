@@ -682,4 +682,14 @@ router.get("/download", async (req, res) => {
   }
 });
 
+/** Trả về path ffmpeg đang dùng (null nếu chưa sẵn sàng) */
+export function getFfmpegBin(): string | null {
+  return _ffmpegReady;
+}
+
+/** Kick download nếu chưa có, dùng cho các module khác (trim.ts) */
+export function ensureFfmpeg(): void {
+  if (!_ffmpegReady && !_ffmpegDownloading) kickFfmpegDownload();
+}
+
 export default router;
