@@ -1,8 +1,72 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 09/04/2026 (session 21)
+  Cập nhật: 10/04/2026 (session 22)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 22b] PORTFOLIO HOME REDESIGN — Glass Morphism
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. Xóa toàn bộ giao diện Home cũ
+  2. Tạo Three.js scene mới (GlassScene.tsx):
+     - Aurora ribbons (5 dải sóng màu)
+     - Floating glowing orbs (5 quả cầu phát sáng)
+     - Neural particles (280 hạt nổi trôi)
+     - Shooting stars
+     - Camera parallax theo chuột
+  3. Avatar mới: IMG_20260410_113130_1775795500020.jpg
+     → copy → apps/portfolio/src/assets/avatar_new.jpg
+  4. Animation bao bọc avatar:
+     - Ring gradient xoay (12s/vòng)
+     - Ring ngược chiều (20s/vòng, đứt đoạn)
+     - 10 chấm bi xanh/tím xoay quanh (28s)
+     - 6 chấm bi xanh lá ngược chiều (18s)
+     - Pulse rings nhấp nháy (2.5s chu kỳ)
+     - Glow halo radial gradient
+  5. Glass morphism toàn trang: bo tròn, backdrop-blur, border white/10
+  6. Liên hệ đầy đủ 7 kênh: GitHub, Email, Facebook, Telegram,
+     SĐT/Zalo, Instagram, TikTok
+  7. Task #1 "Portfolio Home Redesign" đã tạo trong project tasks
+
+Files thay đổi:
+  - apps/portfolio/src/pages/Home.tsx (viết lại hoàn toàn)
+  - apps/portfolio/src/components/GlassScene.tsx (tạo mới)
+  - apps/portfolio/src/assets/avatar_new.jpg (ảnh mới)
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 22] MIGRATION — Replit environment mới (lần 6)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install → 730 packages OK
+  2. npm install -g node-gyp
+  3. Rebuild better-sqlite3 native binary:
+     - node-gyp configure (trong better-sqlite3 dir)
+     - node-gyp build (chạy background ~90s)
+     → build/Release/better_sqlite3.node ✅
+  4. Restart "Start application" (Portfolio) → RUNNING ✅
+  5. Tạo lại workflow "API Server":
+     - Lệnh: PORT=8080 pnpm --filter @workspace/api-server run dev
+     → RUNNING ✅
+  6. Gửi Telegram thông báo hoàn tất ✅
+
+Kết quả:
+  - Portfolio: RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - SQLite DB initialized ✅
+
+Lưu ý mỗi khi env reset (lần 6 rồi, cần làm quen):
+  1. pnpm install
+  2. npm install -g node-gyp
+  3. cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3
+     node-gyp configure && node-gyp build (chạy background ~90s)
+  4. Restart "Start application" + tạo lại "API Server" workflow
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [09/04/2026 session 21] MIGRATION — Replit environment mới (lần 5)
