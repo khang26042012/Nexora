@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useSpring, AnimatePresence, useInView } from "framer-motion";
+import { motion, useMotionValue, useSpring, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 import { Mail, Phone, Github, ChevronDown, ExternalLink } from "lucide-react";
 import {
@@ -50,11 +50,9 @@ const glass: React.CSSProperties = {
   background: "rgba(255,255,255,0.05)",
   border: "1px solid rgba(255,255,255,0.12)",
   borderRadius: 20,
-  backdropFilter: "blur(16px)",
-  WebkitBackdropFilter: "blur(16px)",
 };
 
-/* ── Animated Border Card — một đường sáng ngắn chạy theo viền (mask-composite) ── */
+/* ── Animated Border Card — không backdropFilter, dùng background thay thế ── */
 function AnimBorderCard({
   children,
   className = "",
@@ -82,8 +80,6 @@ function AnimBorderCard({
         "--rb-color": color,
         "--rb-radius": `${radius}px`,
         background: "rgba(255,255,255,0.04)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
         ...innerStyle,
       } as React.CSSProperties}
     >
@@ -105,28 +101,10 @@ function ScrollProgress() {
   }, []);
   return (
     <div className="fixed top-0 left-0 right-0 z-50 h-[2px]" style={{ background: "rgba(255,255,255,0.05)" }}>
-      <motion.div
-        style={{ height: "100%", width: `${progress * 100}%`, background: "rgba(255,255,255,0.5)", transformOrigin: "left" }}
-        transition={{ ease: "linear" }}
+      <div
+        style={{ height: "100%", width: `${progress * 100}%`, background: "rgba(255,255,255,0.5)" }}
       />
     </div>
-  );
-}
-
-/* ── Morphing Orb ── */
-function MorphOrb({ x, y, size, color, duration }: { x: string; y: string; size: string; color: string; duration: number }) {
-  return (
-    <motion.div
-      className="absolute pointer-events-none rounded-full"
-      style={{ left: x, top: y, width: size, height: size, background: color, filter: "blur(80px)" }}
-      animate={{
-        scale: [1, 1.3, 0.85, 1.15, 1],
-        x: [0, 40, -30, 20, 0],
-        y: [0, -30, 40, -20, 0],
-        opacity: [0.4, 0.7, 0.35, 0.6, 0.4],
-      }}
-      transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
-    />
   );
 }
 
@@ -156,10 +134,6 @@ function AnimCounter({ target, suffix = "" }: { target: number; suffix?: string 
 
 export function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const springX = useSpring(mouseX, { stiffness: 50, damping: 20 });
-  const springY = useSpring(mouseY, { stiffness: 50, damping: 20 });
 
   const aboutRef = useRef<HTMLElement>(null);
   const timelineRef = useRef<HTMLElement>(null);
@@ -174,33 +148,20 @@ export function Home() {
     vid.play().catch(() => {});
   }, []);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    mouseX.set((e.clientX - rect.width / 2) * 0.015);
-    mouseY.set((e.clientY - rect.height / 2) * 0.015);
-  };
-
   return (
     <div className="min-h-screen text-white overflow-x-hidden" style={{ fontFamily: FONT, background: "rgba(0,0,0,0.0)" }}>
 
-      {/* ── FIXED VIDEO BACKGROUND ── */}
+      {/* ── FIXED VIDEO BACKGROUND — không dùng CSS filter ── */}
       <div className="fixed inset-0" style={{ zIndex: -2 }}>
         <video
           ref={videoRef}
           autoPlay loop muted playsInline
           className="w-full h-full object-cover"
-          style={{ filter: "brightness(0.38) grayscale(0.2)" }}
+          style={{ opacity: 0.38 }}
         >
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
-        <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)" }} />
-      </div>
-
-      {/* ── MORPHING ORBS ── */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: -1 }}>
-        <MorphOrb x="-10%" y="-5%" size="50vw" color="radial-gradient(ellipse, rgba(255,255,255,0.035) 0%, transparent 70%)" duration={18} />
-        <MorphOrb x="60%" y="30%" size="35vw" color="radial-gradient(ellipse, rgba(255,255,255,0.025) 0%, transparent 70%)" duration={22} />
-        <MorphOrb x="10%" y="60%" size="40vw" color="radial-gradient(ellipse, rgba(255,255,255,0.02) 0%, transparent 70%)" duration={14} />
+        <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
       </div>
 
       <ScrollProgress />
@@ -210,18 +171,15 @@ export function Home() {
       <section
         id="trang-chu"
         className="relative min-h-screen flex flex-col items-center justify-center px-5"
-        onMouseMove={handleMouseMove}
       >
         <div className="w-full max-w-2xl mx-auto flex flex-col items-center text-center gap-5 pt-24 pb-16">
 
-          {/* Avatar with rings */}
+          {/* Avatar with rings — CSS only, no Framer Motion loops */}
           <motion.div
             initial={{ opacity: 0, scale: 0.75 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
             style={{ position: "relative" }}
-            x={springX}
-            y={springY}
           >
             {/* Outer dashed ring — CSS ccw */}
             <div
@@ -261,26 +219,6 @@ export function Home() {
               } as React.CSSProperties}
             />
 
-            {/* Pulse glow */}
-            <motion.div
-              animate={{ scale: [1, 1.25, 1], opacity: [0.25, 0.5, 0.25] }}
-              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-              style={{
-                position: "absolute", inset: -12, borderRadius: "50%",
-                boxShadow: "0 0 28px 6px rgba(255,255,255,0.12)",
-              }}
-            />
-
-            {/* Second pulse - offset */}
-            <motion.div
-              animate={{ scale: [1, 1.4, 1], opacity: [0.1, 0.3, 0.1] }}
-              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 1.2 }}
-              style={{
-                position: "absolute", inset: -20, borderRadius: "50%",
-                boxShadow: "0 0 40px 8px rgba(255,255,255,0.08)",
-              }}
-            />
-
             {/* Avatar image */}
             <div
               className="rounded-full overflow-hidden"
@@ -292,10 +230,11 @@ export function Home() {
             >
               <img src={avatarImg} alt="Phan Trọng Khang" className="w-full h-full object-cover" />
             </div>
-            <motion.div
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+
+            {/* Online dot — static, CSS pulse via class */}
+            <span
               className="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black"
+              style={{ display: "block" }}
             />
           </motion.div>
 
@@ -308,18 +247,13 @@ export function Home() {
             style={{
               background: "rgba(255,255,255,0.06)",
               border: "1px solid rgba(255,255,255,0.14)",
-              backdropFilter: "blur(10px)",
             }}
           >
-            <motion.span
-              animate={{ opacity: [1, 0.3, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-            />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             AI Architect · IoT Engineer
           </motion.div>
 
-          {/* Name - character stagger */}
+          {/* Name */}
           <div className="overflow-hidden">
             <motion.h1
               initial={{ opacity: 0, y: 40 }}
@@ -338,7 +272,7 @@ export function Home() {
             </motion.h1>
           </div>
 
-          {/* Tagline */}
+          {/* Tagline — static, không animate loop */}
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -346,20 +280,8 @@ export function Home() {
             className="text-white/45 text-base sm:text-lg font-light max-w-md leading-relaxed"
           >
             Xây dựng hệ thống thông minh — kết hợp{" "}
-            <motion.span
-              animate={{ opacity: [0.7, 1, 0.7] }}
-              transition={{ duration: 2.5, repeat: Infinity }}
-              className="text-white/75"
-            >
-              AI, IoT
-            </motion.span>{" "}và{" "}
-            <motion.span
-              animate={{ opacity: [0.7, 1, 0.7] }}
-              transition={{ duration: 2.5, repeat: Infinity, delay: 0.8 }}
-              className="text-white/75"
-            >
-              Web
-            </motion.span>{" "}để giải quyết vấn đề thực tế.
+            <span className="text-white/75">AI, IoT</span>{" "}và{" "}
+            <span className="text-white/75">Web</span>{" "}để giải quyết vấn đề thực tế.
           </motion.p>
 
           {/* Scroll CTA */}
@@ -372,17 +294,10 @@ export function Home() {
             <AnimBorderCard radius={14} speed={3} color="rgba(255,255,255,0.4)">
               <button
                 onClick={() => document.querySelector("#gioi-thieu")?.scrollIntoView({ behavior: "smooth" })}
-                className="flex items-center gap-2 px-6 py-3 text-sm font-medium text-white/60 transition-all duration-200"
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.9)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.60)"; }}
+                className="flex items-center gap-2 px-6 py-3 text-sm font-medium text-white/60 transition-colors duration-200 hover:text-white/90"
               >
                 Khám phá thêm
-                <motion.div
-                  animate={{ y: [0, 4, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </motion.div>
+                <ChevronDown className="w-4 h-4" />
               </button>
             </AnimBorderCard>
           </motion.div>
@@ -404,26 +319,8 @@ export function Home() {
             >
               <AnimBorderCard speed={6} color="rgba(255,255,255,0.45)" radius={20} innerStyle={{ padding: "28px" }} animate={isAboutInView}>
                 <div className="flex flex-col items-center gap-5">
-                  {/* Avatar with mini rings — CSS */}
+                  {/* Avatar — không có mini rings để tránh will-change chồng chéo */}
                   <div style={{ position: "relative" }}>
-                    <div
-                      className="ring-ccw"
-                      style={{
-                        position: "absolute", inset: -10, borderRadius: "14px",
-                        border: "1px dashed rgba(255,255,255,0.15)",
-                        "--ring-speed": "20s",
-                      } as React.CSSProperties}
-                    />
-                    <div
-                      className="ring-cw"
-                      style={{
-                        position: "absolute", inset: -5, borderRadius: "18px",
-                        border: "1.5px solid transparent",
-                        borderTopColor: "rgba(255,255,255,0.5)",
-                        borderRightColor: "rgba(255,255,255,0.15)",
-                        "--ring-speed": "7s",
-                      } as React.CSSProperties}
-                    />
                     <div
                       className="rounded-2xl overflow-hidden"
                       style={{ width: 140, height: 140, border: "2px solid rgba(255,255,255,0.18)" }}
@@ -540,15 +437,6 @@ export function Home() {
               className="absolute left-[22px] top-3 bottom-3 w-px"
               style={{ background: "linear-gradient(to bottom, transparent, rgba(255,255,255,0.18), transparent)" }}
             />
-            <motion.div
-              className="absolute left-[22px] top-3 bottom-3 w-px"
-              animate={{ scaleY: [0, 1] }}
-              transition={{ duration: 2.5, ease: "easeOut" }}
-              style={{
-                background: "linear-gradient(to bottom, rgba(255,255,255,0.35), transparent)",
-                transformOrigin: "top",
-              }}
-            />
 
             <div className="flex flex-col gap-6">
               {TIMELINE.map((item, i) => (
@@ -631,21 +519,17 @@ export function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <motion.footer
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
+      {/* Footer — không backdropFilter */}
+      <footer
         className="py-8 px-5 text-center text-white/20 text-xs"
         style={{
           fontFamily: FONT,
           borderTop: "1px solid rgba(255,255,255,0.06)",
           background: "rgba(0,0,0,0.3)",
-          backdropFilter: "blur(12px)",
         }}
       >
         © {new Date().getFullYear()} Phan Trọng Khang · Built with React &amp; Vite
-      </motion.footer>
+      </footer>
     </div>
   );
 }
@@ -694,9 +578,8 @@ function SectionHeader({ label, title }: { label: string; title: string }) {
   );
 }
 
-/* ── Project Card ── */
+/* ── Project Card — hover glow dùng CSS, không filter blur ── */
 function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i: number; animateBorder?: boolean }) {
-  const [hovered, setHovered] = useState(false);
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);
   const springRX = useSpring(rotateX, { stiffness: 200, damping: 18 });
@@ -719,27 +602,10 @@ function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i:
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true }}
       transition={{ duration: 0.65, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); rotateX.set(0); rotateY.set(0); }}
+      onMouseLeave={() => { rotateX.set(0); rotateY.set(0); }}
       onMouseMove={handleMouseMove}
       style={{ perspective: "800px", display: "block", position: "relative", borderRadius: 20 }}
     >
-      {/* Hover glow */}
-      <AnimatePresence>
-        {hovered && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: "absolute", inset: -2, borderRadius: 22, zIndex: -1,
-              background: "radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.06) 0%, transparent 70%)",
-              filter: "blur(10px)",
-            }}
-          />
-        )}
-      </AnimatePresence>
-
       <AnimBorderCard
         speed={5 + i * 1.5}
         color="rgba(255,255,255,0.5)"
@@ -756,11 +622,7 @@ function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i:
               className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider text-white/50"
               style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)" }}
             >
-              <motion.span
-                animate={{ opacity: [1, 0.3, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-              />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               LIVE
             </div>
           )}
@@ -780,14 +642,10 @@ function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i:
               </span>
             ))}
           </div>
-          <motion.div
-            animate={{ gap: hovered ? "8px" : "6px" }}
-            className="flex items-center text-xs text-white/30 pt-1 transition-colors"
-            style={{ color: hovered ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)" }}
-          >
+          <div className="flex items-center gap-1.5 text-xs text-white/30 pt-1">
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Xem dự án</span>
-          </motion.div>
+          </div>
         </motion.div>
       </AnimBorderCard>
     </motion.a>
