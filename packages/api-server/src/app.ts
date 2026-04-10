@@ -71,8 +71,21 @@ const portfolioDist = path.resolve(
 );
 
 if (fs.existsSync(portfolioDist)) {
-  app.use(express.static(portfolioDist));
+  app.use(express.static(portfolioDist, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Surrogate-Control", "no-store");
+        res.setHeader("CDN-Cache-Control", "no-store");
+      }
+    },
+  }));
   app.get("{*path}", (_req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Surrogate-Control", "no-store");
+    res.setHeader("CDN-Cache-Control", "no-store");
     res.sendFile(path.join(portfolioDist, "index.html"));
   });
   logger.info({ portfolioDist }, "Serving portfolio");
