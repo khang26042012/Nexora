@@ -126,7 +126,120 @@ quy_trinh_lam_viec.txt      — File này
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-7. LỊCH SỬ THAY ĐỔI LỚN
+7. DEBUG LỖI PRODUCTION — CÁCH LẤY LOGS RAILWAY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+KHI NÀO CẦN CHECK RAILWAY LOGS:
+  - Khang gửi ảnh chụp màn hình có lỗi từ app production
+  - Lỗi "ffmpeg không khả dụng trên server"
+  - Lỗi 500/503 từ API
+  - Server crash hoặc không phản hồi
+  - Bất kỳ lỗi nào CHỈ xảy ra ở production (không lỗi khi dev)
+  - Deploy mới nhưng app không hoạt động đúng
+  → Luôn check Railway logs TRƯỚC khi sửa code
+
+RAILWAY CONFIG:
+  Endpoint : https://backboard.railway.app/graphql/v2
+  Auth     : Bearer <RAILWAY_TOKEN>  (lưu trong env RAILWAY_TOKEN hoặc secrets)
+  Project  : 2a399a3a-0878-4e4b-8c65-5a4bab0dc34a
+
+BƯỚC 1 — Lấy danh sách services:
+  ```graphql
+  query {
+    project(id: "2a399a3a-0878-4e4b-8c65-5a4bab0dc34a") {
+      services { edges { node { id name } } }
+    }
+  }
+  ```
+
+BƯỚC 2 — Lấy deployment mới nhất:
+  ```graphql
+  query {
+    deployments(
+      input: { projectId: "2a399a3a-0878-4e4b-8c65-5a4bab0dc34a" }
+      first: 1
+    ) {
+      edges { node { id status createdAt } }
+    }
+  }
+  ```
+
+BƯỚC 3 — Lấy logs của deployment:
+  ```graphql
+  query {
+    deploymentLogs(deploymentId: "<deploymentId>", limit: 100) {
+      timestamp
+      message
+      severity
+    }
+  }
+  ```
+
+CODE MẪU (JavaScript trong code_execution sandbox):
+  ```javascript
+  const RAILWAY_TOKEN = process.env["RAILWAY_TOKEN"];
+  const PROJECT_ID = "2a399a3a-0878-4e4b-8c65-5a4bab0dc34a";
+
+  async function railwayQuery(query) {
+    const res = await fetch("https://backboard.railway.app/graphql/v2", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${RAILWAY_TOKEN}`,
+      },
+      body: JSON.stringify({ query }),
+    });
+    return res.json();
+  }
+
+  // Lấy deployment mới nhất
+  const deploys = await railwayQuery(`
+    query { deployments(input: { projectId: "${PROJECT_ID}" }, first: 1) {
+      edges { node { id status } }
+    }}`);
+  const deployId = deploys.data.deployments.edges[0].node.id;
+
+  // Lấy logs
+  const logs = await railwayQuery(`
+    query { deploymentLogs(deploymentId: "${deployId}", limit: 200) {
+      timestamp message severity
+    }}`);
+  console.log(logs.data.deploymentLogs
+    .map(l => `[${l.severity}] ${l.message}`).join("\n"));
+  ```
+
+PHÂN TÍCH LOGS:
+  CRITICAL → báo Telegram ngay:
+    - "error", "Error", "ERROR", "exception", "crash"
+    - "ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"
+    - "Cannot find module", "MODULE_NOT_FOUND", "bindings"
+    - WebSocket disconnect liên tiếp
+
+  WARNING → gom lại, báo định kỳ:
+    - "warning", "WARN", "timeout", "retry", "deprecated"
+
+  INFO → bình thường:
+    - "Server listening", "Database initialized"
+    - "Telegram bot started", "WebSocket ready"
+
+NGUYÊN NHÂN LỖI PHỔ BIẾN (production vs dev):
+  - ffmpeg: có trên Replit (nix store) nhưng Railway cần download
+    về /tmp/yt-ffmpeg — youtube.ts tự handle khi khởi động
+  - better-sqlite3: cần rebuild native binding (node-gyp)
+  - env var thiếu: kiểm tra Railway → Service → Variables
+  - Path khác nhau: Replit dùng /home/runner, Railway dùng /app
+  - Port: Railway inject PORT tự động, không hardcode
+
+TELEGRAM BOT — LIÊN LẠC VỚI KHANG:
+  Token : 8713630597:AAHe-zsd-6FCe7qqDlpZ-6Lp3R2v1KUOGAk
+  ChatID: 7929156270
+  API   : https://api.telegram.org/bot<token>/sendMessage
+
+  Gửi khi: phát hiện CRITICAL, deploy xong, cần Khang xác nhận.
+  Khang thường không xem Replit — chỉ xem Telegram.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. LỊCH SỬ THAY ĐỔI LỚN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [v1.0] Khởi tạo dự án
