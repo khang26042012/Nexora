@@ -1,8 +1,29 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 30 — Fix lag triệt để toàn bộ Home.tsx)
+  Cập nhật: 10/04/2026 (session 31 — Thêm lại avatar animation + scroll reveal 2 chiều)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 31] FEAT — Thêm lại avatar animation + scroll reveal 2 chiều
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. Thêm lại avatar pulse glow bằng CSS @keyframes (không dùng Framer Motion):
+     - avatar-glow: box-shadow pulse 3.5s ease-in-out (inner, inset -12px)
+     - avatar-glow-outer: box-shadow pulse 3.5s, delay 1.2s (outer, inset -20px)
+     → GPU composited, không tốn JS thread
+  2. Online dot: thêm class dot-pulse (CSS @keyframes opacity+scale 2s)
+  3. Scroll reveal bidirectional:
+     - Đổi tất cả viewport={{ once: true }} → viewport={{ once: false }}
+     → Elements ẩn khi vuốt lên, hiện từ từ khi vuốt xuống
+
+Files thay đổi:
+  - apps/portfolio/src/pages/Home.tsx
+  - apps/portfolio/src/index.css (thêm @keyframes avatar-glow, avatar-glow-outer, dot-pulse)
+
+GitHub commit: 1c06217b7a3536e0151c91caa6371c6f0a9ad20c
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 30] PERF — Fix lag triệt để portfolio (session 29 hết quota giữa chừng)
