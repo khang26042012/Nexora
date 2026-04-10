@@ -1,19 +1,19 @@
 import { Navigation } from "@/components/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Scissors, Upload, Clock, Play, X, Film, AlertCircle } from "lucide-react";
+import { ArrowLeft, Scissors, Upload, Clock, Play, X, Film, AlertCircle, Download, Loader2, CheckCircle2 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 
 const FONT = "'Inter', sans-serif";
-const MAX_MB = 150;
+const MAX_MB = 500;
 
 function parseTime(raw: string): number | null {
   const clean = raw.trim().toLowerCase().replace(/\s+/g, "");
   const patterns = [
-    /^(\d+)p(\d+)s?$/,   // 1p15s
-    /^(\d+)p$/,           // 3p
-    /^(\d+):(\d+)$/,      // 1:15
-    /^(\d+):(\d+):(\d+)$/ // 0:01:15
+    /^(\d+)p(\d+)s?$/,
+    /^(\d+)p$/,
+    /^(\d+):(\d+)$/,
+    /^(\d+):(\d+):(\d+)$/
   ];
   for (const re of patterns) {
     const m = clean.match(re);
@@ -40,6 +40,8 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+type TrimState = "idle" | "trimming" | "done" | "error";
+
 export function VideoTrimmer() {
   const [, setLocation] = useLocation();
   const [file, setFile] = useState<File | null>(null);
@@ -49,17 +51,33 @@ export function VideoTrimmer() {
   const [endRaw, setEndRaw] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [trimState, setTrimState] = useState<TrimState>("idle");
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadName, setDownloadName] = useState<string>("trimmed.mp4");
   const inputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const downloadRef = useRef<HTMLAnchorElement>(null);
 
   const startSec = parseTime(startRaw);
   const endSec = parseTime(endRaw);
-  const isValid = startSec !== null && endSec !== null && startSec < endSec && (duration === null || endSec <= duration);
+  const isValid =
+    startSec !== null &&
+    endSec !== null &&
+    startSec < endSec &&
+    (duration === null || endSec <= duration + 0.5);
 
   const handleFile = useCallback((f: File) => {
     setError(null);
-    if (!f.type.startsWith("video/")) { setError("File phải là video (mp4, mov, avi, mkv...)"); return; }
-    if (f.size > MAX_MB * 1024 * 1024) { setError(`File tối đa ${MAX_MB}MB. File này: ${formatSize(f.size)}`); return; }
+    setTrimState("idle");
+    setDownloadUrl(null);
+    if (!f.type.startsWith("video/")) {
+      setError("File phải là video (mp4, mov, avi, mkv...)");
+      return;
+    }
+    if (f.size > MAX_MB * 1024 * 1024) {
+      setError(`File tối đa ${MAX_MB}MB. File này: ${formatSize(f.size)}`);
+      return;
+    }
     const url = URL.createObjectURL(f);
     setFile(f);
     setPreviewUrl(url);
@@ -69,7 +87,8 @@ export function VideoTrimmer() {
   }, []);
 
   const onDrop = (e: React.DragEvent) => {
-    e.preventDefault(); setDragOver(false);
+    e.preventDefault();
+    setDragOver(false);
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
   };
@@ -83,11 +102,65 @@ export function VideoTrimmer() {
   };
 
   const removeFile = () => {
-    setFile(null); setPreviewUrl(null); setDuration(null); setError(null);
-    setStartRaw("0p00s"); setEndRaw("");
+    setFile(null);
+    setPreviewUrl(null);
+    setDuration(null);
+    setError(null);
+    setStartRaw("0p00s");
+    setEndRaw("");
+    setTrimState("idle");
+    setDownloadUrl(null);
   };
 
-  const trimSec = isValid ? (endSec! - startSec!) : null;
+  const handleTrim = async () => {
+    if (!file || !isValid || startSec === null || endSec === null) return;
+    setTrimState("trimming");
+    setError(null);
+    setDownloadUrl(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("video", file);
+      formData.append("start", String(startSec));
+      formData.append("end", String(endSec));
+
+      const res = await fetch("/api/trim", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        let msg = `Lỗi server: ${res.status}`;
+        try {
+          const json = await res.json();
+          if (json.error) msg = json.error;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const baseName = file.name.replace(/\.[^.]+$/, "").slice(0, 60) || "video";
+      const ext = file.name.match(/\.[^.]+$/)?.[0] ?? ".mp4";
+      const name = `${baseName}_trimmed${ext}`;
+
+      setDownloadUrl(url);
+      setDownloadName(name);
+      setTrimState("done");
+
+      setTimeout(() => {
+        if (downloadRef.current) downloadRef.current.click();
+      }, 200);
+    } catch (e: unknown) {
+      setTrimState("error");
+      setError(e instanceof Error ? e.message : "Cắt video thất bại");
+    }
+  };
+
+  const trimSec = isValid && startSec !== null && endSec !== null
+    ? endSec - startSec
+    : null;
 
   const glassCard: React.CSSProperties = {
     background: "rgba(255,255,255,0.04)",
@@ -109,6 +182,8 @@ export function VideoTrimmer() {
     marginBottom: 6, display: "block", letterSpacing: "0.05em",
     textTransform: "uppercase",
   };
+
+  const isBusy = trimState === "trimming";
 
   return (
     <div className="min-h-screen" style={{ background: "#0a0a0a", fontFamily: FONT }}>
@@ -165,7 +240,7 @@ export function VideoTrimmer() {
                     <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: 600, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
                     <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>· {formatSize(file.size)}</span>
                   </div>
-                  <button onClick={removeFile} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                  <button onClick={removeFile} disabled={isBusy} style={{ background: "none", border: "none", cursor: isBusy ? "not-allowed" : "pointer", padding: 4, opacity: isBusy ? 0.3 : 1 }}>
                     <X size={16} color="rgba(255,255,255,0.4)" />
                   </button>
                 </div>
@@ -202,8 +277,10 @@ export function VideoTrimmer() {
                     <label style={labelStyle}>Mốc bắt đầu</label>
                     <input
                       style={{ ...inputStyle, borderColor: startSec !== null ? "rgba(255,255,255,0.2)" : "rgba(255,80,80,0.5)" }}
-                      value={startRaw} onChange={e => setStartRaw(e.target.value)}
+                      value={startRaw}
+                      onChange={e => { setStartRaw(e.target.value); setTrimState("idle"); }}
                       placeholder="0p00s"
+                      disabled={isBusy}
                     />
                     {startSec !== null && (
                       <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 4 }}>{startSec}s</p>
@@ -213,8 +290,10 @@ export function VideoTrimmer() {
                     <label style={labelStyle}>Mốc kết thúc</label>
                     <input
                       style={{ ...inputStyle, borderColor: endSec !== null ? "rgba(255,255,255,0.2)" : "rgba(255,80,80,0.5)" }}
-                      value={endRaw} onChange={e => setEndRaw(e.target.value)}
+                      value={endRaw}
+                      onChange={e => { setEndRaw(e.target.value); setTrimState("idle"); }}
                       placeholder="3p"
+                      disabled={isBusy}
                     />
                     {endSec !== null && (
                       <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 4 }}>{endSec}s</p>
@@ -223,19 +302,19 @@ export function VideoTrimmer() {
                 </div>
 
                 {/* Preview bar */}
-                {isValid && duration && (
+                {isValid && duration && startSec !== null && endSec !== null && (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden", position: "relative" }}>
                       <div style={{
                         position: "absolute", top: 0, bottom: 0,
-                        left: `${(startSec! / duration) * 100}%`,
-                        width: `${((endSec! - startSec!) / duration) * 100}%`,
+                        left: `${(startSec / duration) * 100}%`,
+                        width: `${((endSec - startSec) / duration) * 100}%`,
                         background: "rgba(255,255,255,0.6)", borderRadius: 4,
                       }} />
                     </div>
                     <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 8 }}>
-                      Đoạn cắt: <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{formatTime(startSec!)} → {formatTime(endSec!)}</span>
-                      &nbsp;· Dài {trimSec ? formatTime(trimSec) : ""}
+                      Đoạn cắt: <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{formatTime(startSec)} → {formatTime(endSec)}</span>
+                      {trimSec !== null && <>&nbsp;· Dài {formatTime(trimSec)}</>}
                     </p>
                   </div>
                 )}
@@ -246,30 +325,86 @@ export function VideoTrimmer() {
           {/* Action */}
           {file && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              {/* Done state - show download button */}
+              {trimState === "done" && downloadUrl && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  style={{ ...glassCard, padding: "14px 18px", border: "1px solid rgba(100,255,150,0.2)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} color="rgba(100,255,150,0.85)" />
+                    <span style={{ color: "rgba(180,255,200,0.9)", fontSize: 13, fontWeight: 600 }}>Cắt xong!</span>
+                    <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>· {downloadName}</span>
+                  </div>
+                  <a
+                    ref={downloadRef}
+                    href={downloadUrl}
+                    download={downloadName}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: "rgba(100,255,150,0.12)",
+                      border: "1px solid rgba(100,255,150,0.25)",
+                      borderRadius: 8, padding: "6px 14px",
+                      color: "rgba(150,255,180,0.9)", fontSize: 13, fontWeight: 600,
+                      textDecoration: "none", cursor: "pointer",
+                    }}
+                  >
+                    <Download size={14} /> Tải về
+                  </a>
+                </motion.div>
+              )}
+
+              {/* Trim button */}
               <button
-                disabled={!isValid}
+                disabled={!isValid || isBusy}
+                onClick={handleTrim}
                 style={{
                   width: "100%", padding: "14px 0", borderRadius: 12,
-                  background: isValid ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.08)",
-                  border: "none", cursor: isValid ? "pointer" : "not-allowed",
-                  color: isValid ? "#000" : "rgba(255,255,255,0.25)",
+                  background: isBusy
+                    ? "rgba(255,255,255,0.06)"
+                    : isValid
+                      ? "rgba(255,255,255,0.92)"
+                      : "rgba(255,255,255,0.08)",
+                  border: "none",
+                  cursor: (!isValid || isBusy) ? "not-allowed" : "pointer",
+                  color: isBusy ? "rgba(255,255,255,0.4)" : isValid ? "#000" : "rgba(255,255,255,0.25)",
                   fontFamily: FONT, fontSize: 15, fontWeight: 700,
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                   transition: "all .2s",
                 }}
               >
-                <Play size={17} />
-                Cắt Video
+                {isBusy ? (
+                  <>
+                    <Loader2 size={17} style={{ animation: "spin 1s linear infinite" }} />
+                    Đang cắt video...
+                  </>
+                ) : (
+                  <>
+                    <Play size={17} />
+                    {trimState === "done" ? "Cắt lại" : "Cắt Video"}
+                  </>
+                )}
               </button>
-              {!isValid && file && (
+
+              {!isValid && file && !isBusy && (
                 <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 12, textAlign: "center", marginTop: 8 }}>
                   Nhập mốc thời gian hợp lệ để tiếp tục
+                </p>
+              )}
+
+              {isBusy && (
+                <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, textAlign: "center", marginTop: 8 }}>
+                  Đang xử lý trên server, vui lòng chờ...
                 </p>
               )}
             </motion.div>
           )}
         </div>
       </div>
+
+      {/* Spin animation */}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
