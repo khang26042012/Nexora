@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Menu, X, Home, User, Clock, FolderOpen, Mail, Wrench, LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
+import avatarImg from "@/assets/avatar_new.jpg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -15,6 +16,57 @@ const NAV_LINKS: NavLink[] = [
   { name: "Liên hệ",    href: "#lien-he",    icon: Mail },
   { name: "Tool",        href: "/tool",       icon: Wrench, route: true },
 ];
+
+/* ── Animated Border Ring (for circles) ── */
+function SpinRing({ inset, duration, reverse = false, opacity = 0.5, dashed = false }: {
+  inset: number; duration: number; reverse?: boolean; opacity?: number; dashed?: boolean;
+}) {
+  return (
+    <motion.div
+      animate={{ rotate: reverse ? -360 : 360 }}
+      transition={{ duration, repeat: Infinity, ease: "linear" }}
+      style={{
+        position: "absolute",
+        inset,
+        borderRadius: "50%",
+        border: dashed
+          ? `1px dashed rgba(255,255,255,${opacity})`
+          : `1.5px solid transparent`,
+        borderTopColor: dashed ? undefined : `rgba(255,255,255,${opacity})`,
+        borderRightColor: dashed ? undefined : `rgba(255,255,255,${opacity * 0.3})`,
+        pointerEvents: "none",
+      }}
+    />
+  );
+}
+
+/* ── Animated Border Card (rounded rect) ── */
+function AnimBorderItem({
+  children, speed = 5, color = "rgba(255,255,255,0.4)", radius = 12, isActive = false,
+  style: extraStyle = {}, className = "",
+}: {
+  children: React.ReactNode; speed?: number; color?: string;
+  radius?: number; isActive?: boolean; style?: React.CSSProperties; className?: string;
+}) {
+  return (
+    <div style={{ position: "relative", borderRadius: radius, padding: "1px", overflow: "hidden", ...extraStyle }}>
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: isActive ? speed : speed * 1.8, repeat: Infinity, ease: "linear" }}
+        style={{
+          position: "absolute",
+          inset: "-100%",
+          background: isActive
+            ? `conic-gradient(from 0deg, transparent 50%, ${color} 68%, rgba(255,255,255,0.9) 75%, ${color} 82%, transparent 92%)`
+            : `conic-gradient(from 0deg, transparent 65%, ${color} 78%, transparent 92%)`,
+        }}
+      />
+      <div className={className} style={{ position: "relative", borderRadius: radius - 1 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
@@ -65,26 +117,20 @@ export function Navigation() {
           borderBottom: scrolled ? "1px solid rgba(255,255,255,0.07)" : "1px solid transparent",
         }}
       >
-        <button
+        <motion.button
           onClick={() => setIsOpen(true)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.93 }}
           className="pointer-events-auto relative p-2.5 rounded-xl transition-all duration-200"
           style={{
             background: "rgba(0,0,0,0.55)",
             border: "1px solid rgba(255,255,255,0.14)",
             backdropFilter: "blur(10px)",
           }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(30,30,30,0.85)";
-            (e.currentTarget as HTMLElement).style.border = "1px solid rgba(255,255,255,0.25)";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.55)";
-            (e.currentTarget as HTMLElement).style.border = "1px solid rgba(255,255,255,0.14)";
-          }}
           aria-label="Mở menu"
         >
           <Menu className="w-5 h-5 text-white/70" />
-        </button>
+        </motion.button>
       </motion.header>
 
       <AnimatePresence>
@@ -95,120 +141,170 @@ export function Navigation() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.22 }}
               onClick={() => setIsOpen(false)}
               className="fixed inset-0 z-50"
-              style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)" }}
+              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
             />
 
             {/* Sidebar */}
             <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
+              initial={{ x: "-100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "-100%", opacity: 0 }}
               transition={{ type: "spring", damping: 28, stiffness: 240 }}
               className="fixed top-0 left-0 bottom-0 w-72 max-w-[82vw] z-50 flex flex-col overflow-hidden"
               style={{
-                background: "#0a0a0a",
-                borderRight: "1px solid rgba(255,255,255,0.09)",
-                boxShadow: "8px 0 40px rgba(0,0,0,0.7)",
+                background: "#080808",
+                borderRight: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "8px 0 50px rgba(0,0,0,0.8)",
                 fontFamily: FONT,
               }}
             >
-              {/* Subtle top glow */}
-              <div
-                className="absolute top-0 left-0 w-64 h-40 pointer-events-none"
-                style={{ background: "radial-gradient(ellipse at 0% 0%, rgba(255,255,255,0.03) 0%, transparent 70%)" }}
+              {/* Top glow orb */}
+              <motion.div
+                animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.15, 1] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute top-0 left-0 w-56 h-56 pointer-events-none"
+                style={{ background: "radial-gradient(ellipse at 0% 0%, rgba(255,255,255,0.04) 0%, transparent 70%)" }}
               />
 
-              {/* Header */}
+              {/* Header with animated avatar */}
               <div
-                className="relative px-5 h-16 flex items-center justify-between flex-shrink-0"
+                className="relative px-5 h-20 flex items-center justify-between flex-shrink-0"
                 style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
               >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{
-                      background: "#1a1a1a",
-                      border: "1px solid rgba(255,255,255,0.15)",
-                    }}
-                  >
-                    <span className="text-white text-xs font-black" style={{ fontFamily: FONT }}>N</span>
+                <motion.div
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1, duration: 0.4 }}
+                  className="flex items-center gap-3"
+                >
+                  {/* Animated avatar */}
+                  <div style={{ position: "relative", width: 40, height: 40 }}>
+                    <SpinRing inset={-8} duration={20} reverse opacity={0.15} dashed />
+                    <SpinRing inset={-4} duration={7} opacity={0.55} />
+                    <motion.div
+                      animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.55, 0.3] }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                      style={{
+                        position: "absolute", inset: -3, borderRadius: "50%",
+                        boxShadow: "0 0 16px 3px rgba(255,255,255,0.12)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: 40, height: 40, borderRadius: "50%", overflow: "hidden",
+                        border: "2px solid rgba(255,255,255,0.2)",
+                        boxShadow: "0 0 20px rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <img src={avatarImg} alt="Phan Trọng Khang" className="w-full h-full object-cover" />
+                    </div>
+                    {/* Online dot */}
+                    <motion.div
+                      animate={{ scale: [1, 1.2, 1], opacity: [1, 0.6, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      style={{
+                        position: "absolute", bottom: 1, right: 1,
+                        width: 9, height: 9, borderRadius: "50%",
+                        background: "#34d399", border: "1.5px solid #080808",
+                      }}
+                    />
                   </div>
-                  <span className="text-sm font-semibold text-white/60" style={{ fontFamily: FONT }}>
+
+                  <motion.span
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.18, duration: 0.4 }}
+                    className="text-sm font-semibold text-white/65"
+                    style={{ fontFamily: FONT }}
+                  >
                     Phan Trọng Khang
-                  </span>
-                </div>
-                <button
+                  </motion.span>
+                </motion.div>
+
+                <motion.button
                   onClick={() => setIsOpen(false)}
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
                   className="p-2 rounded-xl transition-all duration-150"
                   style={{ border: "1px solid rgba(255,255,255,0.09)" }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}
                 >
                   <X className="w-4 h-4 text-white/45" />
-                </button>
+                </motion.button>
               </div>
 
               {/* Nav links */}
-              <nav className="flex-1 px-3 py-5 flex flex-col gap-1 overflow-y-auto">
+              <nav className="flex-1 px-3 py-5 flex flex-col gap-1.5 overflow-y-auto">
                 {NAV_LINKS.map((link, i) => {
                   const Icon = link.icon;
                   const isActive = active === link.href;
                   return (
-                    <motion.a
+                    <motion.div
                       key={link.name}
-                      href={link.href}
-                      onClick={(e) => handleNavClick(e, link.href, link.route)}
-                      initial={{ opacity: 0, x: -16 }}
+                      initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.05 + i * 0.055, type: "spring", stiffness: 300, damping: 24 }}
-                      className="relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-150 group"
-                      style={{
-                        background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                        border: isActive ? "1px solid rgba(255,255,255,0.14)" : "1px solid transparent",
-                        cursor: "pointer",
-                      }}
-                      onMouseEnter={e => {
-                        if (isActive) return;
-                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-                        (e.currentTarget as HTMLElement).style.border = "1px solid rgba(255,255,255,0.09)";
-                      }}
-                      onMouseLeave={e => {
-                        (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(255,255,255,0.08)" : "transparent";
-                        (e.currentTarget as HTMLElement).style.border = isActive ? "1px solid rgba(255,255,255,0.14)" : "1px solid transparent";
-                      }}
+                      transition={{ delay: 0.06 + i * 0.055, type: "spring", stiffness: 300, damping: 24 }}
                     >
-                      {/* Active indicator */}
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeBar"
-                          className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-white/60"
-                        />
-                      )}
-
-                      {/* Icon */}
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{
-                          background: isActive ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.04)",
-                          border: isActive ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(255,255,255,0.07)",
-                        }}
+                      <AnimBorderItem
+                        speed={4 + i * 0.5}
+                        color="rgba(255,255,255,0.45)"
+                        radius={12}
+                        isActive={isActive}
                       >
-                        <Icon
-                          className="w-4 h-4"
-                          style={{ color: isActive ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.40)" }}
-                        />
-                      </div>
+                        <motion.a
+                          href={link.href}
+                          onClick={(e) => handleNavClick(e, link.href, link.route)}
+                          whileHover={{ x: 3 }}
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                          className="relative flex items-center gap-3 px-3 py-3 rounded-[11px] transition-all duration-150 cursor-pointer"
+                          style={{
+                            background: isActive ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.01)",
+                          }}
+                        >
+                          {isActive && (
+                            <motion.div
+                              layoutId="activeBar"
+                              className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-white/70"
+                            />
+                          )}
 
-                      <span
-                        className="text-sm font-medium flex-1"
-                        style={{ color: isActive ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.55)" }}
-                      >
-                        {link.name}
-                      </span>
-                    </motion.a>
+                          <motion.div
+                            whileHover={{ scale: 1.12, rotate: isActive ? 0 : 8 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{
+                              background: isActive ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+                              border: isActive ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(255,255,255,0.07)",
+                            }}
+                          >
+                            <Icon
+                              className="w-4 h-4"
+                              style={{ color: isActive ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.40)" }}
+                            />
+                          </motion.div>
+
+                          <span
+                            className="text-sm font-medium flex-1"
+                            style={{ color: isActive ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.55)" }}
+                          >
+                            {link.name}
+                          </span>
+
+                          {isActive && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="w-1.5 h-1.5 rounded-full bg-white/50"
+                            />
+                          )}
+                        </motion.a>
+                      </AnimBorderItem>
+                    </motion.div>
                   );
                 })}
               </nav>
@@ -223,8 +319,10 @@ export function Navigation() {
                 </p>
                 <div className="flex items-center gap-1.5 mt-2">
                   {[0.5, 0.3, 0.15].map((op, idx) => (
-                    <div
+                    <motion.div
                       key={idx}
+                      animate={{ opacity: [op, op * 2, op] }}
+                      transition={{ duration: 2, repeat: Infinity, delay: idx * 0.4 }}
                       className="w-1.5 h-1.5 rounded-full bg-white"
                       style={{ opacity: op }}
                     />
