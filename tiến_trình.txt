@@ -1,8 +1,40 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 32 — MIGRATION Replit environment mới lần 8)
+  Cập nhật: 10/04/2026 (session 33 — FEAT bundle ffmpeg vào dist/ lúc build)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 33] FEAT — Bundle ffmpeg vào dist/ lúc build (không chờ download)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - Render/Railway không có native ffmpeg → server phải download ~40MB lúc khởi động
+  - Trong khi đó, trim/yt-downloader bị giới hạn combined format thôi
+
+Đã làm:
+  1. build.mjs: Thêm bước downloadFfmpeg() sau esbuild:
+     - Nếu host có native ffmpeg (Replit/Linux) → copy vào dist/ffmpeg
+     - Nếu không có → download static binary từ GitHub, giải nén vào dist/ffmpeg
+     - dist/ffmpeg được copy cùng server bundle → sẵn sàng ngay khi start
+  2. youtube.ts: findNativeFfmpeg() ưu tiên path.join(__dirname, 'ffmpeg') trước
+     → tức là dist/ffmpeg được check đầu tiên trước native/PATH
+  3. trim.ts: findNative() tương tự, ưu tiên dist/ffmpeg
+  4. Cả 2 file: thêm declare const __dirname (ESM compat)
+
+Kết quả:
+  - Trên Replit: [build] ffmpeg bundled → dist/ffmpeg ✅
+  - Server log: [ffmpeg] native found: .../dist/ffmpeg ✅
+  - trim-ffmpeg: native: .../dist/ffmpeg ✅
+  - Cắt video / tải HD ngay lập tức, không chờ download gì cả
+
+Files thay đổi:
+  - packages/api-server/build.mjs
+  - packages/api-server/src/routes/youtube.ts
+  - packages/api-server/src/routes/trim.ts
+
+GitHub commit: 4fee0e39
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 32] MIGRATION — Replit environment mới (lần 8)
