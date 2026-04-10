@@ -1,8 +1,35 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 27 — Fix AnimBorderCard lag)
+  Cập nhật: 10/04/2026 (session 28 — Running border đúng kiểu)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 28] FIX — Running border đúng kiểu (mask-composite)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề session 27 chưa đúng:
+  - conic-gradient xoay từ tâm element → thấy gradient rộng ở giữa, không phải "đường chạy theo viền"
+  - User muốn: một đường sáng ngắn chạy theo đường viền của element
+
+Fix session 28 — kỹ thuật mask-composite:
+  - ::before pseudo-element với padding: 1.5px + conic-gradient (arc ngắn ~13%)
+  - mask: content-box + normal box → mask-composite: exclude
+  - Kết quả: chỉ thấy 1.5px viền, phần giữa hoàn toàn ẩn
+  - Không còn gradient xoay giữa, không DOM element nào di chuyển
+  - Hoạt động với mọi border-radius
+
+CSS: .running-border + .running-border::before (thay thế .anim-border/.anim-border-inner)
+React: AnimBorderCard/AnimBorderItem dùng single div (không cần inner wrapper)
+
+Files thay đổi:
+  - apps/portfolio/src/index.css (thêm .running-border + ::before)
+  - apps/portfolio/src/pages/Home.tsx
+  - apps/portfolio/src/components/navigation.tsx
+  - apps/portfolio/src/pages/Tool.tsx
+  - apps/portfolio/src/pages/tools/YtDownloader.tsx
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 27] FIX — AnimBorderCard lag (CSS @property)

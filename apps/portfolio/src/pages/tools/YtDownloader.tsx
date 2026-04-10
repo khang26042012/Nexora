@@ -52,9 +52,9 @@ async function fetchVideoInfo(url: string): Promise<VideoInfo> {
   return data as VideoInfo;
 }
 
-/* ── Animated Border Card (CSS @property — nhẹ, không xoay DOM) ── */
+/* ── Animated Border Card — đường sáng chạy theo viền (mask-composite) ── */
 function AnimBorderCard({
-  children, speed = 5, color = "rgba(255,255,255,0.4)",
+  children, speed = 4, color = "rgba(255,255,255,0.85)",
   radius = 16, innerStyle = {}, className = "",
 }: {
   children: React.ReactNode; speed?: number; color?: string;
@@ -62,12 +62,18 @@ function AnimBorderCard({
 }) {
   return (
     <div
-      className="anim-border"
-      style={{ "--ab-speed": `${speed}s`, "--ab-color": color, "--ab-radius": `${radius}px` } as React.CSSProperties}
+      className={`running-border ${className}`}
+      style={{
+        "--rb-speed": `${speed}s`,
+        "--rb-color": color,
+        "--rb-radius": `${radius}px`,
+        background: "rgba(255,255,255,0.04)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        ...innerStyle,
+      } as React.CSSProperties}
     >
-      <div className={`anim-border-inner ${className}`} style={innerStyle}>
-        {children}
-      </div>
+      {children}
     </div>
   );
 }

@@ -40,9 +40,9 @@ function SpinRing({ inset, duration, reverse = false, opacity = 0.5, dashed = fa
   );
 }
 
-/* ── Animated Border Card (CSS @property — không xoay DOM) ── */
+/* ── Animated Border Item — đường sáng chạy theo viền (mask-composite) ── */
 function AnimBorderItem({
-  children, speed = 5, color = "rgba(255,255,255,0.4)", radius = 12, isActive = false,
+  children, speed = 4, color = "rgba(255,255,255,0.85)", radius = 12, isActive = false,
   style: extraStyle = {}, className = "",
 }: {
   children: React.ReactNode; speed?: number; color?: string;
@@ -50,17 +50,15 @@ function AnimBorderItem({
 }) {
   return (
     <div
-      className="anim-border"
+      className={`running-border ${className}`}
       style={{
-        "--ab-speed": isActive ? `${speed}s` : `${speed * 1.8}s`,
-        "--ab-color": color,
-        "--ab-radius": `${radius}px`,
+        "--rb-speed": isActive ? `${speed}s` : `${speed * 2}s`,
+        "--rb-color": color,
+        "--rb-radius": `${radius}px`,
         ...extraStyle,
       } as React.CSSProperties}
     >
-      <div className={`anim-border-inner ${className}`} style={{ borderRadius: `calc(${radius}px - 1px)` }}>
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
