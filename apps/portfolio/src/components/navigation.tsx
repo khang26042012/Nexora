@@ -7,10 +7,8 @@ const NAV_SECTIONS = [
   {
     label: "Điều hướng",
     links: [
-      { name: "Trang chủ",  href: "#trang-chu",  icon: Home },
-      { name: "Giới Thiệu", href: "#gioi-thieu", icon: User },
-      { name: "Dự Án",      href: "#du-an",      icon: FolderOpen },
-      { name: "Liên Hệ",    href: "#lien-he",    icon: Mail },
+      { name: "Trang chủ", href: "#trang-chu", icon: Home },
+      { name: "Dự Án",     href: "#du-an",     icon: FolderOpen },
     ],
   },
   {

@@ -92,7 +92,7 @@ export function Home() {
       <Navigation />
 
       {/* ══════ HERO ══════ */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
+      <section id="trang-chu" className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
 
         {/* Video Background */}
         <video
@@ -191,9 +191,9 @@ export function Home() {
             className="text-white/60 text-base sm:text-lg font-light tracking-wide max-w-lg"
             style={{ fontFamily: "'Inter', sans-serif" }}
           >
-            AI Architect · IoT Engineer · Developer
+            AI Architect &amp; Developer
             <br className="hidden sm:block" />
-            <span className="text-white/40 text-sm sm:text-base"> Vĩnh Hòa, Việt Nam</span>
+            <span className="text-white/40 text-sm sm:text-base">IoT Engineer · Vĩnh Hòa, Việt Nam</span>
           </motion.p>
 
           {/* Bio */}
