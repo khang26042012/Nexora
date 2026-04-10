@@ -1,8 +1,8 @@
 FROM node:22-slim
 
-# Build tools cho better-sqlite3 native module
+# Build tools + ffmpeg (cần cho video trim/download)
 RUN apt-get update && \
-    apt-get install -y python3 make g++ && \
+    apt-get install -y python3 make g++ ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # Pin pnpm + cài node-gyp global
