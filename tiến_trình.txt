@@ -1,8 +1,138 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 22)
+  Cập nhật: 10/04/2026 (session 25 — Task #2)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 25] Task #2 — Portfolio Full Page Redesign
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. Video background đổi sang `position: fixed` (z-index: -2) → phủ toàn trang khi scroll
+     - Thêm overlay đen cố định cùng layer (rgba(0,0,0,0.55))
+     - filter: brightness(0.38) grayscale(0.2) để phù hợp thiết kế grayscale
+
+  2. Đổi font toàn trang: Cinzel/Inter → Plus Jakarta Sans (weight 300-800)
+     - index.html: cập nhật Google Fonts link
+     - Tất cả fontFamily đổi sang Plus Jakarta Sans
+
+  3. Hero section gọn lại:
+     - Chỉ còn: avatar nhỏ (96px), badge, tên (font 800), tagline 2 dòng, nút scroll
+     - Xóa contact grid khỏi hero
+
+  4. Design system grayscale hoàn toàn:
+     - Tất cả cards/elements: rgba(255,255,255,0.05) bg, rgba(255,255,255,0.12) border
+     - borderRadius: 20px, backdropFilter: blur(16px)
+     - Không còn màu accent tím/xanh/hồng — chỉ trắng/xám
+
+  5. Section A — Giới thiệu (#gioi-thieu):
+     - Avatar lớn (140px) + thông tin card bên trái
+     - 2 đoạn bio text, danh sách 15 kỹ năng dạng chips
+
+  6. Section B — Lịch sử (#lich-su):
+     - Timeline dọc 7 mốc (2021 → 2026)
+     - Đường thẳng dọc + dot trắng + card glass cho mỗi mốc
+     - Nội dung dài, đầy đủ ý cho từng mốc
+
+  7. Section C — Projects (#du-an):
+     - 3 cards: NexoraGarden, NexoraAI, NexoraTool
+     - Tags, mô tả đầy đủ, link GitHub
+     - NexoraGarden: badge LIVE + emerald dot
+
+  8. Section D — Liên hệ (#lien-he):
+     - Grid 2x4 (mobile) / 4x2 (desktop), 8 kênh đầy đủ
+     - GitHub, Email, Facebook, Telegram, SĐT, Zalo, Instagram, TikTok
+     - Grayscale icons, hover effect nhẹ
+
+  9. Navigation.tsx viết lại:
+     - Toàn bộ đổi sang màu đen: nút hamburger nền đen, sidebar #0a0a0a
+     - Thêm links: Giới thiệu (#gioi-thieu), Lịch sử (#lich-su), Liên hệ (#lien-he)
+     - Active state: trắng thay vì tím
+     - Accent indicator: white/60 thay tím
+
+Files thay đổi:
+  - apps/portfolio/src/pages/Home.tsx (viết lại hoàn toàn)
+  - apps/portfolio/src/components/navigation.tsx (viết lại hoàn toàn)
+  - apps/portfolio/index.html (đổi font sang Plus Jakarta Sans)
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 24] Task #1 — Portfolio Hero Page Redesign (video bg)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. Xóa toàn bộ giao diện cũ (GlassScene + glass morphism)
+  2. Viết lại Home.tsx hoàn toàn:
+     - Video background: Cloudinary dds3_1_rqhg7x.mp4 (autoPlay loop muted playsInline)
+     - Dark overlay gradient phủ lên video
+     - Avatar + badge + tên "Phan Trọng Khang" font Cinzel cinematic
+     - Subtitle + bio ngắn tiếng Việt
+     - 8 contact cards grid responsive:
+       GitHub, Email, Facebook, Telegram, SĐT, Zalo, Instagram, TikTok
+     - Projects section (NexoraGarden + Arcane Tools)
+     - Footer đơn giản
+  3. Updated index.html: thêm Google Fonts (Cinzel + Inter)
+  4. react-icons dùng cho FaFacebook, FaTelegram, FaInstagram, FaTiktok, SiZalo
+  5. Mobile-optimized: touch targets, font clamp, grid 2-3-4 cols, playsInline
+  6. Push GitHub: commit 04e7822b (Tree API, 1 commit)
+  7. Gửi Telegram thông báo
+
+Files thay đổi:
+  - apps/portfolio/src/pages/Home.tsx (viết lại hoàn toàn)
+  - apps/portfolio/index.html (thêm Cinzel + Inter fonts)
+  - apps/portfolio/src/components/GlassScene.tsx (giữ nguyên file, không import nữa)
+  - apps/portfolio/src/components/ThreeScene.tsx (giữ nguyên file, không import nữa)
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 23b] FIX — Portfolio index.html dư thừa
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - apps/portfolio/index.html là file HTML tĩnh 742 dòng (từ session 21b)
+  - Vite đang serve file HTML cũ này thay vì React app
+  - Kết quả: nhìn thấy trang cũ, không thấy giao diện Glass Morphism mới
+
+Đã fix:
+  - Thay apps/portfolio/index.html bằng Vite entry point đúng (13 dòng)
+    → chỉ có <div id="root"> + <script src="/src/main.tsx">
+  - React app (GlassScene.tsx + Home.tsx glass morphism) load bình thường
+  - Push GitHub: commit 1 lần duy nhất (Tree API)
+  - Restart "apps/portfolio: web" → RUNNING ✅
+
+Files thay đổi:
+  - apps/portfolio/index.html (thay hoàn toàn — file cũ 742 dòng → Vite entry 13 dòng)
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 23] MIGRATION — Replit environment mới (lần 7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install → 730 packages OK
+  2. npm install -g node-gyp
+  3. node-gyp configure (trong better-sqlite3 dir) → OK
+     better_sqlite3.node đã tồn tại từ pnpm install scripts → OK
+  4. Restart "apps/portfolio: web" (port 21113) → RUNNING ✅
+  5. Restart "packages/api-server: API Server" (port 8080) → RUNNING ✅
+  6. Gửi Telegram thông báo hoàn tất ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - SQLite DB initialized ✅
+  - ffmpeg native + yt-dlp: sẵn sàng ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt
+
+WARN (không phải lỗi):
+  - NexoraGarden/Portfolio dist not found → bình thường dev mode
+  - attached_assets/* workflows: FAILED → bình thường (chỉ là file tham khảo cũ)
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 22b] PORTFOLIO HOME REDESIGN — Glass Morphism
