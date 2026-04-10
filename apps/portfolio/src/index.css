@@ -195,6 +195,25 @@
 .ring-cw  { animation: ring-cw  var(--ring-speed, 8s) linear infinite; }
 .ring-ccw { animation: ring-ccw var(--ring-speed, 20s) linear infinite; }
 
+/* avatar pulse glow — box-shadow only, GPU composited */
+@keyframes avatar-glow {
+  0%, 100% { box-shadow: 0 0 18px 4px rgba(255,255,255,0.08); opacity: 0.5; }
+  50%       { box-shadow: 0 0 36px 10px rgba(255,255,255,0.18); opacity: 0.9; }
+}
+@keyframes avatar-glow-outer {
+  0%, 100% { box-shadow: 0 0 28px 6px rgba(255,255,255,0.04); opacity: 0.3; }
+  50%       { box-shadow: 0 0 52px 16px rgba(255,255,255,0.10); opacity: 0.7; }
+}
+.avatar-glow       { animation: avatar-glow       3.5s ease-in-out infinite; }
+.avatar-glow-outer { animation: avatar-glow-outer 3.5s ease-in-out infinite 1.2s; }
+
+/* online dot pulse */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+.dot-pulse { animation: dot-pulse 2s ease-in-out infinite; }
+
 /* ─── Arcane keyframes ─── */
 @keyframes arcane-pulse {
   0%, 100% { opacity: 0.6; transform: scale(1); }
