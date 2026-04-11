@@ -230,6 +230,10 @@ export function YtDownloader() {
               </motion.span>
             ))}
           </div>
+
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+            ✦ Video TikTok tải về sẽ không có watermark logo
+          </p>
         </motion.div>
 
         {/* URL Input */}
