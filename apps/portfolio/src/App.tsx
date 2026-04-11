@@ -9,6 +9,7 @@ import { Tool } from "@/pages/Tool";
 import { Chat } from "@/pages/Chat";
 import { YtDownloader } from "@/pages/tools/YtDownloader";
 import { VideoTrimmer } from "@/pages/tools/VideoTrimmer";
+import { TextFormatter } from "@/pages/tools/TextFormatter";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/tool" component={Tool} />
       <Route path="/tool/yt-downloader" component={YtDownloader} />
       <Route path="/tool/video-trimmer" component={VideoTrimmer} />
+      <Route path="/tool/text-formatter" component={TextFormatter} />
       <Route path="/chat" component={Chat} />
       <Route component={NotFound} />
     </Switch>

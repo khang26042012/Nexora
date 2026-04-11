@@ -1,10 +1,24 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const TOOLS = [
+  {
+    id: "text-formatter",
+    icon: FileText,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Text Formatter",
+    desc: "Tự động căn chỉnh, định dạng văn bản bằng AI — upload file, nhập text hoặc để AI tạo nội dung theo yêu cầu.",
+    tag: "AI",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/text-formatter",
+  },
   {
     id: "video-trimmer",
     icon: Scissors,
