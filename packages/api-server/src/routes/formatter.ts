@@ -98,14 +98,26 @@ router.post("/format", async (req: Request, res: Response) => {
         mimeType.includes("wordprocessingml") ||
         mimeType.includes("msword") ||
         mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      const isImage = mimeType.startsWith("image/");
 
       if (isDocx) {
-        // Extract text from docx with mammoth
         const buf = Buffer.from(content, "base64");
         const extracted = await mammoth.extractRawText({ buffer: buf });
         const text = extracted.value;
         systemPrompt = FORMAT_SYSTEM_PROMPT;
         userParts = [{ text: `Định dạng văn bản sau:\n\n${text}` }];
+      } else if (isImage) {
+        // Gemini Vision: gửi ảnh dưới dạng inlineData
+        systemPrompt = FORMAT_SYSTEM_PROMPT;
+        userParts = [
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: content, // base64
+            },
+          },
+          { text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng." },
+        ];
       } else {
         // Text-based file: content is already plain text
         systemPrompt = FORMAT_SYSTEM_PROMPT;

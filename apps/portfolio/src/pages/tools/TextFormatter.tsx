@@ -2,14 +2,14 @@ import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Copy, Download, Loader2, FileText,
-  Type, Sparkles, CheckCircle2, AlertCircle, X, Upload,
+  Type, Sparkles, CheckCircle2, AlertCircle, X, Upload, ChevronDown,
 } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const MAX_CHARS = 2000;
-const ACCEPTED = ".txt,.md,.doc,.docx,.csv,.json,.html,.xml";
+const ACCEPTED = ".txt,.md,.doc,.docx,.csv,.json,.html,.xml,.jpg,.jpeg,.png,.webp,.gif,.bmp";
 
 /* ── AnimBorderCard ── */
 function AnimBorderCard({
@@ -63,7 +63,6 @@ function RenderOutput({ text }: { text: string }) {
   return (
     <div style={{ fontFamily: FONT, fontSize: 14, lineHeight: 1.85, color: "rgba(255,255,255,0.82)" }}>
       {lines.map((line, i) => {
-        // [C]TIÊU ĐỀ[/C] → căn giữa, in đậm
         const centerMatch = line.match(/^\[C\](.*?)\[\/C\]$/);
         if (centerMatch) {
           return (
@@ -72,18 +71,12 @@ function RenderOutput({ text }: { text: string }) {
             </div>
           );
         }
-
-        // --- phân cách
         if (/^---+$/.test(line.trim())) {
           return <div key={i} style={{ borderTop: "1px solid rgba(255,255,255,0.1)", margin: "14px 0" }} />;
         }
-
-        // Dòng trống
         if (!line.trim()) {
           return <div key={i} style={{ height: 6 }} />;
         }
-
-        // ✔ Đáp án:
         if (line.trim().startsWith("✔")) {
           return (
             <div key={i} style={{ paddingLeft: 0, marginTop: 4, color: "rgba(120,220,150,0.9)", fontWeight: 600 }}>
@@ -91,8 +84,6 @@ function RenderOutput({ text }: { text: string }) {
             </div>
           );
         }
-
-        // Danh sách cấp 2: "    + " (4 spaces + +)
         if (/^    \+\s/.test(line)) {
           return (
             <div key={i} style={{ display: "flex", gap: 6, paddingLeft: 28, marginTop: 2 }}>
@@ -101,8 +92,6 @@ function RenderOutput({ text }: { text: string }) {
             </div>
           );
         }
-
-        // Danh sách cấp 1: "- "
         if (/^- /.test(line) || /^ {0,2}- /.test(line)) {
           return (
             <div key={i} style={{ display: "flex", gap: 8, paddingLeft: 8, marginTop: 2 }}>
@@ -111,8 +100,6 @@ function RenderOutput({ text }: { text: string }) {
             </div>
           );
         }
-
-        // A. B. C. D. đáp án trắc nghiệm
         if (/^[ABCD]\.\s/.test(line.trim())) {
           const letter = line.trim()[0];
           const content = line.trim().slice(3);
@@ -123,8 +110,6 @@ function RenderOutput({ text }: { text: string }) {
             </div>
           );
         }
-
-        // Đoạn văn thụt đầu dòng 4 khoảng trắng
         if (/^ {4}[^ ]/.test(line)) {
           return (
             <div key={i} style={{ paddingLeft: 16, marginTop: 2 }}>
@@ -132,8 +117,6 @@ function RenderOutput({ text }: { text: string }) {
             </div>
           );
         }
-
-        // Mọi trường hợp còn lại (bao gồm **bold** inline)
         return (
           <div key={i} style={{ marginTop: 2 }}>
             {renderInline(line)}
@@ -143,6 +126,67 @@ function RenderOutput({ text }: { text: string }) {
     </div>
   );
 }
+
+/* ── Safe base64 (tránh stack overflow với file lớn) ── */
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length)));
+  }
+  return btoa(binary);
+}
+
+/* ── Download helpers ── */
+function rawToHtml(raw: string): string {
+  const lines = raw.split("\n");
+  const body = lines.map(line => {
+    const c = line.match(/^\[C\](.*?)\[\/C\]$/);
+    if (c) return `<h1 style="text-align:center">${c[1].trim()}</h1>`;
+    if (/^---+$/.test(line.trim())) return `<hr/>`;
+    if (!line.trim()) return `<br/>`;
+    if (line.trim().startsWith("✔")) return `<p style="color:green"><b>${line.trim()}</b></p>`;
+    if (/^- /.test(line)) return `<li>${line.replace(/^\s*-\s/, "")}</li>`;
+    if (/^[ABCD]\.\s/.test(line.trim())) return `<p style="padding-left:24px">${line.trim()}</p>`;
+    const inline = line.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    return `<p>${inline}</p>`;
+  }).join("\n");
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>body{font-family:'Segoe UI',sans-serif;line-height:1.8;max-width:800px;margin:40px auto;padding:0 24px}h1{font-size:1.4em}hr{border:0;border-top:1px solid #ccc;margin:16px 0}</style></head><body>${body}</body></html>`;
+}
+
+function rawToMarkdown(raw: string): string {
+  return raw.replace(/^\[C\](.*?)\[\/C\]$/gm, (_, t) => `# ${t.trim()}`);
+}
+
+function rawToJson(raw: string): string {
+  return JSON.stringify({ content: raw, generatedAt: new Date().toISOString(), tool: "NexoraAI Text Formatter" }, null, 2);
+}
+
+function rawToDocHtml(raw: string): string {
+  const lines = raw.split("\n");
+  const body = lines.map(line => {
+    const c = line.match(/^\[C\](.*?)\[\/C\]$/);
+    if (c) return `<p style="text-align:center;font-size:16pt;font-weight:bold;mso-style-name:Heading1">${c[1].trim()}</p>`;
+    if (/^---+$/.test(line.trim())) return `<hr/>`;
+    if (!line.trim()) return `<p>&nbsp;</p>`;
+    if (line.trim().startsWith("✔")) return `<p style="color:#228B22"><b>${line.trim()}</b></p>`;
+    if (/^- /.test(line)) return `<p style="margin-left:24pt">• ${line.replace(/^\s*-\s/, "")}</p>`;
+    if (/^[ABCD]\.\s/.test(line.trim())) return `<p style="margin-left:24pt">${line.trim()}</p>`;
+    const inline = line.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    return `<p>${inline}</p>`;
+  }).join("\n");
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/><style>body{font-family:'Times New Roman',serif;font-size:13pt;line-height:1.8}</style></head><body>${body}</body></html>`;
+}
+
+const DOWNLOAD_FORMATS = [
+  { id: "txt",  label: ".txt  — Văn bản thuần",   ext: "txt",  mime: "text/plain" },
+  { id: "md",   label: ".md   — Markdown",          ext: "md",   mime: "text/markdown" },
+  { id: "html", label: ".html — Trang web",         ext: "html", mime: "text/html" },
+  { id: "json", label: ".json — Dữ liệu JSON",      ext: "json", mime: "application/json" },
+  { id: "doc",  label: ".doc  — Microsoft Word",    ext: "doc",  mime: "application/msword" },
+] as const;
+type DownloadFmt = typeof DOWNLOAD_FORMATS[number]["id"];
 
 type Tab = "file" | "text" | "generate";
 
@@ -198,21 +242,35 @@ export function TextFormatter() {
   const [textInput, setTextInput] = useState("");
   const [genPrompt, setGenPrompt] = useState("");
 
-  const [result, setResult]     = useState("");
+  const [result, setResult]       = useState("");
   const [rawResult, setRawResult] = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
-  const [copied, setCopied]     = useState(false);
-  const [dragOver, setDragOver] = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [copied, setCopied]       = useState(false);
+  const [dragOver, setDragOver]   = useState(false);
+  const [showDlMenu, setShowDlMenu] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
+  const dlMenuRef = useRef<HTMLDivElement>(null);
+
+  /* Đóng dropdown khi click ngoài */
+  useEffect(() => {
+    if (!showDlMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (dlMenuRef.current && !dlMenuRef.current.contains(e.target as Node)) setShowDlMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showDlMenu]);
 
   const readFile = useCallback(async (f: File) => {
     setError(null);
-    const isDocx = f.type.includes("wordprocessingml") || f.type.includes("msword") || f.name.endsWith(".docx") || f.name.endsWith(".doc");
-    const isText = !isDocx && (
+    const name = f.name.toLowerCase();
+    const isImage = f.type.startsWith("image/") || [".jpg",".jpeg",".png",".webp",".gif",".bmp"].some(e => name.endsWith(e));
+    const isDocx  = f.type.includes("wordprocessingml") || f.type.includes("msword") || name.endsWith(".docx") || name.endsWith(".doc");
+    const isText  = !isImage && !isDocx && (
       f.type.startsWith("text/") ||
-      [".txt", ".md", ".csv", ".json", ".html", ".xml"].some(ext => f.name.toLowerCase().endsWith(ext))
+      [".txt",".md",".csv",".json",".html",".xml"].some(e => name.endsWith(e))
     );
 
     try {
@@ -220,10 +278,13 @@ export function TextFormatter() {
         const text = await f.text();
         setFile({ name: f.name, size: f.size, content: text, mimeType: "text/plain" });
       } else {
-        // Binary (docx, doc): send as base64
+        /* Binary (ảnh, docx) → base64 an toàn (không dùng spread lớn) */
         const buf = await f.arrayBuffer();
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        setFile({ name: f.name, size: f.size, content: b64, mimeType: f.type || "application/octet-stream" });
+        const b64 = arrayBufferToBase64(buf);
+        const mime = isImage
+          ? (f.type || `image/${name.split(".").pop()}`)
+          : (f.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        setFile({ name: f.name, size: f.size, content: b64, mimeType: mime });
       }
     } catch {
       setError("Không đọc được file.");
@@ -279,12 +340,23 @@ export function TextFormatter() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = () => {
-    const blob = new Blob([rawResult], { type: "text/plain;charset=utf-8" });
+  const handleDownload = (fmt: DownloadFmt) => {
+    setShowDlMenu(false);
+    let content = rawResult;
+    let mime = "text/plain;charset=utf-8";
+    let ext = "txt";
+
+    if (fmt === "txt")  { content = rawResult;          mime = "text/plain;charset=utf-8";    ext = "txt"; }
+    if (fmt === "md")   { content = rawToMarkdown(rawResult); mime = "text/markdown;charset=utf-8"; ext = "md"; }
+    if (fmt === "html") { content = rawToHtml(rawResult);     mime = "text/html;charset=utf-8";     ext = "html"; }
+    if (fmt === "json") { content = rawToJson(rawResult);     mime = "application/json;charset=utf-8"; ext = "json"; }
+    if (fmt === "doc")  { content = rawToDocHtml(rawResult);  mime = "application/msword";           ext = "doc"; }
+
+    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `formatted_${Date.now()}.txt`;
+    a.download = `formatted_${Date.now()}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -373,7 +445,7 @@ export function TextFormatter() {
                   >
                     <Upload style={{ width: 32, height: 32, margin: "0 auto 12px", color: "rgba(255,255,255,0.2)" }} />
                     <p style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Kéo thả hoặc click để chọn file</p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)" }}>Hỗ trợ: .txt .md .doc .docx .csv .json .html</p>
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)" }}>Hỗ trợ: .txt .md .doc .docx .csv .json .html .jpg .png .webp</p>
                   </div>
                 ) : (
                   <AnimBorderCard speed={5} color="rgba(255,255,255,0.4)" radius={14}>
@@ -490,18 +562,51 @@ export function TextFormatter() {
                     {loading ? "Đang tạo..." : "Kết quả"}
                   </span>
                 </div>
+
                 {result && !loading && (
-                  <div style={{ display: "flex", gap: 7 }}>
+                  <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                    {/* Copy */}
                     <button onClick={handleCopy}
                       style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(255,255,255,0.03)", color: copied ? "rgba(100,220,150,0.9)" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
                       {copied ? <CheckCircle2 style={{ width: 13, height: 13 }} /> : <Copy style={{ width: 13, height: 13 }} />}
                       {copied ? "Đã copy" : "Copy"}
                     </button>
-                    <button onClick={handleDownload}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
-                      <Download style={{ width: 13, height: 13 }} />
-                      Tải .txt
-                    </button>
+
+                    {/* Download dropdown */}
+                    <div ref={dlMenuRef} style={{ position: "relative" }}>
+                      <button
+                        onClick={() => setShowDlMenu(v => !v)}
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: showDlMenu ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT, transition: "background 0.15s" }}
+                      >
+                        <Download style={{ width: 13, height: 13 }} />
+                        Tải về
+                        <ChevronDown style={{ width: 11, height: 11, transition: "transform 0.2s", transform: showDlMenu ? "rotate(180deg)" : "rotate(0deg)" }} />
+                      </button>
+
+                      <AnimatePresence>
+                        {showDlMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                            transition={{ duration: 0.12 }}
+                            style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "rgba(18,18,18,0.97)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden", zIndex: 50, minWidth: 210, backdropFilter: "blur(12px)" }}
+                          >
+                            {DOWNLOAD_FORMATS.map(fmt => (
+                              <button
+                                key={fmt.id}
+                                onClick={() => handleDownload(fmt.id)}
+                                style={{ width: "100%", display: "block", textAlign: "left", padding: "10px 16px", background: "none", border: "none", color: "rgba(255,255,255,0.65)", fontSize: 12, fontFamily: FONT, cursor: "pointer", transition: "background 0.12s", fontWeight: 500 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                              >
+                                {fmt.label}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 )}
               </div>
