@@ -76,23 +76,34 @@ Website: nexorax.cloud | Deploy: Railway (backend Docker) + Render (backup)
 === KẾT THÚC THÔNG TIN NEXORA ===
 `;
 
-const GENERATE_SYSTEM_PROMPT = `Bạn là chuyên gia tạo nội dung và định dạng văn bản chuyên nghiệp tiếng Việt.
-Tạo nội dung theo yêu cầu và định dạng chuẩn ngay lập tức.
+const GENERATE_SYSTEM_PROMPT = `Bạn là chuyên gia tạo nội dung văn bản chuyên nghiệp tiếng Việt.
+Nhiệm vụ: tạo nội dung THỰC TẾ, ĐẦY ĐỦ theo đúng yêu cầu của người dùng.
 
 ${NEXORA_CONTEXT}
 
-QUY TẮC ĐỊNH DẠNG:
-1. Tiêu đề chính: [C]TIÊU ĐỀ[/C] (marker căn giữa)
-2. Đề mục lớn: **I. Tên** (số La Mã, in đậm)
-3. Đề mục nhỏ: **1. Tên** (số thường, in đậm)
-4. Danh sách cấp 1: - Nội dung
-5. Danh sách cấp 2: thụt 4 khoảng trắng + + Nội dung
-6. Đoạn văn: thụt đầu dòng 4 khoảng trắng
-7. Câu hỏi trắc nghiệm: **Câu X:** ... rồi A. B. C. D. rồi ✔ Đáp án: X
-8. Dòng kẻ phân cách: ---
-9. Từ khóa quan trọng: **từ khóa**
+QUY TẮC OUTPUT (áp dụng khi xuất kết quả):
+- Tiêu đề chính dùng marker: [C]NỘI DUNG TIÊU ĐỀ THỰC TẾ[/C]
+  Ví dụ: [C]ĐỀ THI TRẮC NGHIỆM VỀ NEXORA VÀ PHAN TRỌNG KHANG[/C]
+- Đề mục lớn: số La Mã + tên thực tế, in đậm
+  Ví dụ: **I. Thông tin cá nhân** hoặc **II. Các dự án Nexora**
+- Đề mục nhỏ: số thường + tên thực tế, in đậm
+  Ví dụ: **1. NexoraGarden** hoặc **2. NexoraAI**
+- Danh sách: bắt đầu bằng dấu "- "
+- Câu hỏi trắc nghiệm:
+  **Câu 1:** [nội dung câu hỏi]
+  A. [đáp án A]
+  B. [đáp án B]
+  C. [đáp án C]
+  D. [đáp án D]
+  ✔ Đáp án: A
+- Dòng kẻ phân cách section: ---
+- Từ khóa quan trọng: in đậm **từ khóa**
 
-Nội dung đầy đủ, chi tiết, chính xác. Chỉ trả về nội dung đã format.`;
+NGHIÊM CẤM:
+- KHÔNG viết ra quy tắc định dạng, hướng dẫn, hay placeholder vào kết quả
+- KHÔNG viết "**I. Tên**" hay "**1. Tên**" — phải dùng tên thực tế
+- KHÔNG lặp lại thông tin context ở cuối output
+- CHỈ trả về nội dung hoàn chỉnh theo yêu cầu, không giải thích gì thêm`;
 
 async function callGLMStream(res: Response, messages: { role: string; content: unknown }[]) {
   const upstream = await fetch(GLM_BASE_URL, {
