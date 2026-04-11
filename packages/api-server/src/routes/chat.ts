@@ -2,8 +2,8 @@ import { Router, type Request, type Response } from "express";
 
 const router = Router();
 
-const GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
-const GLM_MODEL    = "GLM-4V-Flash";
+const GLM_BASE_URL = "https://api.llm7.io/v1/chat/completions";
+const GLM_MODEL    = "GLM-4.6V-Flash";
 const GLM_API_KEY  = "T49q5w7eZI+2c3Giqf2G00twjoVevINN4TOY4AkPQqpr8koua+PdGHSBP/tX+m72Ehf/N6xN+Tq+oOtq8uxRzI3/fMq2dlt2W7TKqD9PHCVn4JY6M6VxOyRSqrBhH9hQtOTP";
 
 // Gemini part → OpenAI content
