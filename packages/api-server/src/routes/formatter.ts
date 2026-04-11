@@ -1,44 +1,62 @@
 import { Router, type Request, type Response } from "express";
+import mammoth from "mammoth";
 
 const router = Router();
 const GEMINI_API_KEY = process.env["GEMINI_API_KEY"] ?? "";
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-const FORMAT_SYSTEM_PROMPT = `Bạn là chuyên gia định dạng văn bản chuyên nghiệp. Nhận văn bản thô và trả về phiên bản đã được định dạng chuẩn.
+const FORMAT_SYSTEM_PROMPT = `Bạn là chuyên gia định dạng văn bản chuyên nghiệp tiếng Việt.
+Nhận văn bản thô và trả về phiên bản đã được định dạng chuẩn.
 
-QUY TẮC ĐỊNH DẠNG BẮT BUỘC:
-1. TIÊU ĐỀ CHÍNH: viết hoa toàn bộ, đặt ký tự ═ hai bên căn giữa. VD: ══════════ TIÊU ĐỀ CHÍNH ══════════
-2. ĐỀ MỤC LỚN: in đậm **I. Tên đề mục** (dùng số La Mã)
-3. ĐỀ MỤC NHỎ: **1. Tên đề mục nhỏ** (số thường)
-4. DANH SÁCH CẤP 1: bắt đầu bằng  - (gạch ngang + khoảng trắng)
-5. DANH SÁCH CẤP 2: bắt đầu bằng    + (4 khoảng trắng + dấu + )
-6. ĐOẠN VĂN: thụt đầu dòng 4 khoảng trắng, dòng trống giữa các đoạn
-7. CÂU HỎI TRẮC NGHIỆM: format chuẩn:
-   Câu X: [câu hỏi]
-   A. [đáp án A]
-   B. [đáp án B]
-   C. [đáp án C]
-   D. [đáp án D]
-   ✔ Đáp án: [chữ cái]
-8. BẢNG SỐ LIỆU: căn cột bằng khoảng trắng, dùng | để phân cột
-9. TỪ QUAN TRỌNG: in đậm **từ** nếu là từ khóa/thuật ngữ chính
-10. XÓA dấu cách thừa, sửa lỗi format, thống nhất kiểu viết
+QUY TẮC ĐỊNH DẠNG (BẮT BUỘC tuân thủ chính xác):
 
-QUAN TRỌNG: CHỈ trả về văn bản đã được định dạng. KHÔNG giải thích. KHÔNG thêm ghi chú. KHÔNG thay đổi nội dung.`;
+1. TIÊU ĐỀ CHÍNH (tên báo cáo, tên đề tài, tên tài liệu):
+   Dùng marker: [C]TIÊU ĐỀ Ở ĐÂY[/C]
+   Ví dụ: [C]BÁO CÁO TỔNG KẾT NĂM 2025[/C]
 
-const GENERATE_SYSTEM_PROMPT = `Bạn là chuyên gia tạo nội dung và định dạng văn bản chuyên nghiệp người Việt.
-Nhiệm vụ: TẠO nội dung theo yêu cầu, sau đó ĐỊNH DẠNG chuẩn ngay lập tức.
+2. ĐỀ MỤC LỚN: **I. Tên đề mục** (số La Mã + chấm + khoảng trắng + tên, in đậm)
+   Ví dụ: **I. Giới thiệu**
 
-QUY TẮC ĐỊNH DẠNG (áp dụng cho nội dung bạn tạo):
-1. TIÊU ĐỀ CHÍNH: viết hoa, ký tự ═ hai bên căn giữa
-2. ĐỀ MỤC LỚN: **I. Tên đề mục** (số La Mã, in đậm)
-3. ĐỀ MỤC NHỎ: **1. Tên** (số thường, in đậm)  
-4. DANH SÁCH CẤP 1: dùng  - ; CẤP 2: dùng    +
-5. ĐOẠN VĂN: thụt đầu dòng 4 khoảng trắng
-6. CÂU HỎI TRẮC NGHIỆM: format A/B/C/D chuẩn + đáp án ✔
-7. Nội dung đầy đủ, chi tiết, chính xác, tiếng Việt chuẩn
+3. ĐỀ MỤC NHỎ: **1. Tên đề mục nhỏ** (số thường + chấm, in đậm)
 
-Chỉ trả về nội dung hoàn chỉnh đã format. KHÔNG thêm lời giải thích hay ghi chú.`;
+4. DANH SÁCH CẤP 1: - Nội dung (gạch ngang đầu dòng)
+
+5. DANH SÁCH CẤP 2: thụt vào 4 khoảng trắng + + Nội dung
+
+6. ĐOẠN VĂN THƯỜNG: thụt đầu dòng 4 khoảng trắng
+
+7. CÂU HỎI TRẮC NGHIỆM (format chính xác):
+   **Câu X:** Nội dung câu hỏi
+   A. Đáp án A
+   B. Đáp án B
+   C. Đáp án C
+   D. Đáp án D
+   ✔ Đáp án: X
+
+8. TỪ KHÓA QUAN TRỌNG: in đậm **từ khóa**
+
+9. DÒNG KẺ phân cách section: ---
+
+QUAN TRỌNG:
+- CHỈ dùng [C]...[/C] cho tiêu đề chính, KHÔNG dùng ký tự ═ hay ==
+- CHỈ trả về văn bản đã format, KHÔNG giải thích, KHÔNG thêm ghi chú
+- Giữ nguyên ngôn ngữ và nội dung gốc`;
+
+const GENERATE_SYSTEM_PROMPT = `Bạn là chuyên gia tạo nội dung và định dạng văn bản chuyên nghiệp tiếng Việt.
+Tạo nội dung theo yêu cầu và định dạng chuẩn ngay lập tức.
+
+QUY TẮC ĐỊNH DẠNG:
+1. Tiêu đề chính: [C]TIÊU ĐỀ[/C] (marker căn giữa)
+2. Đề mục lớn: **I. Tên** (số La Mã, in đậm)
+3. Đề mục nhỏ: **1. Tên** (số thường, in đậm)
+4. Danh sách cấp 1: - Nội dung
+5. Danh sách cấp 2: thụt 4 khoảng trắng + + Nội dung
+6. Đoạn văn: thụt đầu dòng 4 khoảng trắng
+7. Câu hỏi trắc nghiệm: **Câu X:** ... rồi A. B. C. D. rồi ✔ Đáp án: X
+8. Dòng kẻ phân cách: ---
+9. Từ khóa quan trọng: **từ khóa**
+
+Nội dung đầy đủ, chi tiết, chính xác. Chỉ trả về nội dung đã format.`;
 
 router.post("/format", async (req: Request, res: Response) => {
   if (!GEMINI_API_KEY) {
@@ -74,12 +92,26 @@ router.post("/format", async (req: Request, res: Response) => {
     if (mode === "generate") {
       systemPrompt = GENERATE_SYSTEM_PROMPT;
       userParts = [{ text: `Yêu cầu tạo nội dung: ${prompt}` }];
+
     } else if (mode === "file" && mimeType && content) {
-      systemPrompt = FORMAT_SYSTEM_PROMPT;
-      userParts = [
-        { inlineData: { mimeType, data: content } },
-        { text: "Định dạng toàn bộ nội dung file này theo đúng quy tắc." },
-      ];
+      const isDocx =
+        mimeType.includes("wordprocessingml") ||
+        mimeType.includes("msword") ||
+        mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+      if (isDocx) {
+        // Extract text from docx with mammoth
+        const buf = Buffer.from(content, "base64");
+        const extracted = await mammoth.extractRawText({ buffer: buf });
+        const text = extracted.value;
+        systemPrompt = FORMAT_SYSTEM_PROMPT;
+        userParts = [{ text: `Định dạng văn bản sau:\n\n${text}` }];
+      } else {
+        // Text-based file: content is already plain text
+        systemPrompt = FORMAT_SYSTEM_PROMPT;
+        userParts = [{ text: `Định dạng văn bản sau:\n\n${content}` }];
+      }
+
     } else {
       systemPrompt = FORMAT_SYSTEM_PROMPT;
       userParts = [{ text: `Định dạng văn bản sau:\n\n${content}` }];

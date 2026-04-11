@@ -137,6 +137,7 @@ async function buildAll() {
     logLevel: "info",
     external: [
       "*.node",
+      "mammoth",
       "sharp",
       "better-sqlite3",
       "sqlite3",

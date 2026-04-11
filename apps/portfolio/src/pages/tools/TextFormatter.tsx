@@ -11,6 +11,7 @@ const FONT = "'Plus Jakarta Sans', sans-serif";
 const MAX_CHARS = 2000;
 const ACCEPTED = ".txt,.md,.doc,.docx,.csv,.json,.html,.xml";
 
+/* ── AnimBorderCard ── */
 function AnimBorderCard({
   children, speed = 4, color = "rgba(255,255,255,0.85)",
   radius = 16, innerStyle = {}, className = "",
@@ -36,6 +37,113 @@ function AnimBorderCard({
   );
 }
 
+/* ── Render inline: **bold** ── */
+function renderInline(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const regex = /\*\*(.+?)\*\*/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    parts.push(
+      <strong key={match.index} style={{ fontWeight: 700, color: "rgba(255,255,255,0.95)" }}>
+        {match[1]}
+      </strong>
+    );
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
+/* ── Render formatted output text ── */
+function RenderOutput({ text }: { text: string }) {
+  const lines = text.split("\n");
+
+  return (
+    <div style={{ fontFamily: FONT, fontSize: 14, lineHeight: 1.85, color: "rgba(255,255,255,0.82)" }}>
+      {lines.map((line, i) => {
+        // [C]TIÊU ĐỀ[/C] → căn giữa, in đậm
+        const centerMatch = line.match(/^\[C\](.*?)\[\/C\]$/);
+        if (centerMatch) {
+          return (
+            <div key={i} style={{ textAlign: "center", fontWeight: 800, fontSize: 15.5, color: "rgba(255,255,255,0.97)", marginTop: 18, marginBottom: 6, letterSpacing: 0.3 }}>
+              {centerMatch[1].trim()}
+            </div>
+          );
+        }
+
+        // --- phân cách
+        if (/^---+$/.test(line.trim())) {
+          return <div key={i} style={{ borderTop: "1px solid rgba(255,255,255,0.1)", margin: "14px 0" }} />;
+        }
+
+        // Dòng trống
+        if (!line.trim()) {
+          return <div key={i} style={{ height: 6 }} />;
+        }
+
+        // ✔ Đáp án:
+        if (line.trim().startsWith("✔")) {
+          return (
+            <div key={i} style={{ paddingLeft: 0, marginTop: 4, color: "rgba(120,220,150,0.9)", fontWeight: 600 }}>
+              {renderInline(line)}
+            </div>
+          );
+        }
+
+        // Danh sách cấp 2: "    + " (4 spaces + +)
+        if (/^    \+\s/.test(line)) {
+          return (
+            <div key={i} style={{ display: "flex", gap: 6, paddingLeft: 28, marginTop: 2 }}>
+              <span style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }}>+</span>
+              <span>{renderInline(line.replace(/^\s+\+\s/, ""))}</span>
+            </div>
+          );
+        }
+
+        // Danh sách cấp 1: "- "
+        if (/^- /.test(line) || /^ {0,2}- /.test(line)) {
+          return (
+            <div key={i} style={{ display: "flex", gap: 8, paddingLeft: 8, marginTop: 2 }}>
+              <span style={{ color: "rgba(255,255,255,0.4)", flexShrink: 0, marginTop: 1 }}>–</span>
+              <span>{renderInline(line.replace(/^\s*-\s/, ""))}</span>
+            </div>
+          );
+        }
+
+        // A. B. C. D. đáp án trắc nghiệm
+        if (/^[ABCD]\.\s/.test(line.trim())) {
+          const letter = line.trim()[0];
+          const content = line.trim().slice(3);
+          return (
+            <div key={i} style={{ display: "flex", gap: 8, paddingLeft: 16, marginTop: 3 }}>
+              <span style={{ fontWeight: 700, color: "rgba(255,255,255,0.5)", flexShrink: 0, minWidth: 20 }}>{letter}.</span>
+              <span>{renderInline(content)}</span>
+            </div>
+          );
+        }
+
+        // Đoạn văn thụt đầu dòng 4 khoảng trắng
+        if (/^ {4}[^ ]/.test(line)) {
+          return (
+            <div key={i} style={{ paddingLeft: 16, marginTop: 2 }}>
+              {renderInline(line.trimStart())}
+            </div>
+          );
+        }
+
+        // Mọi trường hợp còn lại (bao gồm **bold** inline)
+        return (
+          <div key={i} style={{ marginTop: 2 }}>
+            {renderInline(line)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 type Tab = "file" | "text" | "generate";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -53,16 +161,13 @@ async function streamFormat(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { error?: string };
     throw new Error(err?.error ?? `HTTP ${res.status}`);
   }
-
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -89,11 +194,12 @@ export function TextFormatter() {
   const [, navigate] = useLocation();
   const [tab, setTab] = useState<Tab>("file");
 
-  const [file, setFile]         = useState<{ name: string; size: number; content: string; mimeType: string } | null>(null);
+  const [file, setFile] = useState<{ name: string; size: number; content: string; mimeType: string } | null>(null);
   const [textInput, setTextInput] = useState("");
   const [genPrompt, setGenPrompt] = useState("");
 
   const [result, setResult]     = useState("");
+  const [rawResult, setRawResult] = useState("");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [copied, setCopied]     = useState(false);
@@ -102,19 +208,26 @@ export function TextFormatter() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const readFile = useCallback(async (f: File) => {
-    const isText = f.type.startsWith("text/") ||
-      [".txt", ".md", ".csv", ".json", ".html", ".xml"].some(ext => f.name.endsWith(ext));
-
-    if (isText) {
-      const text = await f.text();
-      setFile({ name: f.name, size: f.size, content: text, mimeType: "text/plain" });
-    } else {
-      const buf = await f.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-      const mime = f.type || "application/octet-stream";
-      setFile({ name: f.name, size: f.size, content: b64, mimeType: mime });
-    }
     setError(null);
+    const isDocx = f.type.includes("wordprocessingml") || f.type.includes("msword") || f.name.endsWith(".docx") || f.name.endsWith(".doc");
+    const isText = !isDocx && (
+      f.type.startsWith("text/") ||
+      [".txt", ".md", ".csv", ".json", ".html", ".xml"].some(ext => f.name.toLowerCase().endsWith(ext))
+    );
+
+    try {
+      if (isText) {
+        const text = await f.text();
+        setFile({ name: f.name, size: f.size, content: text, mimeType: "text/plain" });
+      } else {
+        // Binary (docx, doc): send as base64
+        const buf = await f.arrayBuffer();
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        setFile({ name: f.name, size: f.size, content: b64, mimeType: f.type || "application/octet-stream" });
+      }
+    } catch {
+      setError("Không đọc được file.");
+    }
   }, []);
 
   const handleFileDrop = useCallback((e: React.DragEvent) => {
@@ -127,16 +240,16 @@ export function TextFormatter() {
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) readFile(f);
+    e.target.value = "";
   }, [readFile]);
 
   const handleSubmit = async () => {
     setError(null);
     setResult("");
+    setRawResult("");
     setLoading(true);
-
     try {
       let payload: Parameters<typeof streamFormat>[0];
-
       if (tab === "file") {
         if (!file) throw new Error("Chưa chọn file");
         payload = { mode: "file", content: file.content, mimeType: file.mimeType };
@@ -147,9 +260,11 @@ export function TextFormatter() {
         if (!genPrompt.trim()) throw new Error("Chưa nhập yêu cầu");
         payload = { mode: "generate", prompt: genPrompt };
       }
-
+      let raw = "";
       await streamFormat(payload, (chunk) => {
-        setResult(prev => prev + chunk);
+        raw += chunk;
+        setRawResult(raw);
+        setResult(raw);
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi không xác định");
@@ -159,13 +274,13 @@ export function TextFormatter() {
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(result);
+    await navigator.clipboard.writeText(rawResult);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownload = () => {
-    const blob = new Blob([result], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([rawResult], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -187,13 +302,13 @@ export function TextFormatter() {
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.25, 0.4, 0.25] }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.35, 0.2] }}
           transition={{ duration: 18, repeat: Infinity }}
           className="absolute top-[-15%] right-[-5%] w-[50vw] h-[50vw] rounded-full"
           style={{ background: "radial-gradient(ellipse, rgba(255,255,255,0.04) 0%, transparent 70%)" }}
         />
         <motion.div
-          animate={{ scale: [1, 1.15, 1], opacity: [0.15, 0.3, 0.15] }}
+          animate={{ scale: [1, 1.15, 1], opacity: [0.12, 0.25, 0.12] }}
           transition={{ duration: 14, repeat: Infinity, delay: 5 }}
           className="absolute bottom-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full"
           style={{ background: "radial-gradient(ellipse, rgba(255,255,255,0.03) 0%, transparent 70%)" }}
@@ -204,69 +319,36 @@ export function TextFormatter() {
 
         {/* Back */}
         <motion.button
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
           onClick={() => navigate("/tool")}
           whileHover={{ x: -3 }}
-          className="flex items-center gap-2 mb-8 text-sm"
-          style={{ color: "rgba(255,255,255,0.35)", background: "none", border: "none", cursor: "pointer", fontFamily: FONT }}
+          style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 28, color: "rgba(255,255,255,0.35)", background: "none", border: "none", cursor: "pointer", fontFamily: FONT, fontSize: 13 }}
         >
-          <ArrowLeft className="w-4 h-4" />
-          Quay lại
+          <ArrowLeft className="w-4 h-4" /> Quay lại
         </motion.button>
 
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)" }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", flexShrink: 0 }}>
               <FileText className="w-5 h-5" style={{ color: "rgba(255,255,255,0.75)" }} />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white">Text Formatter</h1>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>AI tự động căn chỉnh và định dạng văn bản</p>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: "rgba(255,255,255,0.95)", margin: 0 }}>Text Formatter</h1>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", margin: 0, marginTop: 2 }}>AI tự động căn chỉnh và định dạng văn bản</p>
             </div>
           </div>
         </motion.div>
 
         {/* Tabs */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="flex gap-2 mb-6"
-        >
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} style={{ display: "flex", gap: 8, marginBottom: 20 }}>
           {TABS.map(t => {
             const Icon = t.icon;
             const active = tab === t.id;
             return (
-              <button
-                key={t.id}
-                onClick={() => { setTab(t.id); setResult(""); setError(null); }}
-                style={{
-                  flex: 1,
-                  padding: "10px 8px",
-                  borderRadius: 12,
-                  border: active ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.08)",
-                  background: active ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.02)",
-                  color: active ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
-                  fontSize: 12,
-                  fontWeight: active ? 700 : 500,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  fontFamily: FONT,
-                  transition: "all 0.2s",
-                }}
-              >
-                <Icon className="w-3.5 h-3.5" />
+              <button key={t.id} onClick={() => { setTab(t.id); setResult(""); setRawResult(""); setError(null); }}
+                style={{ flex: 1, padding: "11px 8px", borderRadius: 12, border: active ? "1px solid rgba(255,255,255,0.28)" : "1px solid rgba(255,255,255,0.07)", background: active ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.02)", color: active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: FONT, transition: "all 0.2s" }}>
+                <Icon style={{ width: 13, height: 13 }} />
                 {t.label}
               </button>
             );
@@ -274,60 +356,37 @@ export function TextFormatter() {
         </motion.div>
 
         {/* Input area */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="mb-4"
-        >
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} style={{ marginBottom: 14 }}>
           <AnimatePresence mode="wait">
+
             {/* Tab 1: Upload file */}
             {tab === "file" && (
-              <motion.div key="file" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <input ref={fileRef} type="file" accept={ACCEPTED} className="hidden" onChange={handleFileInput} />
-
+              <motion.div key="file" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <input ref={fileRef} type="file" accept={ACCEPTED} style={{ display: "none" }} onChange={handleFileInput} />
                 {!file ? (
                   <div
                     onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={handleFileDrop}
                     onClick={() => fileRef.current?.click()}
-                    style={{
-                      border: `2px dashed ${dragOver ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.12)"}`,
-                      borderRadius: 16,
-                      padding: "40px 20px",
-                      textAlign: "center",
-                      cursor: "pointer",
-                      background: dragOver ? "rgba(255,255,255,0.04)" : "transparent",
-                      transition: "all 0.2s",
-                    }}
+                    style={{ border: `2px dashed ${dragOver ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.11)"}`, borderRadius: 16, padding: "44px 20px", textAlign: "center", cursor: "pointer", background: dragOver ? "rgba(255,255,255,0.04)" : "transparent", transition: "all 0.2s" }}
                   >
-                    <Upload className="w-8 h-8 mx-auto mb-3" style={{ color: "rgba(255,255,255,0.25)" }} />
-                    <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.55)" }}>
-                      Kéo thả file vào đây hoặc click để chọn
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.25)" }}>
-                      Hỗ trợ: .txt .md .doc .docx .csv .json .html
-                    </p>
+                    <Upload style={{ width: 32, height: 32, margin: "0 auto 12px", color: "rgba(255,255,255,0.2)" }} />
+                    <p style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Kéo thả hoặc click để chọn file</p>
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)" }}>Hỗ trợ: .txt .md .doc .docx .csv .json .html</p>
                   </div>
                 ) : (
                   <AnimBorderCard speed={5} color="rgba(255,255,255,0.4)" radius={14}>
-                    <div className="flex items-center gap-3 p-4">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
-                        <FileText className="w-5 h-5" style={{ color: "rgba(255,255,255,0.6)" }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", flexShrink: 0 }}>
+                        <FileText style={{ width: 18, height: 18, color: "rgba(255,255,255,0.6)" }} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white/80 truncate">{file.name}</p>
-                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          {(file.size / 1024).toFixed(1)} KB
-                        </p>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.8)", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</p>
+                        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{(file.size / 1024).toFixed(1)} KB</p>
                       </div>
-                      <button
-                        onClick={() => setFile(null)}
-                        style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}
-                      >
-                        <X className="w-4 h-4" style={{ color: "rgba(255,255,255,0.35)" }} />
+                      <button onClick={() => setFile(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                        <X style={{ width: 16, height: 16, color: "rgba(255,255,255,0.3)" }} />
                       </button>
                     </div>
                   </AnimBorderCard>
@@ -337,30 +396,18 @@ export function TextFormatter() {
 
             {/* Tab 2: Manual text */}
             {tab === "text" && (
-              <motion.div key="text" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <AnimBorderCard speed={6} color="rgba(255,255,255,0.35)" radius={14}>
-                  <div className="relative p-1">
+              <motion.div key="text" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <AnimBorderCard speed={6} color="rgba(255,255,255,0.3)" radius={14}>
+                  <div style={{ padding: "4px 4px 0" }}>
                     <textarea
                       value={textInput}
                       onChange={e => setTextInput(e.target.value.slice(0, MAX_CHARS))}
                       placeholder="Dán hoặc nhập văn bản cần định dạng vào đây..."
                       rows={10}
-                      style={{
-                        width: "100%",
-                        background: "transparent",
-                        border: "none",
-                        outline: "none",
-                        color: "rgba(255,255,255,0.8)",
-                        fontSize: 13.5,
-                        lineHeight: 1.7,
-                        resize: "vertical",
-                        padding: "12px 14px",
-                        fontFamily: FONT,
-                        caretColor: "rgba(255,255,255,0.7)",
-                      }}
+                      style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: "rgba(255,255,255,0.82)", fontSize: 13.5, lineHeight: 1.75, resize: "vertical", padding: "12px 14px", fontFamily: FONT, caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
                     />
-                    <div className="flex justify-end px-3 pb-2">
-                      <span className="text-xs" style={{ color: textInput.length > MAX_CHARS * 0.9 ? "rgba(255,180,80,0.7)" : "rgba(255,255,255,0.2)" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 14px 10px" }}>
+                      <span style={{ fontSize: 11, color: textInput.length > MAX_CHARS * 0.9 ? "rgba(255,180,80,0.7)" : "rgba(255,255,255,0.2)" }}>
                         {textInput.length} / {MAX_CHARS}
                       </span>
                     </div>
@@ -371,60 +418,28 @@ export function TextFormatter() {
 
             {/* Tab 3: Generate */}
             {tab === "generate" && (
-              <motion.div key="generate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <AnimBorderCard speed={5} color="rgba(255,255,255,0.45)" radius={14}>
-                  <div className="p-1">
-                    <div className="flex items-start gap-2 px-3 pt-3 pb-1">
-                      <Sparkles className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
-                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)", lineHeight: 1.6 }}>
-                        Mô tả nội dung bạn muốn tạo — AI sẽ viết và định dạng hoàn chỉnh
+              <motion.div key="generate" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <AnimBorderCard speed={5} color="rgba(255,255,255,0.4)" radius={14}>
+                  <div style={{ padding: "14px 16px 12px" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
+                      <Sparkles style={{ width: 14, height: 14, color: "rgba(255,255,255,0.35)", flexShrink: 0, marginTop: 2 }} />
+                      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", lineHeight: 1.6, margin: 0 }}>
+                        Mô tả nội dung bạn muốn — AI sẽ tạo và định dạng hoàn chỉnh
                       </p>
                     </div>
                     <textarea
                       value={genPrompt}
                       onChange={e => setGenPrompt(e.target.value)}
                       placeholder="VD: Tạo 20 câu hỏi trắc nghiệm Lịch sử lớp 12 về chiến tranh Việt Nam..."
-                      rows={6}
-                      style={{
-                        width: "100%",
-                        background: "transparent",
-                        border: "none",
-                        outline: "none",
-                        color: "rgba(255,255,255,0.8)",
-                        fontSize: 13.5,
-                        lineHeight: 1.7,
-                        resize: "vertical",
-                        padding: "8px 14px 12px",
-                        fontFamily: FONT,
-                        caretColor: "rgba(255,255,255,0.7)",
-                      }}
+                      rows={5}
+                      style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: "rgba(255,255,255,0.82)", fontSize: 13.5, lineHeight: 1.75, resize: "vertical", padding: "0 0 4px", fontFamily: FONT, caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
                     />
                   </div>
                 </AnimBorderCard>
-
-                {/* Example hints */}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {[
-                    "20 câu hỏi trắc nghiệm Toán lớp 10",
-                    "Báo cáo tổng kết tháng",
-                    "Kế hoạch học tập 1 tuần",
-                    "Outline bài thuyết trình",
-                  ].map(hint => (
-                    <button
-                      key={hint}
-                      onClick={() => setGenPrompt(hint)}
-                      style={{
-                        padding: "5px 12px",
-                        borderRadius: 20,
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        background: "rgba(255,255,255,0.03)",
-                        color: "rgba(255,255,255,0.4)",
-                        fontSize: 11,
-                        cursor: "pointer",
-                        fontFamily: FONT,
-                        transition: "all 0.15s",
-                      }}
-                    >
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
+                  {["20 câu trắc nghiệm Toán lớp 10", "Báo cáo tổng kết tháng", "Kế hoạch học tập 1 tuần", "Outline bài thuyết trình"].map(hint => (
+                    <button key={hint} onClick={() => setGenPrompt(hint)}
+                      style={{ padding: "5px 12px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.38)", fontSize: 11, cursor: "pointer", fontFamily: FONT }}>
                       {hint}
                     </button>
                   ))}
@@ -437,50 +452,25 @@ export function TextFormatter() {
         {/* Error */}
         <AnimatePresence>
           {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="flex items-center gap-2 mb-4 px-4 py-3 rounded-xl"
-              style={{ background: "rgba(255,60,60,0.07)", border: "1px solid rgba(255,60,60,0.18)" }}
-            >
-              <AlertCircle className="w-4 h-4 flex-shrink-0" style={{ color: "rgba(255,120,120,0.8)" }} />
-              <span className="text-sm" style={{ color: "rgba(255,150,150,0.9)" }}>{error}</span>
+            <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(255,60,60,0.07)", border: "1px solid rgba(255,60,60,0.18)" }}>
+              <AlertCircle style={{ width: 15, height: 15, color: "rgba(255,120,120,0.8)", flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: "rgba(255,150,150,0.9)" }}>{error}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Submit button */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-8"
-        >
-          <AnimBorderCard speed={canSubmit ? 3 : 8} color="rgba(255,255,255,0.6)" radius={14}>
-            <button
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              style={{
-                width: "100%",
-                padding: "14px",
-                background: "transparent",
-                border: "none",
-                cursor: canSubmit ? "pointer" : "not-allowed",
-                color: canSubmit ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)",
-                fontSize: 14,
-                fontWeight: 700,
-                fontFamily: FONT,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              }}
-            >
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} style={{ marginBottom: 28 }}>
+          <AnimBorderCard speed={canSubmit ? 3 : 8} color={canSubmit ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.15)"} radius={14}>
+            <button onClick={handleSubmit} disabled={!canSubmit}
+              style={{ width: "100%", padding: "15px", background: "transparent", border: "none", cursor: canSubmit ? "pointer" : "not-allowed", color: canSubmit ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.22)", fontSize: 14, fontWeight: 700, fontFamily: FONT, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Đang xử lý...</>
+                <><Loader2 style={{ width: 16, height: 16 }} className="animate-spin" /> Đang xử lý...</>
               ) : tab === "generate" ? (
-                <><Sparkles className="w-4 h-4" /> Tạo & Định dạng</>
+                <><Sparkles style={{ width: 16, height: 16 }} /> Tạo &amp; Định dạng</>
               ) : (
-                <><FileText className="w-4 h-4" /> Định dạng ngay</>
+                <><FileText style={{ width: 16, height: 16 }} /> Định dạng ngay</>
               )}
             </button>
           </AnimBorderCard>
@@ -488,52 +478,28 @@ export function TextFormatter() {
 
         {/* Output */}
         <AnimatePresence>
-          {(result || (loading && result === "")) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-            >
+          {(result || loading) && (
+            <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               {/* Output header */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  {loading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "rgba(255,255,255,0.4)" }} />
-                  ) : (
-                    <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "rgba(100,220,150,0.7)" }} />
-                  )}
-                  <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  {loading
+                    ? <Loader2 style={{ width: 13, height: 13, color: "rgba(255,255,255,0.4)" }} className="animate-spin" />
+                    : <CheckCircle2 style={{ width: 13, height: 13, color: "rgba(100,220,150,0.75)" }} />}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.38)" }}>
                     {loading ? "Đang tạo..." : "Kết quả"}
                   </span>
                 </div>
                 {result && !loading && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCopy}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 5,
-                        padding: "5px 12px", borderRadius: 8,
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: copied ? "rgba(100,220,150,0.9)" : "rgba(255,255,255,0.5)",
-                        fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
-                      }}
-                    >
-                      {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <div style={{ display: "flex", gap: 7 }}>
+                    <button onClick={handleCopy}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(255,255,255,0.03)", color: copied ? "rgba(100,220,150,0.9)" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
+                      {copied ? <CheckCircle2 style={{ width: 13, height: 13 }} /> : <Copy style={{ width: 13, height: 13 }} />}
                       {copied ? "Đã copy" : "Copy"}
                     </button>
-                    <button
-                      onClick={handleDownload}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 5,
-                        padding: "5px 12px", borderRadius: 8,
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: "rgba(255,255,255,0.5)",
-                        fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
-                      }}
-                    >
-                      <Download className="w-3.5 h-3.5" />
+                    <button onClick={handleDownload}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
+                      <Download style={{ width: 13, height: 13 }} />
                       Tải .txt
                     </button>
                   </div>
@@ -541,31 +507,19 @@ export function TextFormatter() {
               </div>
 
               {/* Output content */}
-              <AnimBorderCard speed={loading ? 2 : 8} color={loading ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.2)"} radius={14}>
-                <pre
-                  style={{
-                    padding: "16px",
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    fontSize: 13,
-                    lineHeight: 1.8,
-                    color: "rgba(255,255,255,0.78)",
-                    fontFamily: "'Courier New', monospace",
-                    maxHeight: 520,
-                    overflowY: "auto",
-                    minHeight: 60,
-                  }}
-                >
-                  {result}
-                  {loading && (
-                    <motion.span
-                      animate={{ opacity: [1, 0, 1] }}
-                      transition={{ duration: 0.6, repeat: Infinity }}
-                      style={{ display: "inline-block", width: 2, height: "1em", background: "rgba(255,255,255,0.7)", verticalAlign: "text-bottom", marginLeft: 1 }}
-                    />
-                  )}
-                </pre>
+              <AnimBorderCard speed={loading ? 2 : 9} color={loading ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.15)"} radius={14} innerStyle={{ padding: "18px 20px", maxHeight: 560, overflowY: "auto" }}>
+                {result ? (
+                  <RenderOutput text={result} />
+                ) : (
+                  <div style={{ height: 40 }} />
+                )}
+                {loading && (
+                  <motion.span
+                    animate={{ opacity: [1, 0, 1] }}
+                    transition={{ duration: 0.55, repeat: Infinity }}
+                    style={{ display: "inline-block", width: 2, height: "1em", background: "rgba(255,255,255,0.65)", verticalAlign: "text-bottom", marginLeft: 2 }}
+                  />
+                )}
               </AnimBorderCard>
             </motion.div>
           )}
