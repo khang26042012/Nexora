@@ -374,66 +374,50 @@ export function Chat() {
               transition={{ duration: 0.5 }}
               style={{ textAlign: "center", padding: "0 32px" }}
             >
-              {/* Orb icon */}
+              {/* Avatar */}
               <div
                 style={{
                   position: "relative",
-                  width: 72,
-                  height: 72,
+                  width: 80,
+                  height: 80,
                   margin: "0 auto 20px",
                 }}
               >
                 <motion.div
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
                   style={{
                     position: "absolute",
-                    inset: 0,
+                    inset: -4,
                     borderRadius: "50%",
                     border: "1.5px solid transparent",
-                    borderTopColor: "rgba(255,255,255,0.5)",
-                    borderRightColor: "rgba(255,255,255,0.15)",
+                    borderTopColor: "rgba(255,255,255,0.45)",
+                    borderRightColor: "rgba(255,255,255,0.1)",
                   }}
                 />
                 <motion.div
                   animate={{ rotate: -360 }}
-                  transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 16, repeat: Infinity, ease: "linear" }}
                   style={{
                     position: "absolute",
-                    inset: 6,
+                    inset: -8,
                     borderRadius: "50%",
-                    border: "1px dashed rgba(255,255,255,0.15)",
+                    border: "1px dashed rgba(255,255,255,0.1)",
                   }}
                 />
-                <motion.div
-                  animate={{ scale: [1, 1.08, 1], opacity: [0.4, 0.7, 0.4] }}
-                  transition={{ duration: 3, repeat: Infinity }}
+                <img
+                  src="/nexora-avatar.jpg"
+                  alt="NexoraAI"
                   style={{
-                    position: "absolute",
-                    inset: 14,
+                    width: 80,
+                    height: 80,
                     borderRadius: "50%",
-                    background: "rgba(255,255,255,0.07)",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    objectFit: "cover",
+                    objectPosition: "center top",
+                    border: "1.5px solid rgba(255,255,255,0.15)",
+                    display: "block",
                   }}
-                >
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.6)"
-                    strokeWidth="1.5"
-                  >
-                    <path
-                      d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"
-                      opacity="0.3"
-                    />
-                    <path d="M8 12h8M12 8v8" strokeLinecap="round" />
-                  </svg>
-                </motion.div>
+                />
               </div>
 
               <p
