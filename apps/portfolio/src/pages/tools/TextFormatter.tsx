@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Copy, Download, Loader2, FileText,
   Type, Sparkles, CheckCircle2, AlertCircle, X, Upload, ChevronDown,
+  Pencil, Eye,
 } from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -292,6 +293,8 @@ export function TextFormatter() {
   const [copied, setCopied]       = useState(false);
   const [dragOver, setDragOver]   = useState(false);
   const [showDlMenu, setShowDlMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText]   = useState("");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const dlMenuRef = useRef<HTMLDivElement>(null);
@@ -347,10 +350,18 @@ export function TextFormatter() {
     e.target.value = "";
   }, [readFile]);
 
+  const handleEditChange = (val: string) => {
+    setEditText(val);
+    setRawResult(val);
+    setResult(val);
+  };
+
   const handleSubmit = async () => {
     setError(null);
     setResult("");
     setRawResult("");
+    setEditText("");
+    setIsEditing(false);
     setLoading(true);
     try {
       let payload: Parameters<typeof streamFormat>[0];
@@ -611,6 +622,17 @@ export function TextFormatter() {
 
                 {result && !loading && (
                   <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                    {/* Edit toggle */}
+                    <button
+                      onClick={() => {
+                        if (!isEditing) setEditText(rawResult);
+                        setIsEditing(v => !v);
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: `1px solid ${isEditing ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.11)"}`, background: isEditing ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)", color: isEditing ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>
+                      {isEditing ? <Eye style={{ width: 13, height: 13 }} /> : <Pencil style={{ width: 13, height: 13 }} />}
+                      {isEditing ? "Xem trước" : "Chỉnh sửa"}
+                    </button>
+
                     {/* Copy */}
                     <button onClick={handleCopy}
                       style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(255,255,255,0.03)", color: copied ? "rgba(100,220,150,0.9)" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
@@ -658,8 +680,34 @@ export function TextFormatter() {
               </div>
 
               {/* Output content */}
-              <AnimBorderCard speed={loading ? 2 : 9} color={loading ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.15)"} radius={14} innerStyle={{ padding: "18px 20px", maxHeight: 560, overflowY: "auto" }}>
-                {result ? (
+              <AnimBorderCard
+                speed={loading ? 2 : isEditing ? 4 : 9}
+                color={loading ? "rgba(255,255,255,0.45)" : isEditing ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.15)"}
+                radius={14}
+                innerStyle={isEditing ? { padding: "4px" } : { padding: "18px 20px", maxHeight: 560, overflowY: "auto" }}
+              >
+                {isEditing ? (
+                  <textarea
+                    value={editText}
+                    onChange={e => handleEditChange(e.target.value)}
+                    spellCheck={false}
+                    style={{
+                      width: "100%",
+                      minHeight: 360,
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      color: "rgba(255,255,255,0.82)",
+                      fontSize: 13,
+                      lineHeight: 1.75,
+                      resize: "vertical",
+                      padding: "16px 18px",
+                      fontFamily: "monospace",
+                      caretColor: "rgba(255,255,255,0.7)",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                ) : result ? (
                   <RenderOutput text={result} />
                 ) : (
                   <div style={{ height: 40 }} />
@@ -672,6 +720,13 @@ export function TextFormatter() {
                   />
                 )}
               </AnimBorderCard>
+
+              {/* Edit mode hint */}
+              {isEditing && (
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", marginTop: 8, textAlign: "center" }}>
+                  Đang chỉnh sửa — Copy / Tải về sẽ dùng nội dung đã sửa
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
