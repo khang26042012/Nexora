@@ -2,8 +2,9 @@ import { Router, type Request, type Response } from "express";
 import mammoth from "mammoth";
 
 const router = Router();
-const GEMINI_API_KEY = process.env["GEMINI_API_KEY"] ?? "";
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GLM_API_KEY = "pPkt7MEjmndvE80ERx9WK1nmjOJ/eD0KlMTNsSEkXzhHLrKMvmKdj+MMNxu0mRqpm5h6a8jYJZ6g8ihI+Qo1EnFiDWs76y1KXOn6sITP4eUKi4pAhJXMNyGEekAK8zsG88u8";
+const GLM_MODEL = "GLM-4V-Flash";
+const GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
 const FORMAT_SYSTEM_PROMPT = `Bạn là chuyên gia định dạng văn bản chuyên nghiệp tiếng Việt.
 Nhận văn bản thô và trả về phiên bản đã được định dạng chuẩn.
@@ -59,11 +60,6 @@ QUY TẮC ĐỊNH DẠNG:
 Nội dung đầy đủ, chi tiết, chính xác. Chỉ trả về nội dung đã format.`;
 
 router.post("/format", async (req: Request, res: Response) => {
-  if (!GEMINI_API_KEY) {
-    res.status(500).json({ error: "GEMINI_API_KEY not configured" });
-    return;
-  }
-
   const { mode, content, mimeType, prompt } = req.body as {
     mode: "text" | "file" | "generate";
     content?: string;
@@ -86,12 +82,13 @@ router.post("/format", async (req: Request, res: Response) => {
   res.setHeader("X-Accel-Buffering", "no");
 
   try {
-    let userParts: unknown[];
-    let systemPrompt: string;
+    let messages: { role: string; content: unknown }[];
 
     if (mode === "generate") {
-      systemPrompt = GENERATE_SYSTEM_PROMPT;
-      userParts = [{ text: `Yêu cầu tạo nội dung: ${prompt}` }];
+      messages = [
+        { role: "system", content: GENERATE_SYSTEM_PROMPT },
+        { role: "user", content: `Yêu cầu tạo nội dung: ${prompt}` },
+      ];
 
     } else if (mode === "file" && mimeType && content) {
       const isDocx =
@@ -103,46 +100,55 @@ router.post("/format", async (req: Request, res: Response) => {
       if (isDocx) {
         const buf = Buffer.from(content, "base64");
         const extracted = await mammoth.extractRawText({ buffer: buf });
-        const text = extracted.value;
-        systemPrompt = FORMAT_SYSTEM_PROMPT;
-        userParts = [{ text: `Định dạng văn bản sau:\n\n${text}` }];
+        messages = [
+          { role: "system", content: FORMAT_SYSTEM_PROMPT },
+          { role: "user", content: `Định dạng văn bản sau:\n\n${extracted.value}` },
+        ];
       } else if (isImage) {
-        // Gemini Vision: gửi ảnh dưới dạng inlineData
-        systemPrompt = FORMAT_SYSTEM_PROMPT;
-        userParts = [
+        messages = [
+          { role: "system", content: FORMAT_SYSTEM_PROMPT },
           {
-            inlineData: {
-              mimeType: mimeType,
-              data: content, // base64
-            },
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: `data:${mimeType};base64,${content}` },
+              },
+              {
+                type: "text",
+                text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng.",
+              },
+            ],
           },
-          { text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng." },
         ];
       } else {
-        // Text-based file: content is already plain text
-        systemPrompt = FORMAT_SYSTEM_PROMPT;
-        userParts = [{ text: `Định dạng văn bản sau:\n\n${content}` }];
+        messages = [
+          { role: "system", content: FORMAT_SYSTEM_PROMPT },
+          { role: "user", content: `Định dạng văn bản sau:\n\n${content}` },
+        ];
       }
 
     } else {
-      systemPrompt = FORMAT_SYSTEM_PROMPT;
-      userParts = [{ text: `Định dạng văn bản sau:\n\n${content}` }];
+      messages = [
+        { role: "system", content: FORMAT_SYSTEM_PROMPT },
+        { role: "user", content: `Định dạng văn bản sau:\n\n${content}` },
+      ];
     }
 
-    const body = {
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: "user", parts: userParts }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
-    };
-
-    const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?key=${GEMINI_API_KEY}&alt=sse`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }
-    );
+    const upstream = await fetch(GLM_BASE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GLM_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GLM_MODEL,
+        messages,
+        stream: true,
+        temperature: 0.2,
+        max_tokens: 8192,
+      }),
+    });
 
     if (!upstream.ok) {
       const errData = await upstream.json().catch(() => ({})) as { error?: { message?: string } };
@@ -153,12 +159,40 @@ router.post("/format", async (req: Request, res: Response) => {
 
     const reader = upstream.body!.getReader();
     const decoder = new TextDecoder();
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      res.write(decoder.decode(value, { stream: true }));
+      const chunk = decoder.decode(value, { stream: true });
+
+      // GLM stream dùng OpenAI format: data: {"choices":[{"delta":{"content":"..."}}]}
+      // Chuyển sang Gemini-compatible format mà frontend đang đọc
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const raw = line.slice(6).trim();
+        if (raw === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(raw) as {
+            choices?: { delta?: { content?: string } }[];
+            error?: { message?: string };
+          };
+          if (parsed.error) {
+            res.write(`data: ${JSON.stringify({ error: parsed.error.message })}\n\n`);
+            continue;
+          }
+          const text = parsed.choices?.[0]?.delta?.content;
+          if (text) {
+            // Emit theo format Gemini SSE mà frontend đang parse
+            res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
     }
     res.end();
+
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
