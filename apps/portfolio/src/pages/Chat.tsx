@@ -5,8 +5,7 @@ import { Navigation } from "@/components/navigation";
 import { NEXORA_SYSTEM_DATA } from "@/lib/nexoraData";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
-const GEMINI_API_KEY = "AIzaSyCjsoziYsfjZfDTtlLDlKfAq9JBjaoAkmk";
-const GEMINI_MODEL = "gemini-2.5-flash";
+const CHAT_API_URL = "/api/chat";
 const MAX_FILE_MB = 15;
 
 const SYSTEM_PROMPT = `Bạn là NexoraAI — trợ lý thông minh được tích hợp trong portfolio của Phan Trọng Khang.
@@ -145,18 +144,16 @@ export function Chat() {
       },
     };
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?key=${GEMINI_API_KEY}&alt=sse`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }
-    );
+    const res = await fetch(CHAT_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData?.error?.message ?? `HTTP ${res.status}`);
+      const errData = await res.json().catch(() => ({} as Record<string, unknown>));
+      const errMsg = (errData as { error?: string })?.error ?? `HTTP ${res.status}`;
+      throw new Error(errMsg);
     }
 
     const reader = res.body!.getReader();
@@ -178,13 +175,18 @@ export function Chat() {
         if (!data || data === "[DONE]") continue;
         try {
           const parsed = JSON.parse(data);
+          if (parsed?.error) {
+            throw new Error(parsed.error);
+          }
           const chunk =
             parsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
           if (chunk) {
             fullText += chunk;
             setStreamText(fullText);
           }
-        } catch {}
+        } catch (e) {
+          if (e instanceof Error && e.message && !fullText) throw e;
+        }
       }
     }
 
@@ -334,7 +336,7 @@ export function Chat() {
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: isEmpty ? "0" : "72px 16px 12px",
+            padding: isEmpty ? "0" : "56px 16px 12px",
             display: "flex",
             flexDirection: "column",
             justifyContent: isEmpty ? "center" : "flex-start",
