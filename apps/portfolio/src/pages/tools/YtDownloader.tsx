@@ -212,6 +212,9 @@ export function YtDownloader() {
               <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
                 Tải video từ YouTube, TikTok, Instagram & hơn 1000 nền tảng
               </p>
+              <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.22)" }}>
+                ✦ Video TikTok tải về sẽ không có watermark logo
+              </p>
             </div>
           </div>
 
@@ -230,10 +233,6 @@ export function YtDownloader() {
               </motion.span>
             ))}
           </div>
-
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
-            ✦ Video TikTok tải về sẽ không có watermark logo
-          </p>
         </motion.div>
 
         {/* URL Input */}
