@@ -305,22 +305,21 @@ Giới hạn:
   - Thời gian xử lý phụ thuộc kích thước file
 
 ─────────────────────────────────────────────────────────────
-TOOL 3 — CHAT BOT NEXORAAI (ĐANG PHÁT TRIỂN)
+TOOL 3 — CHAT BOT NEXORAAI (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
 ─────────────────────────────────────────────────────────────
 URL: /chat
+Trạng thái: LIVE — đang hoạt động đầy đủ
 
-Tính năng hiện tại:
-  - Giao diện chat đẹp, dark theme
-  - Gửi tin nhắn text
-  - Đính kèm file (ảnh, video, v.v.)
-  - Typing indicator (3 chấm nhảy)
+Tính năng đã hoàn thiện:
+  - Kết nối Google Gemini 2.5 Flash thật (backend proxy, key bảo mật)
+  - Streaming response — chữ hiện dần như đang gõ
+  - Nhớ lịch sử cuộc trò chuyện trong phiên (multi-turn)
+  - Đính kèm file, ảnh để AI phân tích (base64 inlineData)
+  - Render markdown: in đậm, nghiêng, code inline
+  - Typing indicator (3 chấm nhảy khi AI đang nghĩ)
   - Gợi ý câu hỏi nhanh khi chưa có tin nhắn
-
-Tính năng sắp có:
-  - Kết nối Google Gemini API thật
-  - Nhớ lịch sử cuộc trò chuyện
-  - Phân tích ảnh gửi lên
-  - Trả lời về NexoraGarden, hỏi đáp kỹ thuật
+  - Giao diện chat đẹp, dark theme, header trong suốt
+  - AI được huấn luyện với toàn bộ data về Phan Trọng Khang và các dự án
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHẦN 7 — KIẾN TRÚC MONOREPO
@@ -443,10 +442,11 @@ A: Khang thành thạo: React, TypeScript, Node.js, Express, SQLite, WebSocket,
    ffmpeg, yt-dlp, và nhiều công nghệ khác trong hệ sinh thái JavaScript/TypeScript.
 
 Q: Chat Bot NexoraAI có chức năng gì?
-A: Hiện tại Chat Bot đang trong giai đoạn phát triển — giao diện đã hoàn thiện
-   (tại nexorax.cloud/chat) nhưng chưa kết nối AI backend thật.
-   Sắp tới sẽ tích hợp Gemini để trả lời câu hỏi về Phan Trọng Khang,
-   NexoraGarden, lập trình, và các chủ đề khác.
+A: Chat Bot NexoraAI tại nexorax.cloud/chat đã hoàn thiện và đang hoạt động đầy đủ.
+   Tích hợp Google Gemini 2.5 Flash thật — có thể trả lời câu hỏi về anh Khang,
+   các dự án (NexoraGarden, NexoraTool, NexoraAI), lập trình, IoT, và nhiều chủ đề khác.
+   Hỗ trợ: streaming response, nhớ lịch sử hội thoại, gửi ảnh/file để AI phân tích,
+   render markdown (in đậm, nghiêng, code). API key bảo mật qua backend proxy.
 
 Q: NexoraTool có giới hạn gì không?
 A: YouTube Downloader: không tải được video DRM (Netflix, Disney+), giới hạn bởi
