@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
+import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const MAX_CHARS = 2000;
@@ -163,68 +164,70 @@ function rawToJson(raw: string): string {
   return JSON.stringify({ content: raw, generatedAt: new Date().toISOString(), tool: "NexoraAI Text Formatter" }, null, 2);
 }
 
-/* Escape ký tự đặc biệt trong RTF + encode UTF-8 thành \uN? */
-function escRtf(s: string): string {
-  let out = "";
-  for (const ch of s) {
-    const cp = ch.codePointAt(0) ?? 0;
-    if (cp < 128) {
-      if (ch === "\\") out += "\\\\";
-      else if (ch === "{") out += "\\{";
-      else if (ch === "}") out += "\\}";
-      else out += ch;
-    } else {
-      // RTF Unicode escape: \uN? (? = fallback ASCII)
-      const n = cp > 32767 ? cp - 65536 : cp;
-      out += `\\u${n}?`;
+/* ── rawToDocx — dùng static import, sẵn sàng ngay ── */
+async function rawToDocx(raw: string): Promise<Blob> {
+  function parseRuns(text: string) {
+    const runs: InstanceType<typeof TextRun>[] = [];
+    const regex = /\*\*(.+?)\*\*/g;
+    let last = 0, match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > last)
+        runs.push(new TextRun({ text: text.slice(last, match.index), size: 24 }));
+      runs.push(new TextRun({ text: match[1], bold: true, size: 24 }));
+      last = match.index + match[0].length;
     }
+    if (last < text.length)
+      runs.push(new TextRun({ text: text.slice(last), size: 24 }));
+    return runs.length ? runs : [new TextRun({ text, size: 24 })];
   }
-  return out;
-}
 
-/* Bold inline **text** → RTF bold */
-function rtfInline(text: string): string {
-  return text.replace(/\*\*(.+?)\*\*/g, (_, t) => `{\\b ${escRtf(t)}}`);
-}
-
-function rawToRtf(raw: string): string {
-  const lines = raw.split("\n");
-  const body = lines.map(line => {
+  const paragraphs = raw.split("\n").map(line => {
     const c = line.match(/^\[C\](.*?)\[\/C\]$/);
-    if (c) {
-      return `\\pard\\qc\\sb120\\sa80{\\b\\fs28 ${escRtf(c[1].trim())}}\\par`;
-    }
-    if (/^---+$/.test(line.trim())) {
-      return `\\pard\\brdrb\\brdrs\\brdrw10\\brsp60\\sb60\\sa60 \\par`;
-    }
-    if (!line.trim()) return `\\pard\\sb0\\sa0 \\par`;
-    if (line.trim().startsWith("✔")) {
-      return `\\pard\\sb40\\sa0{\\cf1\\b ${rtfInline(escRtf(line.trim()))}}\\par`;
-    }
-    if (/^    \+\s/.test(line)) {
-      return `\\pard\\fi-180\\li720\\sb20\\sa0 + ${rtfInline(escRtf(line.replace(/^\s+\+\s/, "")))}\\par`;
-    }
-    if (/^\s*-\s/.test(line)) {
-      return `\\pard\\fi-240\\li480\\sb20\\sa0 \\bullet  ${rtfInline(escRtf(line.replace(/^\s*-\s/, "")))}\\par`;
-    }
-    if (/^[ABCD]\.\s/.test(line.trim())) {
-      return `\\pard\\li480\\sb20\\sa0 ${rtfInline(escRtf(line.trim()))}\\par`;
-    }
-    if (/^ {4}[^ ]/.test(line)) {
-      return `\\pard\\li320\\sb20\\sa0 ${rtfInline(escRtf(line.trimStart()))}\\par`;
-    }
-    return `\\pard\\sb20\\sa0 ${rtfInline(escRtf(line))}\\par`;
-  }).join("\n");
+    if (c) return new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 240, after: 120 },
+      children: [new TextRun({ text: c[1].trim(), bold: true, size: 32 })],
+    });
+    if (/^---+$/.test(line.trim())) return new Paragraph({
+      border: { bottom: { style: "single" as const, size: 6, color: "CCCCCC", space: 4 } },
+      spacing: { before: 120, after: 120 },
+      children: [new TextRun({ text: "" })],
+    });
+    if (!line.trim()) return new Paragraph({ children: [new TextRun({ text: "" })] });
+    if (line.trim().startsWith("✔")) return new Paragraph({
+      spacing: { before: 80 },
+      children: [new TextRun({ text: line.trim(), bold: true, color: "22863A", size: 24 })],
+    });
+    if (/^\s*-\s/.test(line)) return new Paragraph({
+      bullet: { level: 0 },
+      spacing: { before: 40 },
+      children: parseRuns(line.replace(/^\s*-\s/, "")),
+    });
+    if (/^[ABCD]\.\s/.test(line.trim())) return new Paragraph({
+      indent: { left: 480 },
+      spacing: { before: 40 },
+      children: parseRuns(line.trim()),
+    });
+    if (/^ {4}[^ ]/.test(line)) return new Paragraph({
+      indent: { left: 320 },
+      spacing: { before: 40 },
+      children: parseRuns(line.trimStart()),
+    });
+    return new Paragraph({ spacing: { before: 40 }, children: parseRuns(line) });
+  });
 
-  return `{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl{\\f0\\froman\\fcharset0 Times New Roman;}}\n{\\colortbl ;\\red34\\green139\\blue34;}\n\\f0\\fs24\\sl360\\slmult1\n${body}\n}`;
+  const doc = new Document({
+    sections: [{ properties: {}, children: paragraphs }],
+  });
+  return await Packer.toBlob(doc);
 }
 
 const DOWNLOAD_FORMATS = [
-  { id: "txt",  label: ".txt  — Văn bản thuần",   ext: "txt",  mime: "text/plain" },
-  { id: "md",   label: ".md   — Markdown",          ext: "md",   mime: "text/markdown" },
-  { id: "html", label: ".html — Trang web",         ext: "html", mime: "text/html" },
-  { id: "json", label: ".json — Dữ liệu JSON",      ext: "json", mime: "application/json" },
-  { id: "rtf",  label: ".rtf  — Microsoft Word",    ext: "rtf",  mime: "application/rtf" },
+  { id: "txt",  label: ".txt  — Văn bản thuần",  ext: "txt",  mime: "text/plain" },
+  { id: "md",   label: ".md   — Markdown",         ext: "md",   mime: "text/markdown" },
+  { id: "html", label: ".html — Trang web",        ext: "html", mime: "text/html" },
+  { id: "json", label: ".json — Dữ liệu JSON",     ext: "json", mime: "application/json" },
+  { id: "docx", label: ".docx — Microsoft Word",   ext: "docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
 ] as const;
 type DownloadFmt = typeof DOWNLOAD_FORMATS[number]["id"];
 
@@ -380,23 +383,26 @@ export function TextFormatter() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = (fmt: DownloadFmt) => {
+  const handleDownload = async (fmt: DownloadFmt) => {
     setShowDlMenu(false);
-    let content = rawResult;
-    let mime = "text/plain;charset=utf-8";
-    let ext = "txt";
+    let blob: Blob;
+    const filename = `formatted_${Date.now()}`;
 
-    if (fmt === "txt")  { content = rawResult;               mime = "text/plain;charset=utf-8";       ext = "txt"; }
-    if (fmt === "md")   { content = rawToMarkdown(rawResult); mime = "text/markdown;charset=utf-8";    ext = "md"; }
-    if (fmt === "html") { content = rawToHtml(rawResult);     mime = "text/html;charset=utf-8";        ext = "html"; }
-    if (fmt === "json") { content = rawToJson(rawResult);     mime = "application/json;charset=utf-8"; ext = "json"; }
-    if (fmt === "rtf")  { content = rawToRtf(rawResult);      mime = "application/rtf";                ext = "rtf"; }
+    if (fmt === "docx") {
+      blob = await rawToDocx(rawResult);
+    } else {
+      let content = rawResult;
+      let mime = "text/plain;charset=utf-8";
+      if (fmt === "md")   { content = rawToMarkdown(rawResult); mime = "text/markdown;charset=utf-8"; }
+      if (fmt === "html") { content = rawToHtml(rawResult);     mime = "text/html;charset=utf-8"; }
+      if (fmt === "json") { content = rawToJson(rawResult);     mime = "application/json;charset=utf-8"; }
+      blob = new Blob([content], { type: mime });
+    }
 
-    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `formatted_${Date.now()}.${ext}`;
+    a.download = `${filename}.${fmt}`;
     a.click();
     URL.revokeObjectURL(url);
   };
