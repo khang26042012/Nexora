@@ -2,9 +2,20 @@ import { Router, type Request, type Response } from "express";
 
 const router = Router();
 
-const GEMINI_BASE_URL = process.env["AI_INTEGRATIONS_GEMINI_BASE_URL"] ?? "";
-const GEMINI_API_KEY  = process.env["AI_INTEGRATIONS_GEMINI_API_KEY"] ?? "";
-const GEMINI_MODEL    = "gemini-2.5-flash";
+const GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+const GLM_MODEL    = "GLM-4V-Flash";
+const GLM_API_KEY  = "T49q5w7eZI+2c3Giqf2G00twjoVevINN4TOY4AkPQqpr8koua+PdGHSBP/tX+m72Ehf/N6xN+Tq+oOtq8uxRzI3/fMq2dlt2W7TKqD9PHCVn4JY6M6VxOyRSqrBhH9hQtOTP";
+
+// Gemini part → OpenAI content
+function partToContent(part: { text?: string; inlineData?: { mimeType: string; data: string } }): unknown {
+  if (part.inlineData) {
+    return {
+      type: "image_url",
+      image_url: { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` },
+    };
+  }
+  return { type: "text", text: part.text ?? "" };
+}
 
 router.post("/chat", async (req: Request, res: Response) => {
   const { system_instruction, contents, generationConfig } = req.body as {
@@ -18,31 +29,40 @@ router.post("/chat", async (req: Request, res: Response) => {
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
 
-  if (!GEMINI_BASE_URL) {
-    res.write(`data: ${JSON.stringify({ error: "Gemini chưa được cấu hình" })}\n\n`);
-    res.end();
-    return;
-  }
-
   try {
-    const body: Record<string, unknown> = { contents };
-    if (system_instruction) body["system_instruction"] = system_instruction;
-    if (generationConfig) {
-      body["generationConfig"] = {
-        temperature: generationConfig.temperature ?? 0.8,
-        maxOutputTokens: generationConfig.maxOutputTokens ?? 8192,
-      };
+    const messages: { role: string; content: unknown }[] = [];
+
+    if (system_instruction?.parts?.length) {
+      messages.push({
+        role: "system",
+        content: system_instruction.parts.map((p) => p.text).join("\n"),
+      });
     }
 
-    const url = `${GEMINI_BASE_URL}/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+    for (const turn of contents ?? []) {
+      const role = turn.role === "model" ? "assistant" : "user";
+      const parts = turn.parts.map(partToContent);
+      messages.push({
+        role,
+        content: parts.length === 1 && (parts[0] as { type: string }).type === "text"
+          ? (parts[0] as { type: string; text: string }).text
+          : parts,
+      });
+    }
 
-    const upstream = await fetch(url, {
+    const upstream = await fetch(GLM_BASE_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GEMINI_API_KEY}`,
+        "Authorization": `Bearer ${GLM_API_KEY}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        model: GLM_MODEL,
+        messages,
+        stream: true,
+        temperature: generationConfig?.temperature ?? 0.7,
+        max_tokens: generationConfig?.maxOutputTokens ?? 8192,
+      }),
     });
 
     if (!upstream.ok) {
@@ -67,17 +87,17 @@ router.post("/chat", async (req: Request, res: Response) => {
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const raw = line.slice(6).trim();
-        if (!raw || raw === "[DONE]") continue;
+        if (raw === "[DONE]") continue;
         try {
           const parsed = JSON.parse(raw) as {
-            candidates?: { content?: { parts?: { text?: string }[] } }[];
+            choices?: { delta?: { content?: string } }[];
             error?: { message?: string };
           };
           if (parsed.error) {
             res.write(`data: ${JSON.stringify({ error: parsed.error.message })}\n\n`);
             continue;
           }
-          const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+          const text = parsed.choices?.[0]?.delta?.content;
           if (text) {
             res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`);
           }
