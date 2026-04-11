@@ -214,12 +214,14 @@ URL: https://nexorax.cloud/tool
 Trạng thái: LIVE
 
 Mô tả:
-  Nền tảng tải và xử lý video đa nền tảng. Hỗ trợ tải video chất lượng cao
-  từ YouTube và 1000+ trang web khác, đồng thời có công cụ cắt video online.
+  Nền tảng tải và xử lý video đa nền tảng, đồng thời tích hợp công cụ định dạng
+  văn bản thông minh bằng AI. Hỗ trợ tải video chất lượng cao từ YouTube và
+  1000+ trang web khác, cắt video online, và format/tạo văn bản chuẩn bằng AI.
 
 Các tool con:
   1. YouTube/Video Downloader (/tool/yt-downloader)
   2. Video Trimmer (/tool/video-trimmer)
+  3. Text Formatter — AI tự động căn chỉnh và định dạng văn bản (/tool/text-formatter)
 
 Tech stack: yt-dlp, ffmpeg, Node.js, Express, React, Vite, Railway
 
@@ -305,13 +307,57 @@ Giới hạn:
   - Thời gian xử lý phụ thuộc kích thước file
 
 ─────────────────────────────────────────────────────────────
-TOOL 3 — CHAT BOT NEXORAAI (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+TOOL 3 — TEXT FORMATTER (AI TỰ ĐỘNG ĐỊNH DẠNG VĂN BẢN)
+─────────────────────────────────────────────────────────────
+URL: /tool/text-formatter
+Trạng thái: LIVE — đang hoạt động đầy đủ
+
+Mô tả:
+  Công cụ AI tự động căn chỉnh và định dạng văn bản tiếng Việt chuẩn chuyên nghiệp.
+  Hỗ trợ 3 chế độ: nhập text thủ công, upload file, và tạo nội dung bằng AI.
+  Kết quả có thể copy hoặc xuất file .docx (Microsoft Word).
+
+3 chế độ sử dụng:
+  1. Upload File — kéo thả hoặc chọn file (.txt, .doc, .docx, .csv, .json, .html,
+     .xml, .jpg, .png, .webp, .gif, .bmp) → AI đọc và định dạng lại nội dung
+  2. Nhập text — gõ/dán văn bản thô (tối đa 2000 ký tự) → AI định dạng
+  3. Tạo bằng AI — nhập yêu cầu, AI tạo nội dung mới theo đúng quy chuẩn
+
+Quy tắc định dạng AI áp dụng:
+  - Tiêu đề chính: căn giữa, chữ in hoa
+  - Đề mục lớn: số La Mã (I. II. III.), in đậm
+  - Đề mục nhỏ: số thường (1. 2. 3.), in đậm
+  - Danh sách cấp 1: gạch ngang (-)
+  - Danh sách cấp 2: thụt 4 khoảng trắng (+)
+  - Đoạn văn thường: thụt đầu dòng 4 khoảng trắng
+  - Câu hỏi trắc nghiệm: **Câu X:** ... A. B. C. D. ✔ Đáp án: X
+  - Từ khóa quan trọng: in đậm **từ khóa**
+  - Dòng kẻ phân cách: ---
+
+Cách hoạt động kỹ thuật:
+  Frontend → POST /api/format với body: { mode, content, mimeType, prompt }
+  API Server nhận request → (nếu .docx: dùng mammoth extract text)
+  Gọi GLM-4.6V-Flash qua api.llm7.io với system prompt định dạng
+  Server stream SSE về frontend → hiển thị dần
+  Kết quả render trực tiếp trên UI (preview ngay) + nút copy/xuất .docx
+
+Xuất file .docx:
+  Dùng thư viện docx (JavaScript) tạo file Word trực tiếp trên trình duyệt
+  Hỗ trợ: căn giữa tiêu đề, in đậm đề mục, xuống dòng đúng chuẩn
+
+Giới hạn:
+  - Chế độ nhập text: tối đa 2000 ký tự
+  - Chế độ upload file: xử lý file docx/txt/ảnh (ảnh qua AI đọc OCR)
+  - Định dạng file hỗ trợ: .txt .doc .docx .csv .json .html .xml .jpg .png .webp .gif .bmp
+
+─────────────────────────────────────────────────────────────
+TOOL 4 — CHAT BOT NEXORAAI (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
 ─────────────────────────────────────────────────────────────
 URL: /chat
 Trạng thái: LIVE — đang hoạt động đầy đủ
 
 Tính năng đã hoàn thiện:
-  - Kết nối Google Gemini 2.5 Flash thật (backend proxy, key bảo mật)
+  - Kết nối GLM-4.6V-Flash qua api.llm7.io (backend proxy, key bảo mật)
   - Streaming response — chữ hiện dần như đang gõ
   - Nhớ lịch sử cuộc trò chuyện trong phiên (multi-turn)
   - Đính kèm file, ảnh để AI phân tích (base64 inlineData)
@@ -334,8 +380,9 @@ Nexora/
 │       │   │   ├── Tool.tsx         ← Trang Tool (danh sách)
 │       │   │   ├── Chat.tsx         ← Trang Chat Bot
 │       │   │   └── tools/
-│       │   │       ├── YtDownloader.tsx  ← Tool tải video
-│       │   │       └── VideoTrimmer.tsx  ← Tool cắt video
+│       │   │       ├── YtDownloader.tsx   ← Tool tải video
+│       │   │       ├── VideoTrimmer.tsx   ← Tool cắt video
+│       │   │       └── TextFormatter.tsx  ← Tool định dạng văn bản AI
 │       │   ├── components/
 │       │   │   └── navigation.tsx   ← Menu sidebar
 │       │   └── index.css           ← Design system CSS
@@ -443,15 +490,24 @@ A: Khang thành thạo: React, TypeScript, Node.js, Express, SQLite, WebSocket,
 
 Q: Chat Bot NexoraAI có chức năng gì?
 A: Chat Bot NexoraAI tại nexorax.cloud/chat đã hoàn thiện và đang hoạt động đầy đủ.
-   Tích hợp Google Gemini 2.5 Flash thật — có thể trả lời câu hỏi về anh Khang,
+   Tích hợp GLM-4.6V-Flash qua api.llm7.io — có thể trả lời câu hỏi về anh Khang,
    các dự án (NexoraGarden, NexoraTool, NexoraAI), lập trình, IoT, và nhiều chủ đề khác.
    Hỗ trợ: streaming response, nhớ lịch sử hội thoại, gửi ảnh/file để AI phân tích,
    render markdown (in đậm, nghiêng, code). API key bảo mật qua backend proxy.
+
+Q: Text Formatter là gì? Dùng như thế nào?
+A: Text Formatter là công cụ AI tự động định dạng văn bản chuẩn chuyên nghiệp tại nexorax.cloud/tool/text-formatter.
+   Có 3 cách dùng:
+   1. Upload File: kéo thả file (.docx, .txt, ảnh...) → AI đọc và format lại
+   2. Nhập text: gõ/dán văn bản thô (tối đa 2000 ký tự) → AI format
+   3. Tạo bằng AI: nhập yêu cầu → AI tạo nội dung mới theo chuẩn
+   Kết quả hiển thị trực tiếp, có thể copy hoặc xuất file Word (.docx).
 
 Q: NexoraTool có giới hạn gì không?
 A: YouTube Downloader: không tải được video DRM (Netflix, Disney+), giới hạn bởi
    tốc độ server Railway và chính sách của từng nền tảng.
    Video Trimmer: giới hạn 500MB mỗi file upload.
+   Text Formatter: chế độ nhập text tối đa 2000 ký tự; upload file hỗ trợ docx/txt/ảnh.
 
 Q: Portfolio được xây bằng gì?
 A: Portfolio tại nexorax.cloud được xây dựng bằng React + Vite + TypeScript + Tailwind CSS.
