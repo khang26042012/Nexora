@@ -163,20 +163,60 @@ function rawToJson(raw: string): string {
   return JSON.stringify({ content: raw, generatedAt: new Date().toISOString(), tool: "NexoraAI Text Formatter" }, null, 2);
 }
 
-function rawToDocHtml(raw: string): string {
+/* Escape ký tự đặc biệt trong RTF + encode UTF-8 thành \uN? */
+function escRtf(s: string): string {
+  let out = "";
+  for (const ch of s) {
+    const cp = ch.codePointAt(0) ?? 0;
+    if (cp < 128) {
+      if (ch === "\\") out += "\\\\";
+      else if (ch === "{") out += "\\{";
+      else if (ch === "}") out += "\\}";
+      else out += ch;
+    } else {
+      // RTF Unicode escape: \uN? (? = fallback ASCII)
+      const n = cp > 32767 ? cp - 65536 : cp;
+      out += `\\u${n}?`;
+    }
+  }
+  return out;
+}
+
+/* Bold inline **text** → RTF bold */
+function rtfInline(text: string): string {
+  return text.replace(/\*\*(.+?)\*\*/g, (_, t) => `{\\b ${escRtf(t)}}`);
+}
+
+function rawToRtf(raw: string): string {
   const lines = raw.split("\n");
   const body = lines.map(line => {
     const c = line.match(/^\[C\](.*?)\[\/C\]$/);
-    if (c) return `<p style="text-align:center;font-size:16pt;font-weight:bold;mso-style-name:Heading1">${c[1].trim()}</p>`;
-    if (/^---+$/.test(line.trim())) return `<hr/>`;
-    if (!line.trim()) return `<p>&nbsp;</p>`;
-    if (line.trim().startsWith("✔")) return `<p style="color:#228B22"><b>${line.trim()}</b></p>`;
-    if (/^- /.test(line)) return `<p style="margin-left:24pt">• ${line.replace(/^\s*-\s/, "")}</p>`;
-    if (/^[ABCD]\.\s/.test(line.trim())) return `<p style="margin-left:24pt">${line.trim()}</p>`;
-    const inline = line.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
-    return `<p>${inline}</p>`;
+    if (c) {
+      return `\\pard\\qc\\sb120\\sa80{\\b\\fs28 ${escRtf(c[1].trim())}}\\par`;
+    }
+    if (/^---+$/.test(line.trim())) {
+      return `\\pard\\brdrb\\brdrs\\brdrw10\\brsp60\\sb60\\sa60 \\par`;
+    }
+    if (!line.trim()) return `\\pard\\sb0\\sa0 \\par`;
+    if (line.trim().startsWith("✔")) {
+      return `\\pard\\sb40\\sa0{\\cf1\\b ${rtfInline(escRtf(line.trim()))}}\\par`;
+    }
+    if (/^    \+\s/.test(line)) {
+      return `\\pard\\fi-180\\li720\\sb20\\sa0 + ${rtfInline(escRtf(line.replace(/^\s+\+\s/, "")))}\\par`;
+    }
+    if (/^\s*-\s/.test(line)) {
+      return `\\pard\\fi-240\\li480\\sb20\\sa0 \\bullet  ${rtfInline(escRtf(line.replace(/^\s*-\s/, "")))}\\par`;
+    }
+    if (/^[ABCD]\.\s/.test(line.trim())) {
+      return `\\pard\\li480\\sb20\\sa0 ${rtfInline(escRtf(line.trim()))}\\par`;
+    }
+    if (/^ {4}[^ ]/.test(line)) {
+      return `\\pard\\li320\\sb20\\sa0 ${rtfInline(escRtf(line.trimStart()))}\\par`;
+    }
+    return `\\pard\\sb20\\sa0 ${rtfInline(escRtf(line))}\\par`;
   }).join("\n");
-  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"/><style>body{font-family:'Times New Roman',serif;font-size:13pt;line-height:1.8}</style></head><body>${body}</body></html>`;
+
+  return `{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl{\\f0\\froman\\fcharset0 Times New Roman;}}\n{\\colortbl ;\\red34\\green139\\blue34;}\n\\f0\\fs24\\sl360\\slmult1\n${body}\n}`;
 }
 
 const DOWNLOAD_FORMATS = [
@@ -184,7 +224,7 @@ const DOWNLOAD_FORMATS = [
   { id: "md",   label: ".md   — Markdown",          ext: "md",   mime: "text/markdown" },
   { id: "html", label: ".html — Trang web",         ext: "html", mime: "text/html" },
   { id: "json", label: ".json — Dữ liệu JSON",      ext: "json", mime: "application/json" },
-  { id: "doc",  label: ".doc  — Microsoft Word",    ext: "doc",  mime: "application/msword" },
+  { id: "rtf",  label: ".rtf  — Microsoft Word",    ext: "rtf",  mime: "application/rtf" },
 ] as const;
 type DownloadFmt = typeof DOWNLOAD_FORMATS[number]["id"];
 
@@ -346,11 +386,11 @@ export function TextFormatter() {
     let mime = "text/plain;charset=utf-8";
     let ext = "txt";
 
-    if (fmt === "txt")  { content = rawResult;          mime = "text/plain;charset=utf-8";    ext = "txt"; }
-    if (fmt === "md")   { content = rawToMarkdown(rawResult); mime = "text/markdown;charset=utf-8"; ext = "md"; }
-    if (fmt === "html") { content = rawToHtml(rawResult);     mime = "text/html;charset=utf-8";     ext = "html"; }
+    if (fmt === "txt")  { content = rawResult;               mime = "text/plain;charset=utf-8";       ext = "txt"; }
+    if (fmt === "md")   { content = rawToMarkdown(rawResult); mime = "text/markdown;charset=utf-8";    ext = "md"; }
+    if (fmt === "html") { content = rawToHtml(rawResult);     mime = "text/html;charset=utf-8";        ext = "html"; }
     if (fmt === "json") { content = rawToJson(rawResult);     mime = "application/json;charset=utf-8"; ext = "json"; }
-    if (fmt === "doc")  { content = rawToDocHtml(rawResult);  mime = "application/msword";           ext = "doc"; }
+    if (fmt === "rtf")  { content = rawToRtf(rawResult);      mime = "application/rtf";                ext = "rtf"; }
 
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
