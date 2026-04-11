@@ -327,7 +327,6 @@ export function Chat() {
           flexDirection: "column",
           position: "relative",
           zIndex: 1,
-          paddingTop: 64,
         }}
       >
         {/* Messages area */}
@@ -335,7 +334,7 @@ export function Chat() {
           style={{
             flex: 1,
             overflowY: "auto",
-            padding: isEmpty ? "0" : "24px 16px 12px",
+            padding: isEmpty ? "0" : "72px 16px 12px",
             display: "flex",
             flexDirection: "column",
             justifyContent: isEmpty ? "center" : "flex-start",

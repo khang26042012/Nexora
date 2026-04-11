@@ -100,11 +100,11 @@ export function Navigation() {
     <>
       {/* Header bar */}
       <motion.header
-        className="fixed top-0 left-0 right-0 z-40 px-5 h-16 flex items-center pointer-events-none transition-all duration-300"
+        className="fixed top-0 left-0 right-0 z-40 px-5 h-16 flex items-center pointer-events-none"
         style={{
-          background:   scrolled ? "rgba(0,0,0,0.75)" : "transparent",
-          backdropFilter: scrolled ? "blur(18px)" : "none",
-          borderBottom: scrolled ? "1px solid rgba(255,255,255,0.07)" : "1px solid transparent",
+          background: "transparent",
+          backdropFilter: "none",
+          borderBottom: "none",
         }}
       >
         <motion.button
