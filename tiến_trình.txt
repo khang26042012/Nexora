@@ -1,8 +1,86 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 33 — FEAT bundle ffmpeg vào dist/ lúc build)
+  Cập nhật: 10/04/2026 (session 34 — MIGRATION Replit environment mới lần 9)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[11/04/2026 session 36] UPDATE — Thay data training NexoraAI bằng NexoraData.txt mới
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - Session 35 dùng data_nexorax_garden.txt (file kỹ thuật NexoraGarden) cho AI context
+  - User yêu cầu dùng NexoraData.txt (file huấn luyện AI chính thức)
+
+Đã làm:
+  1. Upload NexoraData.txt (nexora_ai_training_(1)_1775869923423.txt) vào project
+     - Copy vào apps/portfolio/src/lib/NexoraData.txt (525 dòng)
+     - Gồm 11 phần: thông tin cá nhân, liên hệ, kỹ năng, hành trình, dự án,
+       tool details, kiến trúc monorepo, design system, Q&A training, API info, chú ý
+  2. Cập nhật apps/portfolio/src/lib/nexoraData.ts
+     - Từ: embed thủ công nội dung data_nexorax_garden.txt
+     - Sang: import NexoraData.txt?raw (Vite raw import, gọn và chính xác)
+  3. Push GitHub commit
+
+Trạng thái:
+  - Portfolio: RUNNING port 21113 ✅
+  - API Server: RUNNING port 8080 ✅
+  - NexoraAI Chat: dùng đúng file training mới ✅
+  - ESP32 firmware: chưa thay đổi (chỉ làm khi có yêu cầu cụ thể)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 35] FEAT — NexoraAI Chat thật (Gemini 2.5 Flash + file/ảnh)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. Tạo apps/portfolio/src/lib/nexoraData.ts:
+     - Embed toàn bộ data_nexorax_garden.txt (~50KB) làm system context
+     - Auto-generated bằng script node, JSON.stringify safe
+  2. Viết lại apps/portfolio/src/pages/Chat.tsx:
+     - Gọi Gemini 2.5 Flash REST API trực tiếp từ frontend (không cần backend)
+     - Streaming response (SSE) → chữ hiện dần dần, có cursor nhấp nháy
+     - Multi-turn: duy trì history[] trong state → AI nhớ context trò chuyện
+     - File/ảnh upload qua FileReader → base64 → Gemini inlineData
+       * Ảnh: hiện thumbnail trong chip + bubble preview
+       * File khác (PDF, video, audio, text...): hiện icon + tên file
+       * Giới hạn 15MB/file (Gemini inline limit)
+     - Error handling: hiển thị lỗi API ngay trong UI + error bubble
+     - Loading state: spinner trong nút gửi khi đang xử lý
+     - Disable input khi đang loading
+     - Suggested prompts cập nhật thêm 1 câu về hệ thống
+  3. Push GitHub commit 35f045bc (Tree API, 1 commit)
+  4. Restart "Start application" → RUNNING ✅
+
+Files thay đổi:
+  - apps/portfolio/src/lib/nexoraData.ts (tạo mới)
+  - apps/portfolio/src/pages/Chat.tsx (viết lại)
+
+GitHub commit: 35f045bc
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[10/04/2026 session 34] MIGRATION — Replit environment mới (lần 9)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → OK
+  2. better-sqlite3 rebuild từ source (npm run build-release trong node_modules) → better_sqlite3.node ✅
+  3. Thêm workflow "packages/api-server: API Server" (PORT=8080) → RUNNING ✅
+  4. Restart "Start application" (portfolio, port 21113) → RUNNING ✅
+  5. Gửi Telegram thông báo hoàn tất ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - SQLite DB initialized ✅
+  - ffmpeg: bundled vào dist/ffmpeg ✅
+  - yt-dlp: ready ✅
+  - TELEGRAM_TOKEN chưa set → Bot Telegram tắt (cần set trong Secrets)
+
+WARN (không phải lỗi):
+  - attached_assets/* workflows: FAILED → bình thường (chỉ là file tham khảo cũ)
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/04/2026 session 33] FEAT — Bundle ffmpeg vào dist/ lúc build (không chờ download)
