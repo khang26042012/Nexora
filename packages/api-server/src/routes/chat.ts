@@ -2,20 +2,9 @@ import { Router, type Request, type Response } from "express";
 
 const router = Router();
 
-const GLM_API_KEY = "pPkt7MEjmndvE80ERx9WK1nmjOJ/eD0KlMTNsSEkXzhHLrKMvmKdj+MMNxu0mRqpm5h6a8jYJZ6g8ihI+Qo1EnFiDWs76y1KXOn6sITP4eUKi4pAhJXMNyGEekAK8zsG88u8";
-const GLM_MODEL = "GLM-4V-Flash";
-const GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
-
-// Gemini part → text content
-function partToText(part: { text?: string; inlineData?: { mimeType: string; data: string } }): unknown {
-  if (part.inlineData) {
-    return {
-      type: "image_url",
-      image_url: { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` },
-    };
-  }
-  return { type: "text", text: part.text ?? "" };
-}
+const GEMINI_BASE_URL = process.env["AI_INTEGRATIONS_GEMINI_BASE_URL"] ?? "";
+const GEMINI_API_KEY  = process.env["AI_INTEGRATIONS_GEMINI_API_KEY"] ?? "";
+const GEMINI_MODEL    = "gemini-2.5-flash";
 
 router.post("/chat", async (req: Request, res: Response) => {
   const { system_instruction, contents, generationConfig } = req.body as {
@@ -29,41 +18,31 @@ router.post("/chat", async (req: Request, res: Response) => {
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
 
+  if (!GEMINI_BASE_URL) {
+    res.write(`data: ${JSON.stringify({ error: "Gemini chưa được cấu hình" })}\n\n`);
+    res.end();
+    return;
+  }
+
   try {
-    // Chuyển Gemini format → OpenAI messages format
-    const messages: { role: string; content: unknown }[] = [];
-
-    if (system_instruction?.parts?.length) {
-      messages.push({
-        role: "system",
-        content: system_instruction.parts.map((p) => p.text).join("\n"),
-      });
+    const body: Record<string, unknown> = { contents };
+    if (system_instruction) body["system_instruction"] = system_instruction;
+    if (generationConfig) {
+      body["generationConfig"] = {
+        temperature: generationConfig.temperature ?? 0.8,
+        maxOutputTokens: generationConfig.maxOutputTokens ?? 8192,
+      };
     }
 
-    for (const turn of contents ?? []) {
-      const role = turn.role === "model" ? "assistant" : "user";
-      const parts = turn.parts.map(partToText);
-      messages.push({
-        role,
-        content: parts.length === 1 && (parts[0] as { type: string }).type === "text"
-          ? (parts[0] as { type: string; text: string }).text
-          : parts,
-      });
-    }
+    const url = `${GEMINI_BASE_URL}/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
 
-    const upstream = await fetch(GLM_BASE_URL, {
+    const upstream = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GLM_API_KEY}`,
+        "Authorization": `Bearer ${GEMINI_API_KEY}`,
       },
-      body: JSON.stringify({
-        model: GLM_MODEL,
-        messages,
-        stream: true,
-        temperature: generationConfig?.temperature ?? 0.7,
-        max_tokens: generationConfig?.maxOutputTokens ?? 8192,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!upstream.ok) {
@@ -75,28 +54,30 @@ router.post("/chat", async (req: Request, res: Response) => {
 
     const reader = upstream.body!.getReader();
     const decoder = new TextDecoder();
+    let buffer = "";
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
+      buffer += decoder.decode(value, { stream: true });
 
-      // Convert OpenAI SSE → Gemini SSE format mà frontend đang đọc
-      const lines = chunk.split("\n");
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const raw = line.slice(6).trim();
-        if (raw === "[DONE]") continue;
+        if (!raw || raw === "[DONE]") continue;
         try {
           const parsed = JSON.parse(raw) as {
-            choices?: { delta?: { content?: string } }[];
+            candidates?: { content?: { parts?: { text?: string }[] } }[];
             error?: { message?: string };
           };
           if (parsed.error) {
             res.write(`data: ${JSON.stringify({ error: parsed.error.message })}\n\n`);
             continue;
           }
-          const text = parsed.choices?.[0]?.delta?.content;
+          const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) {
             res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`);
           }
