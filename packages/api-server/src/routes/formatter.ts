@@ -44,8 +44,42 @@ QUAN TRỌNG:
 - CHỈ trả về văn bản đã format, KHÔNG giải thích, KHÔNG thêm ghi chú
 - Giữ nguyên ngôn ngữ và nội dung gốc`;
 
+const NEXORA_CONTEXT = `
+=== THÔNG TIN VỀ NEXORA VÀ PHAN TRỌNG KHANG ===
+(Dùng khi người dùng hỏi/yêu cầu tạo nội dung liên quan đến Nexora, Khang, NexoraGarden, NexoraAI, NexoraTool)
+
+Họ tên: Phan Trọng Khang | Năm sinh: 2012 | Quê quán: Vĩnh Hòa, Việt Nam
+Biệt danh/Thương hiệu: Nexora (KHÔNG phải thuốc, KHÔNG phải công ty dược, KHÔNG phải thiết bị y tế)
+Chức danh: AI Architect · IoT Engineer · Fullstack Developer
+Mô tả: Lập trình viên trẻ, bắt đầu học lập trình từ 2021, hơn 3 năm kinh nghiệm fullstack/IoT/AI.
+
+Liên hệ: GitHub: khang26042012 | Email: trongkhabgphan@gmail.com | Telegram: t.me/+84352234521 | SĐT: 0352234521
+
+Kỹ năng: React, TypeScript, Node.js, Express, SQLite, WebSocket, ESP32/C++, Google Gemini API, Telegram Bot API, Docker, Railway, yt-dlp, ffmpeg, Python
+
+Các dự án chính:
+1. NexoraGarden (2026, LIVE) — Hệ thống IoT vườn thông minh: ESP32 đọc cảm biến (nhiệt độ, độ ẩm đất, ánh sáng) + điều khiển bơm tự động, API Server Node.js+WebSocket, React Dashboard, Telegram Bot, AI Gemini phân tích. GitHub: khang26042012/Nexora
+2. NexoraAI (2025) — AI Assistant tích hợp Telegram, Gemini 2.5 Flash, streaming, multi-turn
+3. NexoraTool (2024–2026, LIVE) — Nền tảng tải video (YouTube/1000+ trang), cắt video, Text Formatter AI. URL: nexorax.cloud/tool
+4. Portfolio cá nhân (2026) — nexorax.cloud, React+Vite+Tailwind, dark theme, video background
+
+Lịch sử:
+- 2021: Bắt đầu học tin học
+- 3/2022: Giải Nhất Tin học cấp trường
+- 5/2022: Giải Khuyến Khích tin học cấp tỉnh
+- 2023: Chuyển sang lập trình web (HTML, CSS, JS, React)
+- 2024: Fullstack thực chiến, nhiều project thực tế
+- 2025: Ra mắt NexoraAI (Gemini + Telegram)
+- 2026: Ra mắt NexoraGarden (IoT + ESP32 + WebSocket)
+
+Website: nexorax.cloud | Deploy: Railway (backend Docker) + Render (backup)
+=== KẾT THÚC THÔNG TIN NEXORA ===
+`;
+
 const GENERATE_SYSTEM_PROMPT = `Bạn là chuyên gia tạo nội dung và định dạng văn bản chuyên nghiệp tiếng Việt.
 Tạo nội dung theo yêu cầu và định dạng chuẩn ngay lập tức.
+
+${NEXORA_CONTEXT}
 
 QUY TẮC ĐỊNH DẠNG:
 1. Tiêu đề chính: [C]TIÊU ĐỀ[/C] (marker căn giữa)
