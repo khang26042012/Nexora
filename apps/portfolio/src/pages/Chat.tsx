@@ -50,11 +50,31 @@ function FileIcon({ type }: { type: string }) {
   return <File className="w-3.5 h-3.5 text-white/50" />;
 }
 
+function renderLine(line: string, key: number) {
+  const parts: React.ReactNode[] = [];
+  const regex = /\*\*(.+?)\*\*|`(.+?)`|\*(.+?)\*/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(line)) !== null) {
+    if (match.index > last) parts.push(line.slice(last, match.index));
+    if (match[1] !== undefined)
+      parts.push(<strong key={match.index} style={{ color: "rgba(255,255,255,0.95)", fontWeight: 700 }}>{match[1]}</strong>);
+    else if (match[2] !== undefined)
+      parts.push(<code key={match.index} style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "1px 5px", fontSize: "0.88em", fontFamily: "monospace" }}>{match[2]}</code>);
+    else if (match[3] !== undefined)
+      parts.push(<em key={match.index}>{match[3]}</em>);
+    last = match.index + match[0].length;
+  }
+  if (last < line.length) parts.push(line.slice(last));
+  return <span key={key}>{parts}</span>;
+}
+
 function renderText(text: string) {
-  return text.split("\n").map((line, i) => (
+  const lines = text.split("\n");
+  return lines.map((line, i) => (
     <span key={i}>
-      {line}
-      {i < text.split("\n").length - 1 && <br />}
+      {renderLine(line, i)}
+      {i < lines.length - 1 && <br />}
     </span>
   ));
 }
