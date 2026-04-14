@@ -28,6 +28,55 @@ WARN (không phải lỗi):
 ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[14/04/2026 session 38b] DATA — Cập nhật NexoraData.txt cho AI biết về Image to Text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã cập nhật NexoraData.txt (v1.2):
+  - DỰ ÁN 3 NexoraTool: thêm "4. Image to Text" vào danh sách tool con
+  - Phần 6: Thêm TOOL 4 — IMAGE TO TEXT / OCR (cách dùng, kỹ thuật, edit mode, giới hạn)
+  - Chat Bot đổi thành TOOL 5
+  - Phần 7 Monorepo: thêm ImageToText.tsx vào cấu trúc thư mục
+  - Phần 9 Q&A: thêm Q&A "Image to Text là gì?", cập nhật "NexoraTool có giới hạn gì?"
+  - Phần 10 API: thêm endpoint POST /api/ocr
+  - Footer: cập nhật ngày 14/04/2026, phiên bản 1.2
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[14/04/2026 session 38] FEAT — Thêm tool mới: Image to Text (OCR)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  Backend:
+  - Tạo packages/api-server/src/routes/ocr.ts
+  - POST /api/ocr: nhận { content (base64), mimeType } → stream GLM-4.6V-Flash đọc ảnh
+  - System prompt OCR: marker chuẩn [C]...[/C], **bold**, -, ---, giữ nguyên cấu trúc tài liệu
+  - Đăng ký vào routes/index.ts
+
+  Frontend:
+  - Tạo apps/portfolio/src/pages/tools/ImageToText.tsx
+  - Upload ảnh: drag & drop hoặc click (JPG/PNG/WEBP/GIF/BMP, tối đa 10MB)
+  - Preview thumbnail sau khi chọn ảnh
+  - Tag gợi ý: ảnh tài liệu, scan sách, bảng trắng, chữ viết tay, đề thi
+  - Stream kết quả OCR → RenderOutput chuẩn marker
+  - Edit mode: bút chì / mắt, textarea monospace, sync rawResult
+  - 5 định dạng tải về: txt, md, html, json, docx (dùng lại hệ thống TextFormatter)
+  - Copy button với animation Đã copy
+  - Đăng ký route /tool/image-to-text trong App.tsx
+  - Thêm card "Image to Text" (icon ScanText, tag OCR) lên đầu danh sách Tool.tsx
+
+Files thay đổi:
+  - packages/api-server/src/routes/ocr.ts (MỚI)
+  - packages/api-server/src/routes/index.ts
+  - apps/portfolio/src/pages/tools/ImageToText.tsx (MỚI)
+  - apps/portfolio/src/App.tsx
+  - apps/portfolio/src/pages/Tool.tsx
+
+Push GitHub: commit e88856e0 ✅
+Portfolio: RUNNING (port 21113) ✅ | API Server: RUNNING (port 8080) ✅
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [11/04/2026 session 37c] FEAT — Text Formatter: thêm tính năng chỉnh sửa kết quả AI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
