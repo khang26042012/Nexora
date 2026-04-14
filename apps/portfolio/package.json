@@ -78,6 +78,7 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "docx": "^9.6.1",
+    "tesseract.js": "^7.0.0",
     "three": "^0.183.2"
   }
 }
