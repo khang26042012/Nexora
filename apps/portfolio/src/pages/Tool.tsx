@@ -1,10 +1,24 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const TOOLS = [
+  {
+    id: "image-to-text",
+    icon: ScanText,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Image to Text",
+    desc: "Chuyển ảnh chụp tài liệu, đề thi, trang sách, bảng trắng thành văn bản chỉnh sửa được. Xuất ra 5 định dạng.",
+    tag: "OCR",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/image-to-text",
+  },
   {
     id: "text-formatter",
     icon: FileText,

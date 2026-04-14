@@ -1,8 +1,79 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 10/04/2026 (session 34 — MIGRATION Replit environment mới lần 9)
+  Cập nhật: 11/04/2026 (session 37 — MIGRATION Replit environment mới lần 10)
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[11/04/2026 session 37] MIGRATION — Replit environment mới (lần 10)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → 740 packages OK
+  2. better-sqlite3 build từ source (npm run build-release) → Release/better_sqlite3.node ✅
+  3. Restart "Start application" (portfolio, port 21113) → RUNNING ✅
+  4. Restart "packages/api-server: API Server" → RUNNING ✅
+  5. Gửi Telegram thông báo hoàn tất ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - SQLite DB initialized ✅
+  - ffmpeg: bundled vào dist/ffmpeg ✅
+  - yt-dlp: ready ✅
+
+WARN (không phải lỗi):
+  - attached_assets/* workflows: NOT_STARTED → bình thường (file tham khảo cũ)
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[11/04/2026 session 37c] FEAT — Text Formatter: thêm tính năng chỉnh sửa kết quả AI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  - Thêm nút "Chỉnh sửa" / "Xem trước" (icon Pencil/Eye) trong header kết quả
+  - Khi bật Chỉnh sửa: vùng output chuyển sang textarea monospace, có thể gõ tự do
+  - Khi tắt: trở về RenderOutput (preview đẹp)
+  - Mọi thay đổi khi edit tức thì sync vào rawResult → Copy / Tải về dùng nội dung đã sửa
+  - Viền chạy đổi màu sáng hơn khi đang edit (visual indicator)
+  - Hint text ở dưới: "Đang chỉnh sửa — Copy / Tải về sẽ dùng nội dung đã sửa"
+  - Submit mới → tự thoát edit mode, reset sạch
+  - Áp dụng cho cả 3 chế độ: Upload File, Nhập text, Tạo bằng AI
+
+Files thay đổi:
+  - apps/portfolio/src/pages/tools/TextFormatter.tsx
+
+Push GitHub: commit 53057abd ✅
+Portfolio: RUNNING (port 21113) ✅
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[11/04/2026 session 37b] FIX — Text Formatter AI "Tạo bằng AI" không còn ngáo về Nexora
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - Tool "Tạo bằng AI" trong Text Formatter gọi GLM-4.6V-Flash qua api.llm7.io
+  - GENERATE_SYSTEM_PROMPT không có context về Nexora/Khang
+  - Khi gõ "Tạo đề thi về Nexora và Khang" → AI bịa Nexora là thuốc kháng sinh / công ty dược
+
+Fix lần 1 (commit ecd860e6):
+  - Thêm NEXORA_CONTEXT vào GENERATE_SYSTEM_PROMPT
+  - AI biết Nexora là thương hiệu của Khang
+
+Fix lần 2 (commit 1027426f) — vẫn bị lỗi: model copy-paste placeholder vào output:
+  - Vấn đề: format rules viết "**I. Tên**" → model in literal "**I. Tên**" vào kết quả
+  - Fix: viết lại toàn bộ GENERATE_SYSTEM_PROMPT:
+    + Dùng ví dụ thực tế thay placeholder (VD: **I. Thông tin cá nhân**)
+    + Thêm mục NGHIÊM CẤM: không viết placeholder, không lặp context
+    + Thay "QUY TẮC ĐỊNH DẠNG" → "QUY TẮC OUTPUT" rõ ràng hơn
+
+Files thay đổi:
+  - packages/api-server/src/routes/formatter.ts (viết lại GENERATE_SYSTEM_PROMPT)
+
+Restart: "packages/api-server: API Server" → RUNNING ✅
+Push GitHub: 2 commits (Tree API) ✅
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [11/04/2026 session 36] UPDATE — Thay data training NexoraAI bằng NexoraData.txt mới

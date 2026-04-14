@@ -4,6 +4,7 @@ import youtubeRouter from "./youtube";
 import trimRouter from "./trim";
 import chatRouter from "./chat";
 import formatterRouter from "./formatter";
+import ocrRouter from "./ocr";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use("/yt", youtubeRouter);
 router.use(trimRouter);
 router.use(chatRouter);
 router.use(formatterRouter);
+router.use(ocrRouter);
 
 export default router;
