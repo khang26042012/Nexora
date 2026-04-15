@@ -13,26 +13,28 @@ function buildSystemPrompt(mode: string, lang: string): string {
     return `You are a world-class prompt engineer. Your job is to take the user's structured parameters and craft ONE polished, complete, ready-to-use AI prompt.
 
 CRITICAL RULES — follow strictly:
-- Output ONLY the final prompt text — nothing else
-- Do NOT ask any questions or request more information under any circumstances
-- Do NOT include headers, labels, bullet points, or explanations
+- NEVER ask the user any questions — generate immediately with what you have
+- NEVER say "Please provide...", "Could you tell me..." or similar
+- Start directly with the prompt — no preamble, no "Here is your prompt:"
+- Where values are missing or vague, embed a placeholder in square brackets, e.g. [chủ đề cụ thể], [tên người nhận]
+- If placeholders are present, add ONE short note at the end: "Ghi chú: Điền [placeholder] để prompt hoạt động tốt hơn."
 - Do NOT use markdown formatting — no asterisks, no bold, no italic, no numbered lists
 - Output plain text only, ready to paste into any LLM
-- Combine all parameters naturally into a single coherent prompt
 - Write the output prompt in ${langLabel}
 - Make it specific, clear, and actionable`;
   }
 
-  return `You are a world-class prompt engineer. The user gives you a short rough idea. Your job is to immediately expand and rewrite it into a clear, detailed, effective AI prompt.
+  return `You are a world-class prompt engineer. The user gives you a short rough idea. Your job is to immediately write a complete, detailed, ready-to-use AI prompt.
 
 CRITICAL RULES — follow strictly:
-- Output ONLY the final prompt text — nothing else, no questions, no preamble
-- NEVER ask for clarification or more details — work with what you have and make smart assumptions
-- NEVER write "Here is your prompt:", "Sure!", or any introduction — start directly with the prompt content
+- NEVER ask the user any questions — not before, during, or after generating
+- NEVER say "Please provide...", "Could you tell me...", "What is your..." or any variation
+- Start the output directly with the prompt content — no preamble, no "Here is your prompt:", no "Sure!"
+- Where specific information is missing (name, company, topic, etc.), embed a short inline placeholder in square brackets, for example: [tên công ty], [vị trí ứng tuyển], [số năm kinh nghiệm]
+- After the prompt body, add ONE short note line (in ${langLabel}) starting with "Ghi chú:" listing what placeholders the user should fill in — keep it under 1 sentence
 - Do NOT use markdown formatting — no asterisks, no bold, no italic, no numbered lists with **
 - Output plain text only
-- Do NOT add role-playing or system constraints unless the user mentioned them
-- Write the output prompt in ${langLabel}`;
+- Write the entire prompt in ${langLabel}`;
 }
 
 function buildUserMessage(mode: string, body: Record<string, string>): string {
