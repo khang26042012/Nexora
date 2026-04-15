@@ -2,9 +2,9 @@ import { Router, type Request, type Response } from "express";
 
 const router = Router();
 
-const GLM_BASE_URL = "https://api.llm7.io/v1/chat/completions";
-const GLM_MODEL    = "GLM-4.6V-Flash";
-const GLM_API_KEY  = "T49q5w7eZI+2c3Giqf2G00twjoVevINN4TOY4AkPQqpr8koua+PdGHSBP/tX+m72Ehf/N6xN+Tq+oOtq8uxRzI3/fMq2dlt2W7TKqD9PHCVn4JY6M6VxOyRSqrBhH9hQtOTP";
+const GEMINI_API_KEY = "AIzaSyAuvpio1pcotP9k-3uxBaLy9R6EGZQz5Oc";
+const GEMINI_MODEL   = "gemini-2.5-flash";
+const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
 
 const OCR_SYSTEM_PROMPT = `Bạn là công cụ OCR chuyên nghiệp. Nhiệm vụ: đọc và trích xuất TOÀN BỘ văn bản trong ảnh.
 
@@ -39,27 +39,19 @@ router.post("/ocr", async (req: Request, res: Response) => {
   res.setHeader("X-Accel-Buffering", "no");
 
   try {
-    const upstream = await fetch(GLM_BASE_URL, {
+    const upstream = await fetch(GEMINI_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${GLM_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: GLM_MODEL,
-        messages: [
-          { role: "system", content: OCR_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "image_url", image_url: { url: `data:${mimeType};base64,${content}` } },
-              { type: "text", text: "Đọc và trích xuất toàn bộ văn bản trong ảnh này. Giữ nguyên cấu trúc và áp dụng đúng quy tắc định dạng." },
-            ],
-          },
-        ],
-        stream: true,
-        temperature: 0.1,
-        max_tokens: 8192,
+        system_instruction: { parts: [{ text: OCR_SYSTEM_PROMPT }] },
+        contents: [{
+          role: "user",
+          parts: [
+            { inlineData: { mimeType, data: content } },
+            { text: "Đọc và trích xuất toàn bộ văn bản trong ảnh này. Giữ nguyên cấu trúc và áp dụng đúng quy tắc định dạng." },
+          ],
+        }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
       }),
     });
 
@@ -85,17 +77,17 @@ router.post("/ocr", async (req: Request, res: Response) => {
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const raw = line.slice(6).trim();
-        if (raw === "[DONE]") continue;
+        if (!raw || raw === "[DONE]") continue;
         try {
           const parsed = JSON.parse(raw) as {
-            choices?: { delta?: { content?: string } }[];
+            candidates?: { content?: { parts?: { text?: string }[] } }[];
             error?: { message?: string };
           };
           if (parsed.error) {
             res.write(`data: ${JSON.stringify({ error: parsed.error.message })}\n\n`);
             continue;
           }
-          const text = parsed.choices?.[0]?.delta?.content;
+          const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) {
             res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`);
           }

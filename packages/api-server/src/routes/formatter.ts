@@ -3,9 +3,9 @@ import mammoth from "mammoth";
 
 const router = Router();
 
-const GLM_BASE_URL = "https://api.llm7.io/v1/chat/completions";
-const GLM_MODEL    = "GLM-4.6V-Flash";
-const GLM_API_KEY  = "T49q5w7eZI+2c3Giqf2G00twjoVevINN4TOY4AkPQqpr8koua+PdGHSBP/tX+m72Ehf/N6xN+Tq+oOtq8uxRzI3/fMq2dlt2W7TKqD9PHCVn4JY6M6VxOyRSqrBhH9hQtOTP";
+const GEMINI_API_KEY = "AIzaSyAuvpio1pcotP9k-3uxBaLy9R6EGZQz5Oc";
+const GEMINI_MODEL   = "gemini-2.5-flash";
+const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
 
 const FORMAT_SYSTEM_PROMPT = `Bạn là chuyên gia định dạng văn bản chuyên nghiệp tiếng Việt.
 Nhận văn bản thô và trả về phiên bản đã được định dạng chuẩn.
@@ -105,19 +105,19 @@ NGHIÊM CẤM:
 - KHÔNG lặp lại thông tin context ở cuối output
 - CHỈ trả về nội dung hoàn chỉnh theo yêu cầu, không giải thích gì thêm`;
 
-async function callGLMStream(res: Response, messages: { role: string; content: unknown }[]) {
-  const upstream = await fetch(GLM_BASE_URL, {
+async function callGeminiStream(
+  res: Response,
+  systemPrompt: string,
+  contents: unknown[],
+  temperature = 0.2,
+) {
+  const upstream = await fetch(GEMINI_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${GLM_API_KEY}`,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: GLM_MODEL,
-      messages,
-      stream: true,
-      temperature: 0.2,
-      max_tokens: 8192,
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      generationConfig: { temperature, maxOutputTokens: 8192 },
     }),
   });
 
@@ -143,17 +143,17 @@ async function callGLMStream(res: Response, messages: { role: string; content: u
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
       const raw = line.slice(6).trim();
-      if (raw === "[DONE]") continue;
+      if (!raw || raw === "[DONE]") continue;
       try {
         const parsed = JSON.parse(raw) as {
-          choices?: { delta?: { content?: string } }[];
+          candidates?: { content?: { parts?: { text?: string }[] } }[];
           error?: { message?: string };
         };
         if (parsed.error) {
           res.write(`data: ${JSON.stringify({ error: parsed.error.message })}\n\n`);
           continue;
         }
-        const text = parsed.choices?.[0]?.delta?.content;
+        const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
           res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`);
         }
@@ -189,13 +189,13 @@ router.post("/format", async (req: Request, res: Response) => {
   res.setHeader("X-Accel-Buffering", "no");
 
   try {
-    let messages: { role: string; content: unknown }[];
-
     if (mode === "generate") {
-      messages = [
-        { role: "system", content: GENERATE_SYSTEM_PROMPT },
-        { role: "user", content: `Yêu cầu tạo nội dung: ${prompt}` },
-      ];
+      await callGeminiStream(
+        res,
+        GENERATE_SYSTEM_PROMPT,
+        [{ role: "user", parts: [{ text: `Yêu cầu tạo nội dung: ${prompt}` }] }],
+        0.7,
+      );
 
     } else if (mode === "file" && mimeType && content) {
       const isDocx =
@@ -207,36 +207,38 @@ router.post("/format", async (req: Request, res: Response) => {
       if (isDocx) {
         const buf = Buffer.from(content, "base64");
         const extracted = await mammoth.extractRawText({ buffer: buf });
-        messages = [
-          { role: "system", content: FORMAT_SYSTEM_PROMPT },
-          { role: "user", content: `Định dạng văn bản sau:\n\n${extracted.value}` },
-        ];
+        await callGeminiStream(
+          res,
+          FORMAT_SYSTEM_PROMPT,
+          [{ role: "user", parts: [{ text: `Định dạng văn bản sau:\n\n${extracted.value}` }] }],
+        );
       } else if (isImage) {
-        messages = [
-          { role: "system", content: FORMAT_SYSTEM_PROMPT },
-          {
+        await callGeminiStream(
+          res,
+          FORMAT_SYSTEM_PROMPT,
+          [{
             role: "user",
-            content: [
-              { type: "image_url", image_url: { url: `data:${mimeType};base64,${content}` } },
-              { type: "text", text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng." },
+            parts: [
+              { inlineData: { mimeType, data: content } },
+              { text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng." },
             ],
-          },
-        ];
+          }],
+        );
       } else {
-        messages = [
-          { role: "system", content: FORMAT_SYSTEM_PROMPT },
-          { role: "user", content: `Định dạng văn bản sau:\n\n${content}` },
-        ];
+        await callGeminiStream(
+          res,
+          FORMAT_SYSTEM_PROMPT,
+          [{ role: "user", parts: [{ text: `Định dạng văn bản sau:\n\n${content}` }] }],
+        );
       }
 
     } else {
-      messages = [
-        { role: "system", content: FORMAT_SYSTEM_PROMPT },
-        { role: "user", content: `Định dạng văn bản sau:\n\n${content}` },
-      ];
+      await callGeminiStream(
+        res,
+        FORMAT_SYSTEM_PROMPT,
+        [{ role: "user", parts: [{ text: `Định dạng văn bản sau:\n\n${content}` }] }],
+      );
     }
-
-    await callGLMStream(res, messages);
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
