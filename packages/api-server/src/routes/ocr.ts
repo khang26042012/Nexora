@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 
 const router = Router();
 
-const GEMINI_API_KEY = "AIzaSyAuvpio1pcotP9k-3uxBaLy9R6EGZQz5Oc";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
 const GEMINI_MODEL   = "gemini-2.5-flash";
 const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
 
