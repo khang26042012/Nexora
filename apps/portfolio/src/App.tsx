@@ -14,6 +14,7 @@ import { ImageToText } from "@/pages/tools/ImageToText";
 import { PromptBuilder } from "@/pages/tools/PromptBuilder";
 import { NoteEditor, NoteViewer } from "@/pages/tools/Note";
 import { Admin } from "@/pages/Admin";
+import { QRGenerator } from "@/pages/tools/QRGenerator";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/tool/prompt-builder" component={PromptBuilder} />
       <Route path="/tool/note/:id" component={NoteViewer} />
       <Route path="/tool/note" component={NoteEditor} />
+      <Route path="/tool/qr-generator" component={QRGenerator} />
       <Route path="/chat" component={Chat} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
