@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield, LogOut, RefreshCw, Search, Trash2,
-  Activity, Users, AlertTriangle, Zap, ChevronLeft, ChevronRight,
-  Clock, Globe, Terminal, Bot, Wrench, TrendingUp, Eye, EyeOff,
-  Download, Filter
+  Users, AlertTriangle, ChevronLeft, ChevronRight,
+  Clock, Globe, Bot, Wrench, TrendingUp, Eye, EyeOff,
+  Download, Activity
 } from "lucide-react";
 
 const ADMIN_KEY_STORAGE = "nexora_admin_key";
@@ -180,6 +180,30 @@ function LoginGate({ onLogin }: { onLogin: (key: string) => void }) {
   );
 }
 
+/* ─── AnimBorderCard (running-border) ───────────────── */
+function AnimBorderCard({
+  children, speed = 5, color = "rgba(124,58,237,0.9)",
+  radius = 18, style = {}, className = "",
+}: {
+  children: React.ReactNode; speed?: number; color?: string;
+  radius?: number; style?: React.CSSProperties; className?: string;
+}) {
+  return (
+    <div
+      className={`running-border ${className}`}
+      style={{
+        "--rb-speed": `${speed}s`,
+        "--rb-color": color,
+        "--rb-radius": `${radius}px`,
+        background: "rgba(255,255,255,0.04)",
+        ...style,
+      } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  );
+}
+
 /* ─── Stat Card ─────────────────────────────────────── */
 function StatCard({
   icon, label, value, sub, color = "#7c3aed"
@@ -191,20 +215,21 @@ function StatCard({
   color?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/8 p-5 flex gap-4 items-start"
-      style={{ background: "rgba(255,255,255,0.03)" }}>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: `${color}25` }}>
-        <span style={{ color }}>{icon}</span>
-      </div>
-      <div>
-        <div className="text-2xl font-bold text-white leading-none mb-1">
-          {typeof value === "number" ? value.toLocaleString() : value}
+    <AnimBorderCard speed={6} color={`${color}cc`} radius={18} style={{ padding: "1.25rem" }}>
+      <div className="flex gap-4 items-start">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: `${color}22` }}>
+          <span style={{ color }}>{icon}</span>
         </div>
-        <div className="text-sm text-white/50">{label}</div>
-        {sub && <div className="text-xs text-white/30 mt-1">{sub}</div>}
+        <div>
+          <div className="text-2xl font-bold text-white leading-none mb-1">
+            {typeof value === "number" ? value.toLocaleString() : value}
+          </div>
+          <div className="text-sm text-white/50">{label}</div>
+          {sub && <div className="text-xs text-white/30 mt-1">{sub}</div>}
+        </div>
       </div>
-    </div>
+    </AnimBorderCard>
   );
 }
 
@@ -497,7 +522,7 @@ function StatsPanel({ stats }: { stats: Stats }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Top paths */}
-        <div className="rounded-2xl border border-white/8 p-5" style={{ background: "rgba(255,255,255,0.03)" }}>
+        <AnimBorderCard speed={7} color="rgba(124,58,237,0.7)" radius={18} style={{ padding: "1.25rem" }}>
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={16} className="text-violet-400" />
             <span className="text-sm font-semibold text-white">Top Paths</span>
@@ -520,10 +545,10 @@ function StatsPanel({ stats }: { stats: Stats }) {
             })}
             {stats.topPaths.length === 0 && <div className="text-white/30 text-xs">Chưa có dữ liệu</div>}
           </div>
-        </div>
+        </AnimBorderCard>
 
         {/* Tool Breakdown */}
-        <div className="rounded-2xl border border-white/8 p-5" style={{ background: "rgba(255,255,255,0.03)" }}>
+        <AnimBorderCard speed={8} color="rgba(6,182,212,0.7)" radius={18} style={{ padding: "1.25rem" }}>
           <div className="flex items-center gap-2 mb-4">
             <Wrench size={16} className="text-cyan-400" />
             <span className="text-sm font-semibold text-white">Tool Usage</span>
@@ -548,11 +573,11 @@ function StatsPanel({ stats }: { stats: Stats }) {
             })}
             {stats.toolBreakdown.length === 0 && <div className="text-white/30 text-xs">Chưa có dữ liệu</div>}
           </div>
-        </div>
+        </AnimBorderCard>
 
         {/* Status Breakdown + Recent IPs */}
         <div className="space-y-4">
-          <div className="rounded-2xl border border-white/8 p-5" style={{ background: "rgba(255,255,255,0.03)" }}>
+          <AnimBorderCard speed={9} color="rgba(16,185,129,0.7)" radius={18} style={{ padding: "1.25rem" }}>
             <div className="flex items-center gap-2 mb-3">
               <Globe size={16} className="text-green-400" />
               <span className="text-sm font-semibold text-white">HTTP Status</span>
@@ -566,9 +591,9 @@ function StatsPanel({ stats }: { stats: Stats }) {
               ))}
               {stats.statusBreakdown.length === 0 && <div className="col-span-2 text-white/30 text-xs">Chưa có dữ liệu</div>}
             </div>
-          </div>
+          </AnimBorderCard>
 
-          <div className="rounded-2xl border border-white/8 p-4" style={{ background: "rgba(255,255,255,0.03)" }}>
+          <AnimBorderCard speed={7} color="rgba(249,115,22,0.7)" radius={18} style={{ padding: "1rem" }}>
             <div className="flex items-center gap-2 mb-3">
               <Clock size={16} className="text-orange-400" />
               <span className="text-sm font-semibold text-white">IP gần đây</span>
@@ -582,7 +607,7 @@ function StatsPanel({ stats }: { stats: Stats }) {
               ))}
               {stats.recentIPs.length === 0 && <div className="text-white/30 text-xs">Chưa có dữ liệu</div>}
             </div>
-          </div>
+          </AnimBorderCard>
         </div>
       </div>
     </div>
@@ -647,93 +672,64 @@ export function Admin() {
   if (!adminKey) return <LoginGate onLogin={handleLogin} />;
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "overview", label: "Tổng quan", icon: <TrendingUp size={15} /> },
-    { id: "access", label: "Access Logs", icon: <Globe size={15} /> },
-    { id: "errors", label: "Error Logs", icon: <AlertTriangle size={15} /> },
-    { id: "tools", label: "Tool & AI Logs", icon: <Bot size={15} /> },
+    { id: "overview", label: "Tổng quan", icon: <TrendingUp size={20} /> },
+    { id: "access", label: "Access Logs", icon: <Globe size={20} /> },
+    { id: "errors", label: "Error Logs", icon: <AlertTriangle size={20} /> },
+    { id: "tools", label: "Tool & AI", icon: <Bot size={20} /> },
   ];
 
   return (
     <div className="min-h-screen" style={{
-      background: "radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.08) 0%, #050505 60%)"
+      background: "radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.10) 0%, #050505 60%)"
     }}>
       {/* Header */}
       <div className="sticky top-0 z-50 border-b border-white/8"
-        style={{ background: "rgba(5,5,5,0.92)", backdropFilter: "blur(20px)" }}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)" }}>
-              <Shield size={16} className="text-white" />
+        style={{ background: "rgba(5,5,5,0.94)", backdropFilter: "blur(20px)" }}>
+
+        {/* Top bar: logo + title centered, logout right */}
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          {/* Spacer left */}
+          <div className="w-10" />
+
+          {/* Center: logo + title */}
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex flex-col items-center gap-1.5"
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
+              style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", boxShadow: "0 0 20px rgba(124,58,237,0.4)" }}>
+              <Shield size={20} className="text-white" />
             </div>
-            <span className="font-bold text-white text-sm">Nexora Admin</span>
-            <span className="text-white/20 text-xs hidden sm:block">—</span>
-            <span className="text-white/40 text-xs hidden sm:block">nexorax.cloud/admin</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Auto-refresh toggle */}
-            <button
-              onClick={() => setAutoRefresh(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all border ${
-                autoRefresh
-                  ? "text-green-400 border-green-500/40 bg-green-500/10"
-                  : "text-white/40 border-white/10 hover:text-white/60"
-              }`}>
-              <Activity size={12} className={autoRefresh ? "animate-pulse" : ""} />
-              <span className="hidden sm:inline">Auto refresh</span>
-            </button>
-
-            {/* Manual refresh stats */}
-            <button onClick={() => adminKey && loadStats(adminKey)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white/40 hover:text-white border border-white/10 hover:border-violet-500/40 transition-all">
-              <RefreshCw size={12} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
-
-            {/* Clear logs */}
-            <div className="relative group">
-              <button
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-red-400/70 hover:text-red-400 border border-white/10 hover:border-red-500/40 transition-all disabled:opacity-40"
-                disabled={clearing}>
-                <Trash2 size={12} />
-                <span className="hidden sm:inline">Xoá logs</span>
-              </button>
-              <div className="absolute right-0 top-full mt-1 rounded-xl border border-white/10 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto z-50"
-                style={{ background: "rgba(20,20,20,0.98)", backdropFilter: "blur(16px)" }}>
-                {[
-                  { type: "access" as const, label: "Xoá Access logs" },
-                  { type: "tool" as const, label: "Xoá Tool logs" },
-                  { type: "all" as const, label: "Xoá tất cả" },
-                ].map(({ type, label }) => (
-                  <button key={type} onClick={() => handleClear(type)}
-                    className="block w-full text-left px-4 py-2.5 text-xs text-white/60 hover:text-red-400 hover:bg-red-500/10 transition-colors whitespace-nowrap">
-                    {label}
-                  </button>
-                ))}
-              </div>
+            <div className="text-center">
+              <div className="text-base font-bold text-white leading-tight">Quản trị viên Nexora</div>
+              <div className="text-[10px] text-white/30 font-mono">nexorax.cloud/admin</div>
             </div>
+          </motion.div>
 
-            {/* Logout */}
-            <button onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-all">
-              <LogOut size={12} />
-              <span className="hidden sm:inline">Đăng xuất</span>
-            </button>
-          </div>
+          {/* Right: logout only */}
+          <button onClick={handleLogout}
+            title="Đăng xuất"
+            className="w-10 h-10 flex items-center justify-center rounded-xl text-white/30 hover:text-red-400 border border-white/8 hover:border-red-500/30 transition-all"
+            style={{ background: "rgba(255,255,255,0.04)" }}>
+            <LogOut size={16} />
+          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="max-w-7xl mx-auto px-4 pb-0 flex gap-1">
+        {/* Tabs — lớn, luôn hiện label */}
+        <div className="max-w-7xl mx-auto px-3 pb-0 flex gap-1">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all border-b-2 ${
+              className={`flex-1 flex flex-col items-center gap-1.5 px-2 py-3 text-xs font-semibold transition-all border-b-2 ${
                 tab === t.id
                   ? "text-white border-violet-500"
-                  : "text-white/40 border-transparent hover:text-white/60"
+                  : "text-white/35 border-transparent hover:text-white/60 hover:border-white/20"
               }`}>
-              {t.icon}
-              <span className="hidden sm:inline">{t.label}</span>
+              <span className={`transition-transform ${tab === t.id ? "scale-110" : ""}`}>
+                {t.icon}
+              </span>
+              <span className="leading-tight text-center">{t.label}</span>
             </button>
           ))}
         </div>
@@ -744,14 +740,17 @@ export function Admin() {
         <AnimatePresence mode="wait">
           <motion.div
             key={tab}
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}>
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.25 }}>
 
             {tab === "overview" && stats && <StatsPanel stats={stats} />}
             {tab === "overview" && !stats && (
-              <div className="text-center py-20 text-white/30">Đang tải thống kê...</div>
+              <div className="flex flex-col items-center justify-center py-20 gap-3 text-white/30">
+                <RefreshCw size={24} className="animate-spin" />
+                <span className="text-sm">Đang tải thống kê...</span>
+              </div>
             )}
             {tab === "access" && <AccessLogsPanel adminKey={adminKey} />}
             {tab === "errors" && <AccessLogsPanel adminKey={adminKey} onlyErrors />}
@@ -762,7 +761,7 @@ export function Admin() {
       </div>
 
       {/* Footer */}
-      <div className="text-center py-6 text-white/20 text-xs border-t border-white/5">
+      <div className="text-center py-6 text-white/15 text-xs border-t border-white/5">
         Nexora Admin Panel — chỉ dành cho Phan Trọng Khang
       </div>
     </div>
