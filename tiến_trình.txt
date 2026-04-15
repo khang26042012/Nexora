@@ -1,8 +1,65 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: 11/04/2026 (session 37 — MIGRATION Replit environment mới lần 10)
+  Cập nhật: [session 38c] MIGRATION Replit environment mới lần 11
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[session 39] FEAT — Thêm tool mới: Prompt Builder
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  Backend:
+  - Tạo packages/api-server/src/routes/promptgen.ts
+  - POST /api/prompt-gen: nhận { mode, lang, ...fields } → stream Gemini 2.5 Flash
+  - mode "manual": nhận role/task/context/tone/outputFormat/extra → AI ghép thành prompt chuẩn
+  - mode "ai": nhận description đơn giản → AI viết lại thành prompt hoàn chỉnh
+  - Đăng ký vào routes/index.ts
+
+  Frontend:
+  - Tạo apps/portfolio/src/pages/tools/PromptBuilder.tsx
+  - Hai mode chính: "Tự set" (form fields) và "AI viết" (textarea mô tả)
+  - "Tự set": 5 field (Đóng vai, Nhiệm vụ, Ngữ cảnh, Phong cách pills, Định dạng pills, Yêu cầu thêm)
+  - "AI viết": textarea mô tả ngắn → AI viết lại prompt đầy đủ (không đóng vai)
+  - Language toggle: 🇻🇳 VI / 🇺🇸 EN (ảnh hưởng ngôn ngữ output prompt)
+  - Output: streaming, cursor nhấp nháy, nút Copy, tip dán vào ChatGPT/Claude/Gemini
+  - Style chuẩn với các tool khác (AnimBorderCard, Particles, running-border)
+  - Đăng ký route /tool/prompt-builder trong App.tsx
+  - Thêm card "Prompt Builder" (icon Wand2, tag AI) lên đầu danh sách Tool.tsx
+
+Files thay đổi:
+  - packages/api-server/src/routes/promptgen.ts (MỚI)
+  - packages/api-server/src/routes/index.ts
+  - apps/portfolio/src/pages/tools/PromptBuilder.tsx (MỚI)
+  - apps/portfolio/src/App.tsx
+  - apps/portfolio/src/pages/Tool.tsx
+
+Push GitHub: commit c19156ae ✅
+Portfolio: RUNNING ✅ | API Server: RUNNING ✅
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[session 38c] MIGRATION — Replit environment mới (lần 11)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → OK (46.7s)
+  2. better-sqlite3 build từ source (npm run build-release trong pnpm store) → better_sqlite3.node ✅
+  3. Restart "Start application" (portfolio) → RUNNING ✅
+  4. Restart "packages/api-server: API Server" → RUNNING ✅
+  5. Gửi Telegram thông báo hoàn tất ✅
+
+Kết quả:
+  - Portfolio: RUNNING ✅
+  - API Server: RUNNING ✅
+  - SQLite DB initialized ✅
+  - ffmpeg: bundled vào dist/ffmpeg ✅
+  - yt-dlp: ready ✅
+
+WARN (không phải lỗi):
+  - attached_assets/* workflows: NOT_STARTED → bình thường (file tham khảo cũ)
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [11/04/2026 session 37] MIGRATION — Replit environment mới (lần 10)
