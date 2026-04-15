@@ -223,6 +223,8 @@ Các tool con:
   2. Video Trimmer (/tool/video-trimmer)
   3. Text Formatter — AI tự động căn chỉnh và định dạng văn bản (/tool/text-formatter)
   4. Image to Text — OCR chuyển ảnh/scan tài liệu thành văn bản chỉnh sửa được (/tool/image-to-text)
+  5. Note — Tạo và chia sẻ ghi chú nhanh qua link (/tool/note)
+  6. Prompt Builder — AI tạo prompt chuẩn cho ChatGPT/Claude/Gemini (/tool/prompt-builder)
 
 Tech stack: yt-dlp, ffmpeg, Node.js, Express, React, Vite, Railway, GLM-4.6V-Flash
 
@@ -402,20 +404,101 @@ Giới hạn:
   - Chữ viết tay đẹp thì đọc tốt; viết tay xấu có thể có [?] ở chỗ không rõ
 
 ─────────────────────────────────────────────────────────────
-TOOL 5 — CHAT BOT NEXORAAI (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+TOOL 5 — NOTE (GHI CHÚ & CHIA SẺ NHANH)
+─────────────────────────────────────────────────────────────
+URL: /tool/note
+Trạng thái: LIVE — đang hoạt động đầy đủ
+
+Mô tả:
+  Công cụ tạo ghi chú nhanh và chia sẻ qua link. Không cần đăng ký, không cần tài khoản.
+  Gõ nội dung → nhấn tạo → nhận link chia sẻ ngay. Người nhận link xem được nội dung
+  và tải về nhiều định dạng.
+
+Cách sử dụng:
+  1. Vào /tool/note → nhập tiêu đề (tùy chọn) và nội dung ghi chú
+  2. Nhấn "Tạo link chia sẻ" → hệ thống tạo link ngắn (vd: nexorax.cloud/tool/note/abc123)
+  3. (Tùy chọn) Tùy chỉnh slug link: bật "Tùy chỉnh link", nhập slug mong muốn
+  4. Copy link → gửi cho bất kỳ ai
+  5. Người nhận mở link → xem note, copy nội dung hoặc tải về file
+
+Tính năng:
+  - Tạo link chia sẻ ngay lập tức (không cần đăng nhập)
+  - Slug ngẫu nhiên (ngắn, an toàn) hoặc tùy chỉnh theo ý muốn
+  - Copy link với animation "Đã sao chép"
+  - Trang xem note (/tool/note/:id): hiển thị đẹp, có tiêu đề + nội dung
+  - Tải note về 5 định dạng: .txt .md .html .json .docx
+  - Note được lưu vĩnh viễn trong SQLite database của server
+
+Cách hoạt động kỹ thuật:
+  Editor: POST /api/notes → { title, content, customId? } → trả về { id }
+  Link share: nexorax.cloud/tool/note/{id}
+  Viewer: GET /api/notes/{id} → lấy nội dung → hiển thị
+  Database: bảng notes (id, title, content, created_at)
+
+Giới hạn:
+  - Không có tính năng chỉnh sửa sau khi đã tạo link
+  - Không có mật khẩu bảo vệ note
+  - Note công khai — ai có link đều xem được
+  - Slug tùy chỉnh: chỉ dùng chữ cái, số và dấu gạch ngang (a-z, 0-9, -)
+
+─────────────────────────────────────────────────────────────
+TOOL 6 — PROMPT BUILDER (TẠO PROMPT AI CHUẨN)
+─────────────────────────────────────────────────────────────
+URL: /tool/prompt-builder
+Trạng thái: LIVE — đang hoạt động đầy đủ
+
+Mô tả:
+  Công cụ AI giúp tạo prompt chuyên nghiệp để dùng với ChatGPT, Claude, Gemini và các AI khác.
+  Có 2 chế độ: tự điền từng trường (Tự set) hoặc mô tả ngắn để AI viết lại thành prompt đầy đủ (AI viết).
+
+2 chế độ sử dụng:
+  1. Chế độ "Tự set" (manual):
+     - Đóng vai: nhập vai trò AI nên đóng (vd: "chuyên gia dinh dưỡng")
+     - Nhiệm vụ: mô tả nhiệm vụ cần làm
+     - Ngữ cảnh: thêm ngữ cảnh liên quan
+     - Phong cách: chọn pill (Chuyên nghiệp / Thân thiện / Sáng tạo / Ngắn gọn / Học thuật)
+     - Định dạng output: chọn pill (Đoạn văn / Danh sách / Từng bước / Bảng / Code)
+     - Yêu cầu thêm: ghi thêm ràng buộc tự do
+     → AI ghép lại thành prompt hoàn chỉnh chuẩn
+
+  2. Chế độ "AI viết" (ai):
+     - Nhập mô tả ngắn về prompt muốn tạo (vd: "viết prompt học tiếng Anh qua phim")
+     - AI tự viết lại thành prompt đầy đủ, chuyên nghiệp (không đóng vai)
+     → Nhanh hơn, phù hợp khi không biết bắt đầu từ đâu
+
+Tính năng chung:
+  - Language toggle: 🇻🇳 VI / 🇺🇸 EN — chọn ngôn ngữ output của prompt
+  - Streaming response — kết quả hiện dần với cursor nhấp nháy
+  - Edit mode: nút bút chì / mắt — chỉnh sửa prompt trực tiếp sau khi AI tạo xong
+  - Copy prompt với animation "Đã sao chép"
+  - Tải về 5 định dạng: .txt .md .html .json .docx
+
+Cách hoạt động kỹ thuật:
+  Frontend → POST /api/prompt-gen với { mode, lang, role/task/context/tone/outputFormat/extra | description }
+  API Server gọi Gemini 2.5 Flash → stream SSE về frontend
+  Mode "manual": AI ghép các trường thành prompt chuẩn theo template
+  Mode "ai": AI viết lại mô tả ngắn thành prompt đầy đủ
+
+Giới hạn:
+  - Phụ thuộc tốc độ Gemini 2.5 Flash
+  - Kết quả tốt nhất khi điền đủ các trường ở chế độ Tự set
+
+─────────────────────────────────────────────────────────────
+TOOL 7 — CHAT BOT NEXORAAI (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
 ─────────────────────────────────────────────────────────────
 URL: /chat
 Trạng thái: LIVE — đang hoạt động đầy đủ
 
 Tính năng đã hoàn thiện:
-  - Kết nối GLM-4.6V-Flash qua api.llm7.io (backend proxy, key bảo mật)
+  - Kết nối Gemini 2.5 Flash (backend proxy, key bảo mật)
   - Streaming response — chữ hiện dần như đang gõ
   - Nhớ lịch sử cuộc trò chuyện trong phiên (multi-turn)
   - Đính kèm file, ảnh để AI phân tích (base64 inlineData)
   - Render markdown: in đậm, nghiêng, code inline
   - Typing indicator (3 chấm nhảy khi AI đang nghĩ)
-  - Gợi ý câu hỏi nhanh khi chưa có tin nhắn
-  - Giao diện chat đẹp, dark theme, header trong suốt
+  - Avatar anime với animation orbit rings bao quanh
+  - Animation gõ chữ "NexoraAI" khi vào trang
+  - Giao diện chat đẹp, dark theme, running-border tím khi focus input
   - AI được huấn luyện với toàn bộ data về Phan Trọng Khang và các dự án
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -434,7 +517,9 @@ Nexora/
 │       │   │       ├── YtDownloader.tsx   ← Tool tải video
 │       │   │       ├── VideoTrimmer.tsx   ← Tool cắt video
 │       │   │       ├── TextFormatter.tsx  ← Tool định dạng văn bản AI
-│       │   │       └── ImageToText.tsx    ← Tool OCR ảnh → văn bản
+│       │   │       ├── ImageToText.tsx    ← Tool OCR ảnh → văn bản
+│       │   │       ├── Note.tsx           ← Tool ghi chú & chia sẻ qua link
+│       │   │       └── PromptBuilder.tsx  ← Tool tạo prompt AI chuẩn
 │       │   ├── components/
 │       │   │   └── navigation.tsx   ← Menu sidebar
 │       │   └── index.css           ← Design system CSS
@@ -564,12 +649,32 @@ A: Image to Text là công cụ AI chuyển ảnh thành văn bản tại nexora
    4. Copy hoặc xuất file (txt, md, html, json, docx)
    Phù hợp cho: scan tài liệu, đề thi photo, ảnh bảng trắng, chữ viết tay.
 
+Q: Note (ghi chú) là gì? Dùng như thế nào?
+A: Note là công cụ tạo ghi chú nhanh và chia sẻ qua link tại nexorax.cloud/tool/note.
+   Cách dùng:
+   1. Nhập tiêu đề (tùy chọn) và nội dung ghi chú
+   2. Nhấn "Tạo link chia sẻ" → nhận link ngay (vd: nexorax.cloud/tool/note/abc123)
+   3. Có thể tùy chỉnh slug link theo ý muốn
+   4. Gửi link cho bất kỳ ai — họ mở ra xem và tải về
+   Không cần đăng ký tài khoản. Hỗ trợ xuất file: txt, md, html, json, docx.
+
+Q: Prompt Builder là gì? Dùng như thế nào?
+A: Prompt Builder là công cụ AI tạo prompt chuyên nghiệp tại nexorax.cloud/tool/prompt-builder.
+   Có 2 chế độ:
+   1. "Tự set": điền từng trường (Đóng vai, Nhiệm vụ, Ngữ cảnh, Phong cách, Định dạng, Yêu cầu thêm)
+      → AI ghép lại thành prompt hoàn chỉnh
+   2. "AI viết": nhập mô tả ngắn → AI tự viết thành prompt đầy đủ
+   Hỗ trợ: language toggle VI/EN, streaming output, edit mode, copy, tải về 5 định dạng.
+   Phù hợp để tạo prompt dùng với ChatGPT, Claude, Gemini.
+
 Q: NexoraTool có giới hạn gì không?
 A: YouTube Downloader: không tải được video DRM (Netflix, Disney+), giới hạn bởi
    tốc độ server Railway và chính sách của từng nền tảng.
    Video Trimmer: giới hạn 500MB mỗi file upload.
    Text Formatter: chế độ nhập text tối đa 2000 ký tự; upload file hỗ trợ docx/txt/ảnh.
    Image to Text: tối đa 10MB mỗi ảnh; độ chính xác phụ thuộc chất lượng ảnh.
+   Note: không chỉnh sửa được sau khi tạo link; note công khai (ai có link đều xem được).
+   Prompt Builder: phụ thuộc tốc độ Gemini; kết quả tốt nhất khi điền đủ các trường.
 
 Q: Portfolio được xây bằng gì?
 A: Portfolio tại nexorax.cloud được xây dựng bằng React + Vite + TypeScript + Tailwind CSS.
@@ -619,6 +724,20 @@ Các endpoint chính:
     → Response: SSE stream văn bản trích xuất từ ảnh
     → Model: GLM-4.6V-Flash qua api.llm7.io
 
+  POST /api/notes
+    → Body: { title, content, customId? }
+    → Response: { id } — id dùng để tạo link share
+    → Lưu ghi chú vào SQLite, trả về ID ngắn (nanoid)
+
+  GET  /api/notes/:id
+    → Response: { id, title, content, created_at }
+    → Lấy nội dung ghi chú theo ID
+
+  POST /api/prompt-gen
+    → Body: { mode ("manual"|"ai"), lang ("vi"|"en"), role?, task?, context?, tone?, outputFormat?, extra?, description? }
+    → Response: SSE stream prompt được tạo
+    → Model: Gemini 2.5 Flash
+
   WebSocket /ws        ← ESP32 kết nối
   WebSocket /ws-browser ← Dashboard kết nối
 
@@ -642,7 +761,8 @@ PHẦN 11 — CHÚ Ý ĐẶC BIỆT KHI TRẢ LỜI
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 KẾT THÚC FILE HUẤN LUYỆN
-Cập nhật lần cuối: 14/04/2026
-Phiên bản: 1.2
+Cập nhật lần cuối: 15/04/2026
+Phiên bản: 1.3
 Thay đổi v1.2: Thêm TOOL 4 Image to Text (OCR), cập nhật danh sách tool, Q&A, endpoint API
+Thay đổi v1.3: Thêm TOOL 5 Note (ghi chú & chia sẻ qua link), TOOL 6 Prompt Builder (tạo prompt AI), cập nhật monorepo structure, Q&A, endpoint API. Chat Bot đổi thành TOOL 7.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
