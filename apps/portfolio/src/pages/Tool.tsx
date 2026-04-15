@@ -1,6 +1,6 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2 } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -60,6 +60,20 @@ const TOOLS = [
     tagColor: "rgba(255,255,255,0.6)",
     available: true,
     route: "/tool/video-trimmer",
+  },
+  {
+    id: "note",
+    icon: NotebookPen,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Note",
+    desc: "Viết ghi chú nhanh — tạo liên kết chia sẻ cho bất kỳ ai. Lưu vĩnh viễn, không cần đăng ký, xuất 5 định dạng.",
+    tag: "Share",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/note",
   },
   {
     id: "yt-downloader",
