@@ -79,6 +79,64 @@ function renderText(text: string) {
   ));
 }
 
+const TYPING_FULL = "NexoraAI";
+
+function useTypingText(full: string, delay = 80, startDelay = 400) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    let i = 0;
+    const start = setTimeout(() => {
+      const interval = setInterval(() => {
+        i++;
+        setDisplayed(full.slice(0, i));
+        if (i >= full.length) {
+          clearInterval(interval);
+          setDone(true);
+        }
+      }, delay);
+      return () => clearInterval(interval);
+    }, startDelay);
+    return () => clearTimeout(start);
+  }, [full, delay, startDelay]);
+  return { displayed, done };
+}
+
+function OrbitDot({ radius, speed, startAngle, size = 3, opacity = 0.5 }: {
+  radius: number; speed: number; startAngle: number; size?: number; opacity?: number;
+}) {
+  return (
+    <motion.div
+      animate={{ rotate: 360 }}
+      initial={{ rotate: startAngle }}
+      transition={{ duration: speed, repeat: Infinity, ease: "linear" }}
+      style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        width: radius * 2,
+        height: radius * 2,
+        marginTop: -radius,
+        marginLeft: -radius,
+        borderRadius: "50%",
+      }}
+    >
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: "50%",
+        width: size,
+        height: size,
+        marginLeft: -size / 2,
+        marginTop: -size / 2,
+        borderRadius: "50%",
+        background: `rgba(255,255,255,${opacity})`,
+        boxShadow: `0 0 ${size * 2}px rgba(255,255,255,${opacity * 0.8})`,
+      }} />
+    </motion.div>
+  );
+}
+
 export function Chat() {
   const [msgs, setMsgs]               = useState<Msg[]>([]);
   const [history, setHistory]         = useState<GeminiMessage[]>([]);
@@ -92,6 +150,8 @@ export function Chat() {
   const fileRef     = useRef<HTMLInputElement>(null);
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { displayed: typedName, done: typingDone } = useTypingText(TYPING_FULL, 90, 500);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -308,49 +368,25 @@ export function Chat() {
     >
       <Navigation />
 
-      {/* Background orbs */}
-      <div
-        className="fixed inset-0 pointer-events-none overflow-hidden"
-        style={{ zIndex: 0 }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            top: "15%",
-            left: "15%",
-            width: 320,
-            height: 320,
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(255,255,255,0.013) 0%, transparent 70%)",
-            filter: "blur(50px)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: "25%",
-            right: "10%",
-            width: 260,
-            height: 260,
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(255,255,255,0.01) 0%, transparent 70%)",
-            filter: "blur(40px)",
-          }}
-        />
+      {/* Background */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+        <div style={{
+          position: "absolute", top: "20%", left: "20%",
+          width: 500, height: 500, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(120,80,255,0.04) 0%, transparent 70%)",
+          filter: "blur(60px)",
+        }} />
+        <div style={{
+          position: "absolute", bottom: "20%", right: "10%",
+          width: 400, height: 400, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(255,255,255,0.015) 0%, transparent 70%)",
+          filter: "blur(50px)",
+        }} />
       </div>
 
       {/* Body */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", zIndex: 1 }}>
+
         {/* Messages area */}
         <div
           style={{
@@ -369,121 +405,158 @@ export function Chat() {
         >
           {isEmpty ? (
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
               style={{ textAlign: "center", padding: "0 32px" }}
             >
-              {/* Avatar */}
-              <div
-                style={{
-                  position: "relative",
-                  width: 80,
-                  height: 80,
-                  margin: "0 auto 20px",
-                }}
-              >
+              {/* Avatar cluster */}
+              <div style={{ position: "relative", width: 140, height: 140, margin: "0 auto 28px" }}>
+
+                {/* Outer glow */}
+                <motion.div
+                  animate={{ opacity: [0.3, 0.7, 0.3] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  style={{
+                    position: "absolute",
+                    inset: -20,
+                    borderRadius: "50%",
+                    background: "radial-gradient(circle, rgba(180,140,255,0.18) 0%, transparent 70%)",
+                    filter: "blur(12px)",
+                  }}
+                />
+
+                {/* Ring 1 — solid, fast CW */}
                 <motion.div
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 7, repeat: Infinity, ease: "linear" }}
                   style={{
                     position: "absolute",
-                    inset: -4,
+                    inset: -6,
                     borderRadius: "50%",
                     border: "1.5px solid transparent",
-                    borderTopColor: "rgba(255,255,255,0.45)",
-                    borderRightColor: "rgba(255,255,255,0.1)",
+                    borderTopColor: "rgba(255,255,255,0.55)",
+                    borderRightColor: "rgba(255,255,255,0.15)",
                   }}
                 />
+
+                {/* Ring 2 — dashed, slow CCW */}
                 <motion.div
                   animate={{ rotate: -360 }}
-                  transition={{ duration: 16, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 13, repeat: Infinity, ease: "linear" }}
                   style={{
                     position: "absolute",
-                    inset: -8,
+                    inset: -14,
                     borderRadius: "50%",
-                    border: "1px dashed rgba(255,255,255,0.1)",
+                    border: "1px dashed rgba(255,255,255,0.18)",
                   }}
                 />
-                <img
-                  src="/nexora-avatar.jpg"
-                  alt="NexoraAI"
+
+                {/* Ring 3 — large, very faint CW */}
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
                   style={{
-                    width: 80,
-                    height: 80,
+                    position: "absolute",
+                    inset: -26,
                     borderRadius: "50%",
-                    objectFit: "cover",
-                    objectPosition: "center top",
-                    border: "1.5px solid rgba(255,255,255,0.15)",
-                    display: "block",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderTopColor: "rgba(160,130,255,0.25)",
+                    borderBottomColor: "rgba(160,130,255,0.08)",
+                  }}
+                />
+
+                {/* Ring 4 — dotted outermost CCW */}
+                <motion.div
+                  animate={{ rotate: -360 }}
+                  transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
+                  style={{
+                    position: "absolute",
+                    inset: -38,
+                    borderRadius: "50%",
+                    border: "1px dotted rgba(255,255,255,0.07)",
+                  }}
+                />
+
+                {/* Orbit dots */}
+                <OrbitDot radius={60} speed={5}  startAngle={0}   size={4} opacity={0.6} />
+                <OrbitDot radius={68} speed={9}  startAngle={120} size={2.5} opacity={0.35} />
+                <OrbitDot radius={75} speed={14} startAngle={240} size={3} opacity={0.25} />
+                <OrbitDot radius={56} speed={7}  startAngle={60}  size={2} opacity={0.45} />
+
+                {/* Avatar image */}
+                <motion.div
+                  animate={{ scale: [1, 1.025, 1] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    border: "2px solid rgba(255,255,255,0.18)",
+                    boxShadow: "0 0 24px rgba(140,100,255,0.25), inset 0 0 12px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  <img
+                    src="/nexora-avatar2.jpg"
+                    alt="NexoraAI"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      objectPosition: "center top",
+                      display: "block",
+                    }}
+                  />
+                </motion.div>
+              </div>
+
+              {/* Typing name */}
+              <div style={{ marginBottom: 10 }}>
+                <span
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    background: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(200,170,255,0.8) 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    fontFamily: FONT,
+                  }}
+                >
+                  {typedName}
+                </span>
+                <motion.span
+                  animate={{ opacity: typingDone ? 0 : [1, 0, 1] }}
+                  transition={{ duration: 0.55, repeat: Infinity }}
+                  style={{
+                    display: "inline-block",
+                    width: 2,
+                    height: "1.1em",
+                    background: "rgba(200,170,255,0.8)",
+                    marginLeft: 2,
+                    verticalAlign: "text-bottom",
+                    borderRadius: 1,
                   }}
                 />
               </div>
 
-              <p
-                style={{
-                  fontSize: 17,
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.75)",
-                  marginBottom: 6,
-                }}
-              >
-                NexoraAI
-              </p>
-              <p
+              {/* Subtitle — fade in after name typed */}
+              <motion.p
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.6, duration: 0.6 }}
                 style={{
                   fontSize: 13,
-                  color: "rgba(255,255,255,0.3)",
-                  lineHeight: 1.6,
+                  color: "rgba(255,255,255,0.32)",
+                  lineHeight: 1.65,
                   maxWidth: 260,
-                  margin: "0 auto 24px",
+                  margin: "0 auto",
+                  letterSpacing: "0.01em",
                 }}
               >
-                Trợ lý thông minh — hỏi bất kỳ điều gì về Khang, dự án, hay
-                hệ thống NexoraGarden!
-              </p>
-
-              {/* Suggested prompts */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                }}
-              >
-                {[
-                  "NexoraGarden là gì?",
-                  "Giới thiệu về Phan Trọng Khang",
-                  "ESP32 kết nối server như thế nào?",
-                  "Logic bơm nước tự động hoạt động ra sao?",
-                ].map((hint, i) => (
-                  <motion.button
-                    key={hint}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + i * 0.07 }}
-                    onClick={() => {
-                      setInput(hint);
-                      textareaRef.current?.focus();
-                    }}
-                    whileHover={{ scale: 1.02, x: 3 }}
-                    whileTap={{ scale: 0.97 }}
-                    style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: 14,
-                      padding: "10px 16px",
-                      color: "rgba(255,255,255,0.5)",
-                      fontSize: 13,
-                      cursor: "pointer",
-                      textAlign: "left",
-                      fontFamily: FONT,
-                    }}
-                  >
-                    {hint}
-                  </motion.button>
-                ))}
-              </div>
+                Trợ lý thông minh — hỏi bất kỳ điều gì về Khang, dự án, hay hệ thống NexoraGarden!
+              </motion.p>
             </motion.div>
           ) : (
             <AnimatePresence initial={false}>
@@ -496,106 +569,62 @@ export function Chat() {
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    alignItems:
-                      msg.role === "user" ? "flex-end" : "flex-start",
+                    alignItems: msg.role === "user" ? "flex-end" : "flex-start",
                     gap: 3,
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: "rgba(255,255,255,0.22)",
-                      marginBottom: 2,
-                      marginLeft: msg.role === "bot" ? 4 : 0,
-                      marginRight: msg.role === "user" ? 4 : 0,
-                    }}
-                  >
+                  <span style={{
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.22)",
+                    marginBottom: 2,
+                    marginLeft: msg.role === "bot" ? 4 : 0,
+                    marginRight: msg.role === "user" ? 4 : 0,
+                  }}>
                     {msg.role === "bot" ? "NexoraAI · " : ""}
                     {msg.time}
                   </span>
 
-                  <div
-                    style={{
-                      maxWidth: "80%",
-                      padding: "10px 14px",
-                      borderRadius:
-                        msg.role === "user"
-                          ? "20px 20px 5px 20px"
-                          : "20px 20px 20px 5px",
-                      background:
-                        msg.error
-                          ? "rgba(255,60,60,0.08)"
-                          : msg.role === "user"
-                          ? "rgba(255,255,255,0.09)"
-                          : "rgba(255,255,255,0.04)",
-                      border:
-                        msg.error
-                          ? "1px solid rgba(255,60,60,0.2)"
-                          : msg.role === "user"
-                          ? "1px solid rgba(255,255,255,0.15)"
-                          : "1px solid rgba(255,255,255,0.08)",
-                      fontSize: 13.5,
-                      lineHeight: 1.7,
-                      color: msg.error
-                        ? "rgba(255,150,150,0.9)"
-                        : "rgba(255,255,255,0.82)",
-                      backdropFilter: "blur(12px)",
-                    }}
-                  >
-                    {/* Image preview */}
+                  <div style={{
+                    maxWidth: "80%",
+                    padding: "10px 14px",
+                    borderRadius: msg.role === "user" ? "20px 20px 5px 20px" : "20px 20px 20px 5px",
+                    background: msg.error
+                      ? "rgba(255,60,60,0.08)"
+                      : msg.role === "user"
+                      ? "rgba(255,255,255,0.09)"
+                      : "rgba(255,255,255,0.04)",
+                    border: msg.error
+                      ? "1px solid rgba(255,60,60,0.2)"
+                      : msg.role === "user"
+                      ? "1px solid rgba(255,255,255,0.15)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                    fontSize: 13.5,
+                    lineHeight: 1.7,
+                    color: msg.error ? "rgba(255,150,150,0.9)" : "rgba(255,255,255,0.82)",
+                    backdropFilter: "blur(12px)",
+                  }}>
                     {msg.file?.previewUrl && (
-                      <img
-                        src={msg.file.previewUrl}
-                        alt={msg.file.name}
-                        style={{
-                          maxWidth: "100%",
-                          maxHeight: 200,
-                          borderRadius: 10,
-                          marginBottom: 8,
-                          objectFit: "cover",
-                        }}
-                      />
+                      <img src={msg.file.previewUrl} alt={msg.file.name} style={{
+                        maxWidth: "100%", maxHeight: 200, borderRadius: 10,
+                        marginBottom: 8, objectFit: "cover",
+                      }} />
                     )}
-
-                    {/* Non-image file chip */}
                     {msg.file && !msg.file.previewUrl && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 7,
-                          marginBottom: 7,
-                          padding: "6px 10px",
-                          borderRadius: 10,
-                          background: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.09)",
-                        }}
-                      >
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 7,
+                        marginBottom: 7, padding: "6px 10px", borderRadius: 10,
+                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                      }}>
                         <FileIcon type={msg.file.type} />
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: "rgba(255,255,255,0.55)",
-                            flex: 1,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {msg.file.name}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            color: "rgba(255,255,255,0.28)",
-                            flexShrink: 0,
-                          }}
-                        >
+                        <span style={{
+                          fontSize: 12, color: "rgba(255,255,255,0.55)", flex: 1,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>{msg.file.name}</span>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", flexShrink: 0 }}>
                           {(msg.file.size / 1024 / 1024).toFixed(1)} MB
                         </span>
                       </div>
                     )}
-
                     {msg.text && renderText(msg.text)}
                   </div>
                 </motion.div>
@@ -608,34 +637,18 @@ export function Chat() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: 3,
-                  }}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3 }}
                 >
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: "rgba(255,255,255,0.22)",
-                      marginLeft: 4,
-                    }}
-                  >
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", marginLeft: 4 }}>
                     NexoraAI
                   </span>
-                  <div
-                    style={{
-                      maxWidth: "80%",
-                      padding: "10px 14px",
-                      borderRadius: "20px 20px 20px 5px",
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      fontSize: 13.5,
-                      lineHeight: 1.7,
-                      color: "rgba(255,255,255,0.82)",
-                    }}
-                  >
+                  <div style={{
+                    maxWidth: "80%", padding: "10px 14px",
+                    borderRadius: "20px 20px 20px 5px",
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    fontSize: 13.5, lineHeight: 1.7, color: "rgba(255,255,255,0.82)",
+                  }}>
                     {streamText ? (
                       <>
                         {renderText(streamText)}
@@ -643,43 +656,19 @@ export function Chat() {
                           animate={{ opacity: [1, 0, 1] }}
                           transition={{ duration: 0.7, repeat: Infinity }}
                           style={{
-                            display: "inline-block",
-                            width: 2,
-                            height: "1em",
-                            background: "rgba(255,255,255,0.5)",
-                            marginLeft: 2,
-                            verticalAlign: "text-bottom",
+                            display: "inline-block", width: 2, height: "1em",
+                            background: "rgba(255,255,255,0.5)", marginLeft: 2, verticalAlign: "text-bottom",
                           }}
                         />
                       </>
                     ) : (
-                      /* Typing dots */
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 5,
-                          alignItems: "center",
-                          padding: "2px 0",
-                        }}
-                      >
+                      <div style={{ display: "flex", gap: 5, alignItems: "center", padding: "2px 0" }}>
                         {[0, 1, 2].map((i) => (
                           <motion.div
                             key={i}
-                            animate={{
-                              y: [0, -5, 0],
-                              opacity: [0.35, 1, 0.35],
-                            }}
-                            transition={{
-                              duration: 0.75,
-                              repeat: Infinity,
-                              delay: i * 0.16,
-                            }}
-                            style={{
-                              width: 5,
-                              height: 5,
-                              borderRadius: "50%",
-                              background: "rgba(255,255,255,0.45)",
-                            }}
+                            animate={{ y: [0, -5, 0], opacity: [0.35, 1, 0.35] }}
+                            transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.14, ease: "easeInOut" }}
+                            style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.45)" }}
                           />
                         ))}
                       </div>
@@ -693,21 +682,14 @@ export function Chat() {
         </div>
 
         {/* Input area */}
-        <div
-          style={{
-            padding: "10px 16px 22px",
-            background: "rgba(0,0,0,0.45)",
-            backdropFilter: "blur(24px)",
-            borderTop:
-              msgs.length > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 720,
-              margin: "0 auto",
-            }}
-          >
+        <div style={{
+          padding: "12px 16px 24px",
+          background: "rgba(0,0,0,0.5)",
+          backdropFilter: "blur(28px)",
+          borderTop: msgs.length > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+        }}>
+          <div style={{ maxWidth: 720, margin: "0 auto" }}>
+
             {/* Error message */}
             <AnimatePresence>
               {error && (
@@ -715,39 +697,16 @@ export function Chat() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  style={{ overflow: "hidden", marginBottom: 8 }}
+                  style={{ overflow: "hidden", marginBottom: 10 }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 7,
-                      padding: "7px 12px",
-                      borderRadius: 10,
-                      background: "rgba(255,60,60,0.08)",
-                      border: "1px solid rgba(255,60,60,0.2)",
-                    }}
-                  >
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 7,
+                    padding: "8px 13px", borderRadius: 12,
+                    background: "rgba(255,60,60,0.08)", border: "1px solid rgba(255,60,60,0.2)",
+                  }}>
                     <AlertCircle className="w-3.5 h-3.5 text-red-400/70 flex-shrink-0" />
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: "rgba(255,150,150,0.85)",
-                        flex: 1,
-                      }}
-                    >
-                      {error}
-                    </span>
-                    <button
-                      onClick={() => setError(null)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        lineHeight: 0,
-                      }}
-                    >
+                    <span style={{ fontSize: 12, color: "rgba(255,150,150,0.85)", flex: 1 }}>{error}</span>
+                    <button onClick={() => setError(null)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 0 }}>
                       <X className="w-3.5 h-3.5 text-white/30" />
                     </button>
                   </div>
@@ -762,65 +721,26 @@ export function Chat() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  style={{ overflow: "hidden", marginBottom: 8 }}
+                  style={{ overflow: "hidden", marginBottom: 10 }}
                 >
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 7,
-                      padding: "5px 10px",
-                      borderRadius: 10,
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    {/* Image thumbnail */}
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 7,
+                    padding: "6px 12px", borderRadius: 12,
+                    background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                  }}>
                     {attached.previewUrl ? (
-                      <img
-                        src={attached.previewUrl}
-                        alt=""
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 6,
-                          objectFit: "cover",
-                        }}
-                      />
+                      <img src={attached.previewUrl} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover" }} />
                     ) : (
                       <FileIcon type={attached.type} />
                     )}
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: "rgba(255,255,255,0.6)",
-                        maxWidth: 180,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {attached.name}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: "rgba(255,255,255,0.28)",
-                      }}
-                    >
+                    <span style={{
+                      fontSize: 12, color: "rgba(255,255,255,0.6)", maxWidth: 180,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{attached.name}</span>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.28)" }}>
                       {(attached.size / 1024 / 1024).toFixed(1)} MB
                     </span>
-                    <button
-                      onClick={() => setAttached(null)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        lineHeight: 0,
-                        marginLeft: 2,
-                      }}
-                    >
+                    <button onClick={() => setAttached(null)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 0, marginLeft: 2 }}>
                       <X className="w-3.5 h-3.5 text-white/35" />
                     </button>
                   </div>
@@ -828,29 +748,30 @@ export function Chat() {
               )}
             </AnimatePresence>
 
-            {/* Input bar */}
+            {/* Input bar — running-border style like tools */}
             <div
               className="running-border"
               style={{
-                "--rb-speed": focused ? "4s" : "9s",
+                "--rb-speed": focused ? "3.5s" : "8s",
                 "--rb-color": focused
-                  ? "rgba(255,255,255,0.65)"
-                  : "rgba(255,255,255,0.2)",
-                "--rb-radius": "22px",
+                  ? "rgba(200,170,255,0.7)"
+                  : "rgba(255,255,255,0.22)",
+                "--rb-radius": "26px",
               } as React.CSSProperties}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-end",
-                  background: "rgba(255,255,255,0.04)",
-                  borderRadius: 21,
-                  padding: "8px 8px 8px 14px",
-                  gap: 6,
-                  minHeight: 52,
-                }}
-              >
-                {/* File attach button */}
+              <div style={{
+                display: "flex",
+                alignItems: "flex-end",
+                background: focused
+                  ? "rgba(255,255,255,0.05)"
+                  : "rgba(255,255,255,0.03)",
+                borderRadius: 25,
+                padding: "10px 10px 10px 16px",
+                gap: 8,
+                minHeight: 56,
+                transition: "background 0.25s",
+              }}>
+                {/* File attach */}
                 <input
                   ref={fileRef}
                   type="file"
@@ -864,14 +785,14 @@ export function Chat() {
                 />
                 <motion.button
                   onClick={() => fileRef.current?.click()}
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.1, background: "rgba(255,255,255,0.09)" }}
+                  whileTap={{ scale: 0.88 }}
                   disabled={isLoading}
                   style={{
                     flexShrink: 0,
-                    width: 34,
-                    height: 34,
-                    borderRadius: 11,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 13,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -880,9 +801,10 @@ export function Chat() {
                     border: "1px solid rgba(255,255,255,0.09)",
                     marginBottom: 1,
                     opacity: isLoading ? 0.4 : 1,
+                    transition: "background 0.2s",
                   }}
                 >
-                  <Paperclip className="w-4 h-4 text-white/40" />
+                  <Paperclip className="w-4 h-4 text-white/45" />
                 </motion.button>
 
                 {/* Textarea */}
@@ -893,9 +815,7 @@ export function Chat() {
                   onKeyDown={handleKey}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
-                  placeholder={
-                    isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"
-                  }
+                  placeholder={isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"}
                   disabled={isLoading}
                   rows={1}
                   style={{
@@ -904,11 +824,11 @@ export function Chat() {
                     border: "none",
                     outline: "none",
                     resize: "none",
-                    color: "rgba(255,255,255,0.82)",
-                    fontSize: 13.5,
+                    color: "rgba(255,255,255,0.85)",
+                    fontSize: 14,
                     fontFamily: FONT,
                     lineHeight: 1.6,
-                    padding: "7px 0",
+                    padding: "8px 0",
                     maxHeight: 120,
                     overflowY: "auto",
                     opacity: isLoading ? 0.5 : 1,
@@ -918,34 +838,26 @@ export function Chat() {
                 {/* Send button */}
                 <motion.button
                   onClick={sendMsg}
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.88 }}
                   disabled={isLoading || (!input.trim() && !attached)}
                   animate={
                     (input.trim() || attached) && !isLoading
-                      ? { opacity: 1 }
-                      : { opacity: 0.3 }
+                      ? { opacity: 1, background: "rgba(180,150,255,0.18)" }
+                      : { opacity: 0.3, background: "rgba(255,255,255,0.04)" }
                   }
-                  transition={{ duration: 0.18 }}
+                  transition={{ duration: 0.2 }}
                   style={{
                     flexShrink: 0,
-                    width: 36,
-                    height: 36,
-                    borderRadius: 12,
+                    width: 38,
+                    height: 38,
+                    borderRadius: 13,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    cursor:
-                      isLoading || (!input.trim() && !attached)
-                        ? "not-allowed"
-                        : "pointer",
+                    cursor: isLoading || (!input.trim() && !attached) ? "not-allowed" : "pointer",
                     marginBottom: 1,
-                    background:
-                      (input.trim() || attached) && !isLoading
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.13)",
-                    transition: "background 0.2s",
+                    border: "1px solid rgba(255,255,255,0.12)",
                   }}
                 >
                   {isLoading ? (
@@ -953,31 +865,27 @@ export function Chat() {
                       animate={{ rotate: 360 }}
                       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                       style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: "50%",
-                        border: "1.5px solid rgba(255,255,255,0.2)",
-                        borderTopColor: "rgba(255,255,255,0.7)",
+                        width: 15, height: 15, borderRadius: "50%",
+                        border: "1.5px solid rgba(255,255,255,0.15)",
+                        borderTopColor: "rgba(200,170,255,0.8)",
                       }}
                     />
                   ) : (
-                    <Send className="w-4 h-4 text-white/65" />
+                    <Send className="w-4 h-4 text-white/70" style={{ transform: "translateX(1px)" }} />
                   )}
                 </motion.button>
               </div>
             </div>
 
-            <p
-              style={{
-                textAlign: "center",
-                fontSize: 10,
-                color: "rgba(255,255,255,0.15)",
-                marginTop: 7,
-                fontFamily: FONT,
-              }}
-            >
-              Enter để gửi · Shift+Enter xuống dòng · Đính kèm ảnh/file tối đa{" "}
-              {MAX_FILE_MB} MB
+            <p style={{
+              textAlign: "center",
+              fontSize: 10,
+              color: "rgba(255,255,255,0.13)",
+              marginTop: 8,
+              fontFamily: FONT,
+              letterSpacing: "0.01em",
+            }}>
+              Enter để gửi · Shift+Enter xuống dòng · Đính kèm ảnh/file tối đa {MAX_FILE_MB} MB
             </p>
           </div>
         </div>
