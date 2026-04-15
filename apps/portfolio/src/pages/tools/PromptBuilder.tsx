@@ -11,6 +11,16 @@ import { Document, Packer, Paragraph, TextRun } from "docx";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[\s]*[-*+]\s+/gm, "- ")
+    .replace(/`([^`]+)`/g, "$1")
+    .trim();
+}
+
 /* ── AnimBorderCard ── */
 function AnimBorderCard({
   children, speed = 4, color = "rgba(255,255,255,0.85)",
@@ -175,9 +185,11 @@ export function PromptBuilder() {
       let raw = "";
       await streamPrompt(payload, chunk => {
         raw += chunk;
-        setRawResult(raw);
         setResult(raw);
       });
+      const cleaned = stripMarkdown(raw);
+      setRawResult(cleaned);
+      setResult(cleaned);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi không xác định");
     } finally {
