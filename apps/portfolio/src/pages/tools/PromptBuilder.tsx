@@ -106,13 +106,16 @@ async function streamPrompt(
       if (!line.startsWith("data: ")) continue;
       const data = line.slice(6).trim();
       if (!data || data === "[DONE]") continue;
+      if (data.startsWith("[ERROR]")) {
+        throw new Error(data.slice(7).trim());
+      }
       try {
         const parsed = JSON.parse(data);
         if (parsed?.error) throw new Error(parsed.error);
         const chunk = parsed?.text ?? "";
         if (chunk) onChunk(chunk);
       } catch (e) {
-        if (e instanceof Error && e.message) throw e;
+        if (e instanceof Error && !(e instanceof SyntaxError)) throw e;
       }
     }
   }

@@ -76,7 +76,7 @@ router.post("/prompt-gen", async (req: Request, res: Response) => {
 
   if (!gemRes.ok || !gemRes.body) {
     const errText = await gemRes.text().catch(() => "");
-    res.write(`data: [ERROR] ${gemRes.status}: ${errText}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: `Gemini ${gemRes.status}: ${errText.slice(0, 200)}` })}\n\n`);
     res.end();
     return;
   }
