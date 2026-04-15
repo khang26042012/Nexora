@@ -7,6 +7,7 @@ import fs from "node:fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { nexoraRouter } from "@workspace/nexora-garden/server";
+import { accessLogMiddleware } from "./middleware/access-log.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +39,7 @@ app.use(
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(accessLogMiddleware);
 
 // ── NexoraGarden ─────────────────────────────────────────────────────────────
 const nexoraGardenDist = path.resolve(

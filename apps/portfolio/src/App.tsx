@@ -13,6 +13,7 @@ import { TextFormatter } from "@/pages/tools/TextFormatter";
 import { ImageToText } from "@/pages/tools/ImageToText";
 import { PromptBuilder } from "@/pages/tools/PromptBuilder";
 import { NoteEditor, NoteViewer } from "@/pages/tools/Note";
+import { Admin } from "@/pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/tool/note/:id" component={NoteViewer} />
       <Route path="/tool/note" component={NoteEditor} />
       <Route path="/chat" component={Chat} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

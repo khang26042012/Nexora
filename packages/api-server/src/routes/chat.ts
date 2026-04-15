@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
@@ -9,9 +10,15 @@ const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/
 router.post("/chat", async (req: Request, res: Response) => {
   const { system_instruction, contents, generationConfig } = req.body as {
     system_instruction?: { parts: { text: string }[] };
-    contents: unknown[];
+    contents: { role: string; parts: { text?: string }[] }[];
     generationConfig?: { temperature?: number; maxOutputTokens?: number };
   };
+
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+  const lastUserMsg = Array.isArray(contents)
+    ? contents.filter(c => c.role === "user").at(-1)?.parts?.map(p => p.text ?? "").join("") ?? ""
+    : "";
+  insertToolLog({ ip, tool: "chat", action: "message", detail: lastUserMsg.slice(0, 500) });
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

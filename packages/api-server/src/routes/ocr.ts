@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
@@ -32,6 +33,9 @@ router.post("/ocr", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Thiếu ảnh hoặc mimeType" });
     return;
   }
+
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+  insertToolLog({ ip, tool: "ocr", action: "scan", detail: mimeType });
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import mammoth from "mammoth";
+import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
@@ -173,6 +174,14 @@ router.post("/format", async (req: Request, res: Response) => {
     mimeType?: string;
     prompt?: string;
   };
+
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+  insertToolLog({
+    ip,
+    tool: "formatter",
+    action: mode ?? "text",
+    detail: mode === "generate" ? (prompt ?? "").slice(0, 300) : `[${mimeType ?? "text"}]`,
+  });
 
   if (mode === "generate" && !prompt?.trim()) {
     res.status(400).json({ error: "Thiếu nội dung yêu cầu" });

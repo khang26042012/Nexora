@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
@@ -59,6 +60,9 @@ router.post("/prompt-gen", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Không có nội dung" });
     return;
   }
+
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+  insertToolLog({ ip, tool: "prompt-gen", action: mode, detail: userMsg.slice(0, 500) });
 
   if (!GEMINI_API_KEY) {
     res.status(500).json({ error: "GEMINI_API_KEY chưa được set" });

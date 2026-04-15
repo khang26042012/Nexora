@@ -7,6 +7,7 @@ import formatterRouter from "./formatter";
 import ocrRouter from "./ocr";
 import promptgenRouter from "./promptgen";
 import notesRouter from "./notes";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(formatterRouter);
 router.use(ocrRouter);
 router.use(promptgenRouter);
 router.use(notesRouter);
+router.use(adminRouter);
 
 export default router;
