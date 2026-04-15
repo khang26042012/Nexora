@@ -1,11 +1,15 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, Copy, Loader2, Sparkles, CheckCircle2,
-  Wand2, Settings2, Globe, ChevronDown, RotateCcw,
+  ArrowLeft, Copy, Download, Loader2, Wand2,
+  Settings2, Sparkles, CheckCircle2, AlertCircle, ChevronDown,
+  Pencil, Eye,
 } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+
+const FONT = "'Plus Jakarta Sans', sans-serif";
 
 /* ── AnimBorderCard ── */
 function AnimBorderCard({
@@ -33,607 +37,503 @@ function AnimBorderCard({
   );
 }
 
-/* ── Types ── */
-type Mode   = "manual" | "ai";
-type Lang   = "vi" | "en";
-type Tone   = "professional" | "friendly" | "creative" | "concise" | "academic";
-type OutFmt = "paragraph" | "list" | "table" | "json" | "code" | "step-by-step";
-
-const TONES: { id: Tone; label: string; emoji: string }[] = [
-  { id: "professional", label: "Chuyên nghiệp", emoji: "💼" },
-  { id: "friendly",     label: "Thân thiện",    emoji: "😊" },
-  { id: "creative",     label: "Sáng tạo",       emoji: "🎨" },
-  { id: "concise",      label: "Ngắn gọn",        emoji: "⚡" },
-  { id: "academic",     label: "Học thuật",       emoji: "📚" },
-];
-
-const OUT_FMTS: { id: OutFmt; label: string }[] = [
-  { id: "paragraph",    label: "Đoạn văn" },
-  { id: "list",         label: "Danh sách" },
-  { id: "step-by-step", label: "Từng bước" },
-  { id: "table",        label: "Bảng" },
-  { id: "json",         label: "JSON" },
-  { id: "code",         label: "Code" },
-];
-
-/* ── Field input ── */
-function Field({
-  label, hint, value, onChange, multiline = false, placeholder = "",
-}: {
-  label: string; hint?: string; value: string;
-  onChange: (v: string) => void;
-  multiline?: boolean; placeholder?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.6)" }}>
-          {label}
-        </label>
-        {hint && (
-          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{hint}</span>
-        )}
-      </div>
-      {multiline ? (
-        <textarea
-          rows={3}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full rounded-xl px-3.5 py-2.5 text-sm text-white/80 outline-none resize-none"
-          style={{
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            caretColor: "rgba(255,255,255,0.7)",
-            fontFamily: "inherit",
-          }}
-        />
-      ) : (
-        <input
-          type="text"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full rounded-xl px-3.5 py-2.5 text-sm text-white/80 outline-none"
-          style={{
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            caretColor: "rgba(255,255,255,0.7)",
-          }}
-        />
-      )}
-    </div>
-  );
+/* ── Download helpers ── */
+function rawToHtml(raw: string): string {
+  const body = raw.split("\n").map(line => {
+    if (!line.trim()) return "<br/>";
+    const inline = line.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    return `<p>${inline}</p>`;
+  }).join("\n");
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>body{font-family:'Segoe UI',sans-serif;line-height:1.8;max-width:800px;margin:40px auto;padding:0 24px}</style></head><body>${body}</body></html>`;
 }
 
-/* ── Pill selector ── */
-function PillSelect<T extends string>({
-  options, value, onChange,
-}: {
-  options: { id: T; label: string; emoji?: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map(opt => (
-        <button
-          key={opt.id}
-          onClick={() => onChange(opt.id)}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
-          style={{
-            background: value === opt.id ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.04)",
-            color: value === opt.id ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.4)",
-            border: value === opt.id ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
-          {opt.emoji && <span className="mr-1">{opt.emoji}</span>}
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
+function rawToMarkdown(raw: string): string { return raw; }
+
+function rawToJson(raw: string): string {
+  return JSON.stringify({ prompt: raw, generatedAt: new Date().toISOString(), tool: "NexoraAI Prompt Builder" }, null, 2);
 }
 
-/* ── Stream prompt from API ── */
+async function rawToDocx(raw: string): Promise<Blob> {
+  const paragraphs = raw.split("\n").map(line =>
+    new Paragraph({ spacing: { before: 40 }, children: [new TextRun({ text: line, size: 24 })] })
+  );
+  const doc = new Document({ sections: [{ properties: {}, children: paragraphs }] });
+  return await Packer.toBlob(doc);
+}
+
+const DOWNLOAD_FORMATS = [
+  { id: "txt",  label: ".txt  — Văn bản thuần",  ext: "txt",  mime: "text/plain" },
+  { id: "md",   label: ".md   — Markdown",         ext: "md",   mime: "text/markdown" },
+  { id: "html", label: ".html — Trang web",        ext: "html", mime: "text/html" },
+  { id: "json", label: ".json — Dữ liệu JSON",     ext: "json", mime: "application/json" },
+  { id: "docx", label: ".docx — Microsoft Word",   ext: "docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+] as const;
+type DownloadFmt = typeof DOWNLOAD_FORMATS[number]["id"];
+
+type Mode = "manual" | "ai";
+const TABS: { id: Mode; label: string; icon: React.ElementType }[] = [
+  { id: "manual", label: "Tự set",  icon: Settings2 },
+  { id: "ai",     label: "AI viết", icon: Sparkles  },
+];
+
+const TONES = ["Chuyên nghiệp", "Thân thiện", "Sáng tạo", "Ngắn gọn", "Học thuật"];
+const OUT_FMTS = ["Đoạn văn", "Danh sách", "Từng bước", "Bảng", "Code"];
+
+/* ── Stream from API ── */
 async function streamPrompt(
   payload: Record<string, string>,
-  onChunk: (c: string) => void,
+  onChunk: (chunk: string) => void
 ): Promise<void> {
-  const base = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-  const res = await fetch(`${base}/api/prompt-gen`, {
+  const res = await fetch("/api/prompt-gen", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = "";
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(err?.error ?? `HTTP ${res.status}`);
+  }
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop() ?? "";
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
     for (const line of lines) {
-      if (!line.startsWith("data:")) continue;
-      const raw = line.slice(5).trim();
-      if (raw === "[DONE]") continue;
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6).trim();
+      if (!data || data === "[DONE]") continue;
       try {
-        const json = JSON.parse(raw);
-        if (json.text) onChunk(json.text);
-        if (json.error) throw new Error(json.error);
-      } catch { /* skip */ }
+        const parsed = JSON.parse(data);
+        if (parsed?.error) throw new Error(parsed.error);
+        const chunk = parsed?.text ?? "";
+        if (chunk) onChunk(chunk);
+      } catch (e) {
+        if (e instanceof Error && e.message) throw e;
+      }
     }
   }
 }
 
-/* ── Main Page ── */
 export function PromptBuilder() {
   const [, navigate] = useLocation();
-
-  /* Mode & lang */
   const [mode, setMode] = useState<Mode>("manual");
-  const [lang, setLang] = useState<Lang>("vi");
 
   /* Manual fields */
-  const [role,       setRole]       = useState("");
-  const [task,       setTask]       = useState("");
-  const [context,    setContext]    = useState("");
-  const [tone,       setTone]       = useState<Tone>("professional");
-  const [outputFmt,  setOutputFmt]  = useState<OutFmt>("paragraph");
-  const [extra,      setExtra]      = useState("");
+  const [role,      setRole]      = useState("");
+  const [task,      setTask]      = useState("");
+  const [context,   setContext]   = useState("");
+  const [tone,      setTone]      = useState("Chuyên nghiệp");
+  const [outFmt,    setOutFmt]    = useState("Đoạn văn");
+  const [extra,     setExtra]     = useState("");
 
   /* AI mode */
   const [description, setDescription] = useState("");
 
   /* Output */
-  const [result,   setResult]   = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
-  const [copied,   setCopied]   = useState(false);
-  const resultRef = useRef<HTMLDivElement>(null);
+  const [result,    setResult]    = useState("");
+  const [rawResult, setRawResult] = useState("");
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+  const [copied,    setCopied]    = useState(false);
+  const [showDlMenu, setShowDlMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText,  setEditText]  = useState("");
 
-  const reset = useCallback(() => {
-    setResult(""); setError("");
-    setRole(""); setTask(""); setContext(""); setExtra(""); setDescription("");
-    setTone("professional"); setOutputFmt("paragraph");
-  }, []);
+  const dlMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleGenerate = useCallback(async () => {
-    setLoading(true); setError(""); setResult("");
+  useEffect(() => {
+    if (!showDlMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (dlMenuRef.current && !dlMenuRef.current.contains(e.target as Node)) setShowDlMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showDlMenu]);
 
-    const payload: Record<string, string> = { mode, lang };
+  const handleEditChange = (val: string) => {
+    setEditText(val);
+    setRawResult(val);
+    setResult(val);
+  };
+
+  const handleSubmit = useCallback(async () => {
+    setError(null); setResult(""); setRawResult(""); setEditText(""); setIsEditing(false); setLoading(true);
+    const payload: Record<string, string> = { mode };
     if (mode === "manual") {
-      Object.assign(payload, { role, task, context, tone, outputFormat: outputFmt, extra });
+      Object.assign(payload, { role, task, context, tone, outputFormat: outFmt, extra });
     } else {
       payload.description = description;
     }
-
     try {
+      let raw = "";
       await streamPrompt(payload, chunk => {
-        setResult(prev => prev + chunk);
-        setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+        raw += chunk;
+        setRawResult(raw);
+        setResult(raw);
       });
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Lỗi không xác định");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lỗi không xác định");
     } finally {
       setLoading(false);
     }
-  }, [mode, lang, role, task, context, tone, outputFmt, extra, description]);
+  }, [mode, role, task, context, tone, outFmt, extra, description]);
 
-  const handleCopy = useCallback(() => {
-    if (!result) return;
-    navigator.clipboard.writeText(result).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [result]);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(rawResult);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  const canGenerate = mode === "manual"
-    ? (task.trim().length > 0)
-    : (description.trim().length > 0);
+  const handleDownload = async (fmt: DownloadFmt) => {
+    setShowDlMenu(false);
+    let blob: Blob;
+    const filename = `prompt_${Date.now()}`;
+    if (fmt === "docx") {
+      blob = await rawToDocx(rawResult);
+    } else {
+      let content = rawResult;
+      let mime = "text/plain;charset=utf-8";
+      if (fmt === "md")   { content = rawToMarkdown(rawResult); mime = "text/markdown;charset=utf-8"; }
+      if (fmt === "html") { content = rawToHtml(rawResult);     mime = "text/html;charset=utf-8"; }
+      if (fmt === "json") { content = rawToJson(rawResult);     mime = "application/json;charset=utf-8"; }
+      blob = new Blob([content], { type: mime });
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${filename}.${fmt}`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const canSubmit = !loading && (
+    mode === "manual" ? task.trim().length > 0 : description.trim().length > 0
+  );
 
   return (
-    <div className="min-h-screen" style={{ background: "#050505" }}>
+    <div style={{ minHeight: "100dvh", background: "#050505", fontFamily: FONT }}>
       <Navigation />
 
       {/* Background orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.25, 0.4, 0.25] }}
-          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-20%] left-[-10%] w-[55vw] h-[55vw] rounded-full"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.35, 0.2] }}
+          transition={{ duration: 18, repeat: Infinity }}
+          className="absolute top-[-15%] right-[-5%] w-[50vw] h-[50vw] rounded-full"
           style={{ background: "radial-gradient(ellipse, rgba(255,255,255,0.04) 0%, transparent 70%)" }}
         />
         <motion.div
-          animate={{ scale: [1, 1.15, 1], opacity: [0.15, 0.3, 0.15] }}
-          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 5 }}
-          className="absolute bottom-0 right-[-10%] w-[40vw] h-[40vw] rounded-full"
+          animate={{ scale: [1, 1.15, 1], opacity: [0.12, 0.25, 0.12] }}
+          transition={{ duration: 14, repeat: Infinity, delay: 5 }}
+          className="absolute bottom-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full"
           style={{ background: "radial-gradient(ellipse, rgba(255,255,255,0.03) 0%, transparent 70%)" }}
         />
       </div>
 
-      <div className="relative max-w-2xl mx-auto px-5 pt-28 pb-24">
+      <div className="relative max-w-2xl mx-auto px-4 pt-24 pb-20" style={{ zIndex: 1 }}>
 
         {/* Back */}
         <motion.button
-          initial={{ opacity: 0, x: -12 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
+          initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
           onClick={() => navigate("/tool")}
-          className="flex items-center gap-2 mb-8 text-sm transition-colors"
-          style={{ color: "rgba(255,255,255,0.35)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+          whileHover={{ x: -3 }}
+          style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 28, color: "rgba(255,255,255,0.35)", background: "none", border: "none", cursor: "pointer", fontFamily: FONT, fontSize: 13 }}
         >
-          <ArrowLeft className="w-4 h-4" />
-          Quay lại Tool Box
+          <ArrowLeft className="w-4 h-4" /> Quay lại
         </motion.button>
 
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-8"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <motion.div animate={{ rotate: [0, 15, -10, 15, 0] }} transition={{ duration: 3, repeat: Infinity, repeatDelay: 4 }}>
-              <Sparkles className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} />
-            </motion.div>
-            <span className="text-xs font-mono tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>
-              AI Tool
-            </span>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", flexShrink: 0 }}>
+              <Wand2 className="w-5 h-5" style={{ color: "rgba(255,255,255,0.75)" }} />
+            </div>
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: "rgba(255,255,255,0.95)", margin: 0 }}>Prompt Builder</h1>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", margin: 0, marginTop: 2 }}>Tạo prompt AI chuẩn — tự điền hoặc để AI viết lại</p>
+            </div>
           </div>
-          <h1 className="text-3xl font-black text-white mb-2">Prompt Builder</h1>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Tạo prompt AI chuẩn — tự điền form hoặc để AI viết lại từ mô tả của bạn.
-          </p>
         </motion.div>
 
-        {/* ── Mode tabs + Language toggle ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="flex items-center justify-between mb-6 gap-3 flex-wrap"
-        >
-          {/* Mode switcher */}
-          <AnimBorderCard speed={5} color="rgba(255,255,255,0.3)" radius={12}
-            innerStyle={{ padding: 0 }} className="flex-1 min-w-[200px]">
-            <div className="flex rounded-[11px] overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
-              {([
-                { id: "manual" as Mode, icon: Settings2, label: "Tự set" },
-                { id: "ai"     as Mode, icon: Wand2,     label: "AI viết" },
-              ] as const).map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setMode(tab.id)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-all duration-250"
-                  style={{
-                    background: mode === tab.id ? "rgba(255,255,255,0.1)" : "transparent",
-                    color: mode === tab.id ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
-                    borderBottom: mode === tab.id ? "1px solid rgba(255,255,255,0.2)" : "1px solid transparent",
-                  }}
-                >
-                  <tab.icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </AnimBorderCard>
-
-          {/* Language toggle */}
-          <AnimBorderCard speed={7} color="rgba(255,255,255,0.2)" radius={12}
-            innerStyle={{ padding: 0 }}>
-            <div className="flex rounded-[11px] overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
-              {([
-                { id: "vi" as Lang, label: "🇻🇳 VI" },
-                { id: "en" as Lang, label: "🇺🇸 EN" },
-              ] as const).map(l => (
-                <button
-                  key={l.id}
-                  onClick={() => setLang(l.id)}
-                  className="px-4 py-2.5 text-xs font-bold transition-all duration-200"
-                  style={{
-                    background: lang === l.id ? "rgba(255,255,255,0.1)" : "transparent",
-                    color: lang === l.id ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)",
-                  }}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-          </AnimBorderCard>
+        {/* Tabs */}
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          {TABS.map(t => {
+            const Icon = t.icon;
+            const active = mode === t.id;
+            return (
+              <button key={t.id} onClick={() => { setMode(t.id); setResult(""); setRawResult(""); setError(null); setIsEditing(false); }}
+                style={{ flex: 1, padding: "11px 8px", borderRadius: 12, border: active ? "1px solid rgba(255,255,255,0.28)" : "1px solid rgba(255,255,255,0.07)", background: active ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.02)", color: active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: FONT, transition: "all 0.2s" }}>
+                <Icon style={{ width: 13, height: 13 }} />
+                {t.label}
+              </button>
+            );
+          })}
         </motion.div>
 
-        {/* ── Form area ── */}
-        <AnimatePresence mode="wait">
-          {mode === "manual" ? (
-            <motion.div
-              key="manual"
-              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <AnimBorderCard speed={4} color="rgba(255,255,255,0.4)" radius={18}
-                innerStyle={{ padding: "24px" }}>
-                <div className="flex flex-col gap-5">
+        {/* Input area */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} style={{ marginBottom: 14 }}>
+          <AnimatePresence mode="wait">
 
-                  {/* Row 1 */}
-                  <Field
-                    label="🎭 Đóng vai / Persona"
-                    hint="tuỳ chọn"
-                    placeholder={lang === "vi" ? "VD: Bạn là chuyên gia Marketing 10 năm kinh nghiệm..." : "E.g. You are a senior software engineer..."}
-                    value={role}
-                    onChange={setRole}
-                    multiline
-                  />
+            {/* Manual mode */}
+            {mode === "manual" && (
+              <motion.div key="manual" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <AnimBorderCard speed={5} color="rgba(255,255,255,0.4)" radius={14}>
+                  <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-                  {/* Row 2 */}
-                  <Field
-                    label="🎯 Nhiệm vụ / Task"
-                    hint="bắt buộc"
-                    placeholder={lang === "vi" ? "VD: Viết bài quảng cáo sản phẩm X ngắn gọn, hấp dẫn..." : "E.g. Write a compelling product description for..."}
-                    value={task}
-                    onChange={setTask}
-                    multiline
-                  />
+                    {/* Đóng vai */}
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Đóng vai</span>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>tuỳ chọn</span>
+                      </div>
+                      <textarea rows={2} value={role} onChange={e => setRole(e.target.value)}
+                        placeholder="VD: Bạn là chuyên gia Marketing 10 năm kinh nghiệm..."
+                        style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 10, outline: "none", color: "rgba(255,255,255,0.78)", fontSize: 13.5, lineHeight: 1.65, resize: "none", padding: "10px 13px", fontFamily: FONT, caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
+                      />
+                    </div>
 
-                  {/* Row 3 */}
-                  <Field
-                    label="📌 Ngữ cảnh / Context"
-                    hint="tuỳ chọn"
-                    placeholder={lang === "vi" ? "VD: Đối tượng là học sinh lớp 10, sản phẩm là..." : "E.g. Target audience is students aged 15-18..."}
-                    value={context}
-                    onChange={setContext}
-                    multiline
-                  />
+                    {/* Nhiệm vụ */}
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Nhiệm vụ</span>
+                        <span style={{ fontSize: 10, color: "rgba(255,200,100,0.5)" }}>bắt buộc</span>
+                      </div>
+                      <textarea rows={3} value={task} onChange={e => setTask(e.target.value)}
+                        placeholder="VD: Viết bài quảng cáo sản phẩm X ngắn gọn, hấp dẫn..."
+                        style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: `1px solid ${task.trim() ? "rgba(255,255,255,0.09)" : "rgba(255,200,100,0.15)"}`, borderRadius: 10, outline: "none", color: "rgba(255,255,255,0.78)", fontSize: 13.5, lineHeight: 1.65, resize: "none", padding: "10px 13px", fontFamily: FONT, caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
+                      />
+                    </div>
 
-                  {/* Tone */}
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.6)" }}>
-                      🎨 Phong cách / Tone
-                    </span>
-                    <PillSelect options={TONES} value={tone} onChange={setTone} />
+                    {/* Ngữ cảnh */}
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Ngữ cảnh</span>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>tuỳ chọn</span>
+                      </div>
+                      <textarea rows={2} value={context} onChange={e => setContext(e.target.value)}
+                        placeholder="VD: Đối tượng là học sinh lớp 10, sản phẩm là..."
+                        style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 10, outline: "none", color: "rgba(255,255,255,0.78)", fontSize: 13.5, lineHeight: 1.65, resize: "none", padding: "10px 13px", fontFamily: FONT, caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
+                      />
+                    </div>
+
+                    {/* Tone */}
+                    <div>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: "0.04em", textTransform: "uppercase", display: "block", marginBottom: 8 }}>Phong cách</span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {TONES.map(t => (
+                          <button key={t} onClick={() => setTone(t)}
+                            style={{ padding: "5px 13px", borderRadius: 20, border: tone === t ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.09)", background: tone === t ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.03)", color: tone === t ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.38)", fontSize: 11, fontFamily: FONT, cursor: "pointer", transition: "all 0.15s" }}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Output format */}
+                    <div>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: "0.04em", textTransform: "uppercase", display: "block", marginBottom: 8 }}>Định dạng output</span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {OUT_FMTS.map(f => (
+                          <button key={f} onClick={() => setOutFmt(f)}
+                            style={{ padding: "5px 13px", borderRadius: 20, border: outFmt === f ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.09)", background: outFmt === f ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.03)", color: outFmt === f ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.38)", fontSize: 11, fontFamily: FONT, cursor: "pointer", transition: "all 0.15s" }}>
+                            {f}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Extra */}
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Yêu cầu thêm</span>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>tuỳ chọn</span>
+                      </div>
+                      <input type="text" value={extra} onChange={e => setExtra(e.target.value)}
+                        placeholder="VD: Tối đa 200 từ, không dùng từ ngữ kỹ thuật..."
+                        style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 10, outline: "none", color: "rgba(255,255,255,0.78)", fontSize: 13.5, padding: "10px 13px", fontFamily: FONT, caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
+                      />
+                    </div>
+
                   </div>
+                </AnimBorderCard>
+              </motion.div>
+            )}
 
-                  {/* Output format */}
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.6)" }}>
-                      📄 Định dạng output
-                    </span>
-                    <PillSelect options={OUT_FMTS} value={outputFmt} onChange={setOutputFmt} />
-                  </div>
-
-                  {/* Extra */}
-                  <Field
-                    label="➕ Yêu cầu thêm"
-                    hint="tuỳ chọn"
-                    placeholder={lang === "vi" ? "VD: Tối đa 200 chữ, không dùng từ ngữ kỹ thuật..." : "E.g. Max 200 words, avoid jargon..."}
-                    value={extra}
-                    onChange={setExtra}
-                  />
-                </div>
-              </AnimBorderCard>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="ai"
-              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <AnimBorderCard speed={4} color="rgba(255,255,255,0.4)" radius={18}
-                innerStyle={{ padding: "24px" }}>
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.6)" }}>
-                        ✍️ Mô tả yêu cầu của bạn
-                      </label>
-                      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
-                        {description.length}/500
-                      </span>
+            {/* AI mode */}
+            {mode === "ai" && (
+              <motion.div key="ai" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <AnimBorderCard speed={5} color="rgba(255,255,255,0.4)" radius={14}>
+                  <div style={{ padding: "14px 16px 12px" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
+                      <Sparkles style={{ width: 14, height: 14, color: "rgba(255,255,255,0.35)", flexShrink: 0, marginTop: 2 }} />
+                      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", lineHeight: 1.6, margin: 0 }}>
+                        Mô tả yêu cầu đơn giản — AI tự viết lại thành prompt chuẩn
+                      </p>
                     </div>
                     <textarea
-                      rows={6}
-                      maxLength={500}
                       value={description}
-                      onChange={e => setDescription(e.target.value)}
-                      placeholder={lang === "vi"
-                        ? "VD: Tạo một button React có animation gradient đẹp khi hover\nHoặc: Viết email cảm ơn khách hàng sau khi mua hàng\nHoặc: Giải thích khái niệm machine learning cho trẻ em..."
-                        : "E.g. Create a React button with beautiful gradient hover animation\nOr: Write a customer thank-you email after purchase\nOr: Explain machine learning to a 10-year-old..."}
-                      className="w-full rounded-xl px-3.5 py-3 text-sm text-white/80 outline-none resize-none leading-relaxed"
-                      style={{
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        caretColor: "rgba(255,255,255,0.7)",
-                        fontFamily: "inherit",
-                      }}
+                      onChange={e => setDescription(e.target.value.slice(0, 500))}
+                      placeholder={"VD: Viết email cảm ơn khách hàng sau khi mua hàng\nHoặc: Tạo button React có animation gradient khi hover\nHoặc: Giải thích machine learning cho học sinh lớp 10..."}
+                      rows={6}
+                      style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: "rgba(255,255,255,0.82)", fontSize: 13.5, lineHeight: 1.75, resize: "vertical", padding: "0 0 4px", fontFamily: FONT, caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
                     />
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>{description.length} / 500</span>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-3 px-1">
-                    <Globe className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }} />
-                    <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.3)" }}>
-                      {lang === "vi"
-                        ? "AI sẽ viết lại yêu cầu của bạn thành prompt hoàn chỉnh — không cần đóng vai, không cần format phức tạp."
-                        : "AI will rewrite your idea into a complete, ready-to-use prompt — no role-play setup needed."}
-                    </p>
-                  </div>
+                </AnimBorderCard>
+
+                {/* Gợi ý */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 10 }}>
+                  {["Viết email xin việc", "Giải thích khái niệm khó", "Tạo component React đẹp", "Phân tích đoạn văn"].map(hint => (
+                    <button key={hint} onClick={() => setDescription(hint)}
+                      style={{ padding: "5px 12px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.38)", fontSize: 11, cursor: "pointer", fontFamily: FONT }}>
+                      {hint}
+                    </button>
+                  ))}
                 </div>
-              </AnimBorderCard>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              </motion.div>
+            )}
 
-        {/* ── Action buttons ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="flex gap-3 mt-5"
-        >
-          <button
-            onClick={handleGenerate}
-            disabled={loading || !canGenerate}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all duration-200"
-            style={{
-              background: canGenerate && !loading
-                ? "rgba(255,255,255,0.12)"
-                : "rgba(255,255,255,0.04)",
-              color: canGenerate && !loading
-                ? "rgba(255,255,255,0.9)"
-                : "rgba(255,255,255,0.25)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              cursor: canGenerate && !loading ? "pointer" : "not-allowed",
-            }}
-          >
-            {loading
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
-              : <><Wand2 className="w-4 h-4" /> {mode === "manual" ? "Tạo Prompt" : "Viết Prompt"}</>}
-          </button>
-
-          {(result || error) && (
-            <button
-              onClick={reset}
-              className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm transition-all duration-200"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                color: "rgba(255,255,255,0.35)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          )}
+          </AnimatePresence>
         </motion.div>
 
-        {/* ── Error ── */}
+        {/* Error */}
         <AnimatePresence>
           {error && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="mt-4 px-4 py-3 rounded-xl text-sm"
-              style={{ background: "rgba(255,80,80,0.08)", border: "1px solid rgba(255,80,80,0.2)", color: "rgba(255,120,120,0.9)" }}
-            >
-              ⚠️ {error}
+            <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(255,60,60,0.07)", border: "1px solid rgba(255,60,60,0.18)" }}>
+              <AlertCircle style={{ width: 15, height: 15, color: "rgba(255,120,120,0.8)", flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: "rgba(255,150,150,0.9)" }}>{error}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Result ── */}
+        {/* Submit */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} style={{ marginBottom: 28 }}>
+          <AnimBorderCard speed={canSubmit ? 3 : 8} color={canSubmit ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.15)"} radius={14}>
+            <button onClick={handleSubmit} disabled={!canSubmit}
+              style={{ width: "100%", padding: "15px", background: "transparent", border: "none", cursor: canSubmit ? "pointer" : "not-allowed", color: canSubmit ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.22)", fontSize: 14, fontWeight: 700, fontFamily: FONT, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              {loading
+                ? <><Loader2 style={{ width: 16, height: 16 }} className="animate-spin" /> Đang tạo...</>
+                : <><Wand2 style={{ width: 16, height: 16 }} /> {mode === "ai" ? "Viết Prompt" : "Tạo Prompt"}</>}
+            </button>
+          </AnimBorderCard>
+        </motion.div>
+
+        {/* Output */}
         <AnimatePresence>
           {(result || loading) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="mt-6"
-              ref={resultRef}
-            >
-              <AnimBorderCard
-                speed={loading ? 2 : 6}
-                color={loading ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.35)"}
-                radius={18}
-                innerStyle={{ padding: "20px" }}
-              >
-                {/* Result header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        background: loading ? "rgba(255,255,255,0.6)" : "rgba(120,220,150,0.8)",
-                        boxShadow: loading ? "0 0 6px rgba(255,255,255,0.4)" : "0 0 6px rgba(120,220,150,0.5)",
-                      }}
-                    />
-                    <span className="text-xs font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.5)" }}>
-                      {loading ? "Đang tạo prompt..." : "Prompt của bạn"}
-                    </span>
-                  </div>
-
-                  {result && !loading && (
-                    <button
-                      onClick={handleCopy}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
-                      style={{
-                        background: copied ? "rgba(120,220,150,0.12)" : "rgba(255,255,255,0.06)",
-                        color: copied ? "rgba(120,220,150,0.9)" : "rgba(255,255,255,0.5)",
-                        border: copied ? "1px solid rgba(120,220,150,0.25)" : "1px solid rgba(255,255,255,0.1)",
-                      }}
-                    >
-                      {copied
-                        ? <><CheckCircle2 className="w-3.5 h-3.5" /> Đã copy</>
-                        : <><Copy className="w-3.5 h-3.5" /> Copy</>}
-                    </button>
-                  )}
+            <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              {/* Output header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  {loading
+                    ? <Loader2 style={{ width: 13, height: 13, color: "rgba(255,255,255,0.4)" }} className="animate-spin" />
+                    : <CheckCircle2 style={{ width: 13, height: 13, color: "rgba(100,220,150,0.75)" }} />}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.38)" }}>
+                    {loading ? "Đang tạo..." : "Prompt của bạn"}
+                  </span>
                 </div>
 
-                {/* Result content */}
-                <div
-                  className="text-sm leading-relaxed whitespace-pre-wrap rounded-xl p-4 select-text"
-                  style={{
-                    color: "rgba(255,255,255,0.82)",
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                    fontFamily: "'Plus Jakarta Sans', monospace",
-                    minHeight: 80,
-                  }}
-                >
-                  {result}
-                  {loading && (
-                    <span
-                      className="inline-block w-0.5 h-4 ml-0.5 align-text-bottom"
-                      style={{
-                        background: "rgba(255,255,255,0.7)",
-                        animation: "blink 0.9s step-end infinite",
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Tip */}
                 {result && !loading && (
-                  <motion.p
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-                    className="mt-3 text-xs text-center"
-                    style={{ color: "rgba(255,255,255,0.2)" }}
-                  >
-                    Copy prompt và paste vào ChatGPT, Claude, Gemini,... là dùng ngay 🚀
-                  </motion.p>
+                  <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                    {/* Edit toggle */}
+                    <button
+                      onClick={() => { if (!isEditing) setEditText(rawResult); setIsEditing(v => !v); }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: `1px solid ${isEditing ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.11)"}`, background: isEditing ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)", color: isEditing ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>
+                      {isEditing ? <Eye style={{ width: 13, height: 13 }} /> : <Pencil style={{ width: 13, height: 13 }} />}
+                      {isEditing ? "Xem trước" : "Chỉnh sửa"}
+                    </button>
+
+                    {/* Copy */}
+                    <button onClick={handleCopy}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(255,255,255,0.03)", color: copied ? "rgba(100,220,150,0.9)" : "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
+                      {copied ? <CheckCircle2 style={{ width: 13, height: 13 }} /> : <Copy style={{ width: 13, height: 13 }} />}
+                      {copied ? "Đã copy" : "Copy"}
+                    </button>
+
+                    {/* Download dropdown */}
+                    <div ref={dlMenuRef} style={{ position: "relative" }}>
+                      <button
+                        onClick={() => setShowDlMenu(v => !v)}
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: showDlMenu ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT, transition: "background 0.15s" }}
+                      >
+                        <Download style={{ width: 13, height: 13 }} />
+                        Tải về
+                        <ChevronDown style={{ width: 11, height: 11, transition: "transform 0.2s", transform: showDlMenu ? "rotate(180deg)" : "rotate(0deg)" }} />
+                      </button>
+
+                      <AnimatePresence>
+                        {showDlMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                            transition={{ duration: 0.12 }}
+                            style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "rgba(18,18,18,0.97)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden", zIndex: 50, minWidth: 210, backdropFilter: "blur(12px)" }}
+                          >
+                            {DOWNLOAD_FORMATS.map(fmt => (
+                              <button
+                                key={fmt.id}
+                                onClick={() => handleDownload(fmt.id)}
+                                style={{ width: "100%", display: "block", textAlign: "left", padding: "10px 16px", background: "none", border: "none", color: "rgba(255,255,255,0.65)", fontSize: 12, fontFamily: FONT, cursor: "pointer", transition: "background 0.12s", fontWeight: 500 }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                              >
+                                {fmt.label}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Output content */}
+              <AnimBorderCard
+                speed={loading ? 2 : isEditing ? 4 : 9}
+                color={loading ? "rgba(255,255,255,0.45)" : isEditing ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.15)"}
+                radius={14}
+                innerStyle={isEditing ? { padding: "4px" } : { padding: "18px 20px", maxHeight: 560, overflowY: "auto" }}
+              >
+                {isEditing ? (
+                  <textarea
+                    value={editText}
+                    onChange={e => handleEditChange(e.target.value)}
+                    spellCheck={false}
+                    style={{ width: "100%", minHeight: 300, background: "transparent", border: "none", outline: "none", color: "rgba(255,255,255,0.82)", fontSize: 13, lineHeight: 1.75, resize: "vertical", padding: "16px 18px", fontFamily: "monospace", caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
+                  />
+                ) : result ? (
+                  <div style={{ fontSize: 13.5, lineHeight: 1.85, color: "rgba(255,255,255,0.82)", whiteSpace: "pre-wrap", fontFamily: FONT }}>
+                    {result}
+                  </div>
+                ) : (
+                  <div style={{ height: 40 }} />
+                )}
+                {loading && (
+                  <motion.span
+                    animate={{ opacity: [1, 0, 1] }}
+                    transition={{ duration: 0.55, repeat: Infinity }}
+                    style={{ display: "inline-block", width: 2, height: "1em", background: "rgba(255,255,255,0.65)", verticalAlign: "text-bottom", marginLeft: 2 }}
+                  />
                 )}
               </AnimBorderCard>
+
+              {isEditing && (
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", marginTop: 8, textAlign: "center" }}>
+                  Đang chỉnh sửa — Copy / Tải về sẽ dùng nội dung đã sửa
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Empty state hint ── */}
-        {!result && !loading && !error && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-            className="mt-10 text-center"
-          >
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <Wand2 className="w-5 h-5" style={{ color: "rgba(255,255,255,0.2)" }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-1" style={{ color: "rgba(255,255,255,0.25)" }}>
-                  Chưa có prompt nào
-                </p>
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.15)" }}>
-                  {mode === "manual"
-                    ? "Điền ít nhất mục Nhiệm vụ rồi nhấn Tạo Prompt"
-                    : "Mô tả yêu cầu của bạn rồi nhấn Viết Prompt"}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </div>
-
-      <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
     </div>
   );
 }
