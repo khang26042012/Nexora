@@ -1,10 +1,24 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const TOOLS = [
+  {
+    id: "prompt-builder",
+    icon: Wand2,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Prompt Builder",
+    desc: "Tạo prompt AI chuẩn — tự điền form hoặc để AI viết lại từ mô tả đơn giản. Chọn ngôn ngữ đầu ra VI / EN.",
+    tag: "AI",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/prompt-builder",
+  },
   {
     id: "image-to-text",
     icon: ScanText,

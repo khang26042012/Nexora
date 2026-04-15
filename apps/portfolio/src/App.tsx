@@ -11,6 +11,7 @@ import { YtDownloader } from "@/pages/tools/YtDownloader";
 import { VideoTrimmer } from "@/pages/tools/VideoTrimmer";
 import { TextFormatter } from "@/pages/tools/TextFormatter";
 import { ImageToText } from "@/pages/tools/ImageToText";
+import { PromptBuilder } from "@/pages/tools/PromptBuilder";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/tool/video-trimmer" component={VideoTrimmer} />
       <Route path="/tool/text-formatter" component={TextFormatter} />
       <Route path="/tool/image-to-text" component={ImageToText} />
+      <Route path="/tool/prompt-builder" component={PromptBuilder} />
       <Route path="/chat" component={Chat} />
       <Route component={NotFound} />
     </Switch>

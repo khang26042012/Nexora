@@ -5,6 +5,7 @@ import trimRouter from "./trim";
 import chatRouter from "./chat";
 import formatterRouter from "./formatter";
 import ocrRouter from "./ocr";
+import promptgenRouter from "./promptgen";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(trimRouter);
 router.use(chatRouter);
 router.use(formatterRouter);
 router.use(ocrRouter);
+router.use(promptgenRouter);
 
 export default router;
