@@ -253,6 +253,7 @@ export function PromptBuilder() {
             <div>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: "rgba(255,255,255,0.95)", margin: 0 }}>Prompt Builder</h1>
               <p style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", margin: 0, marginTop: 2 }}>Tạo prompt AI chuẩn — tự điền hoặc để AI viết lại</p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.22)", margin: 0, marginTop: 4 }}>Mô tả yêu cầu đơn giản — AI tự viết lại thành prompt chuẩn</p>
             </div>
           </div>
         </motion.div>
@@ -366,12 +367,6 @@ export function PromptBuilder() {
               <motion.div key="ai" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <AnimBorderCard speed={5} color="rgba(255,255,255,0.4)" radius={14}>
                   <div style={{ padding: "14px 16px 12px" }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
-                      <Sparkles style={{ width: 14, height: 14, color: "rgba(255,255,255,0.35)", flexShrink: 0, marginTop: 2 }} />
-                      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", lineHeight: 1.6, margin: 0 }}>
-                        Mô tả yêu cầu đơn giản — AI tự viết lại thành prompt chuẩn
-                      </p>
-                    </div>
                     <textarea
                       value={description}
                       onChange={e => setDescription(e.target.value.slice(0, 500))}

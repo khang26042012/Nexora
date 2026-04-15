@@ -44,7 +44,7 @@ function buildUserMessage(mode: string, body: Record<string, string>): string {
   return body.description?.trim() ?? "";
 }
 
-router.post("/api/prompt-gen", async (req: Request, res: Response) => {
+router.post("/prompt-gen", async (req: Request, res: Response) => {
   const { mode = "ai", lang = "vi", ...rest } = req.body as Record<string, string>;
 
   const userMsg = buildUserMessage(mode, rest);
