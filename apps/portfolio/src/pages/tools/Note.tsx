@@ -2,7 +2,7 @@ import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Copy, Download, NotebookPen, Link2,
-  CheckCircle2, AlertCircle, ChevronDown, Loader2, Eye,
+  CheckCircle2, AlertCircle, ChevronDown, Loader2, Eye, Sliders,
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
@@ -51,7 +51,7 @@ function rawToJson(raw: string, title: string): string {
 }
 
 async function rawToDocx(raw: string, title: string): Promise<Blob> {
-  const children = [];
+  const children: Paragraph[] = [];
   if (title) children.push(new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 32 })] }));
   raw.split("\n").forEach(line =>
     children.push(new Paragraph({ spacing: { before: 40 }, children: [new TextRun({ text: line, size: 24 })] }))
@@ -61,13 +61,107 @@ async function rawToDocx(raw: string, title: string): Promise<Blob> {
 }
 
 const DOWNLOAD_FORMATS = [
-  { id: "txt",  label: ".txt  — Văn bản thuần",  ext: "txt" },
-  { id: "md",   label: ".md   — Markdown",         ext: "md" },
-  { id: "html", label: ".html — Trang web",        ext: "html" },
-  { id: "json", label: ".json — Dữ liệu JSON",     ext: "json" },
-  { id: "docx", label: ".docx — Microsoft Word",   ext: "docx" },
+  { id: "txt",  label: ".txt  — Văn bản thuần" },
+  { id: "md",   label: ".md   — Markdown" },
+  { id: "html", label: ".html — Trang web" },
+  { id: "json", label: ".json — Dữ liệu JSON" },
+  { id: "docx", label: ".docx — Microsoft Word" },
 ] as const;
 type DlFmt = typeof DOWNLOAD_FORMATS[number]["id"];
+
+/* ── Shared action buttons (only used in VIEWER) ── */
+function ViewerActions({ content, title }: { content: string; title: string }) {
+  const [copiedContent, setCopiedContent] = useState(false);
+  const [showDl, setShowDl] = useState(false);
+  const dlRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showDl) return;
+    const h = (e: MouseEvent) => {
+      if (dlRef.current && !dlRef.current.contains(e.target as Node)) setShowDl(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [showDl]);
+
+  const handleCopyContent = async () => {
+    await navigator.clipboard.writeText(content);
+    setCopiedContent(true);
+    setTimeout(() => setCopiedContent(false), 2000);
+  };
+
+  const handleDownload = async (fmt: DlFmt) => {
+    setShowDl(false);
+    const filename = `note_${Date.now()}`;
+    let blob: Blob;
+    if (fmt === "txt") blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    else if (fmt === "md") blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    else if (fmt === "html") blob = new Blob([rawToHtml(content, title)], { type: "text/html;charset=utf-8" });
+    else if (fmt === "json") blob = new Blob([rawToJson(content, title)], { type: "application/json;charset=utf-8" });
+    else blob = await rawToDocx(content, title);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${filename}.${fmt}`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const btnStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: 5,
+    padding: "7px 14px", borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.13)",
+    background: "rgba(255,255,255,0.05)",
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 12, cursor: "pointer", fontFamily: FONT, transition: "all 0.2s",
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      {/* Copy nội dung */}
+      <button
+        onClick={handleCopyContent}
+        style={{ ...btnStyle, color: copiedContent ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)" }}
+      >
+        {copiedContent
+          ? <CheckCircle2 style={{ width: 13, height: 13 }} />
+          : <Copy style={{ width: 13, height: 13 }} />}
+        {copiedContent ? "Đã sao chép" : "Copy nội dung"}
+      </button>
+
+      {/* Download dropdown */}
+      <div style={{ position: "relative" }} ref={dlRef}>
+        <button onClick={() => setShowDl(v => !v)} style={btnStyle}>
+          <Download style={{ width: 13, height: 13 }} />
+          Tải về
+          <ChevronDown style={{ width: 11, height: 11, transform: showDl ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+        </button>
+
+        <AnimatePresence>
+          {showDl && (
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.96 }}
+              transition={{ duration: 0.15 }}
+              style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, minWidth: 210, background: "rgba(18,18,20,0.97)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}
+            >
+              {DOWNLOAD_FORMATS.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => handleDownload(f.id)}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 16px", background: "none", border: "none", color: "rgba(255,255,255,0.7)", fontSize: 12.5, cursor: "pointer", fontFamily: FONT, transition: "background 0.15s" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
 
 /* ── Background orbs ── */
 function Orbs() {
@@ -89,86 +183,6 @@ function Orbs() {
   );
 }
 
-/* ── Shared download + copy action bar ── */
-function ActionBar({ content, title }: { content: string; title: string }) {
-  const [copied, setCopied] = useState(false);
-  const [showDl, setShowDl] = useState(false);
-  const dlRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showDl) return;
-    const h = (e: MouseEvent) => {
-      if (dlRef.current && !dlRef.current.contains(e.target as Node)) setShowDl(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [showDl]);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = async (fmt: DlFmt) => {
-    setShowDl(false);
-    const filename = `note_${Date.now()}`;
-    let blob: Blob;
-    if (fmt === "txt") blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    else if (fmt === "md") blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
-    else if (fmt === "html") blob = new Blob([rawToHtml(content, title)], { type: "text/html;charset=utf-8" });
-    else if (fmt === "json") blob = new Blob([rawToJson(content, title)], { type: "application/json;charset=utf-8" });
-    else blob = await rawToDocx(content, title);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `${filename}.${fmt}`; a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-      {/* Copy nội dung */}
-      <button onClick={handleCopy}
-        style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.05)", color: copied ? "rgba(100,220,150,0.9)" : "rgba(255,255,255,0.55)", fontSize: 12, cursor: "pointer", fontFamily: FONT, transition: "all 0.2s" }}>
-        {copied ? <CheckCircle2 style={{ width: 13, height: 13 }} /> : <Copy style={{ width: 13, height: 13 }} />}
-        {copied ? "Đã sao chép" : "Copy"}
-      </button>
-
-      {/* Download dropdown */}
-      <div style={{ position: "relative" }} ref={dlRef}>
-        <button onClick={() => setShowDl(v => !v)}
-          style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.55)", fontSize: 12, cursor: "pointer", fontFamily: FONT, transition: "all 0.2s" }}>
-          <Download style={{ width: 13, height: 13 }} />
-          Tải về
-          <ChevronDown style={{ width: 11, height: 11, transform: showDl ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
-        </button>
-
-        <AnimatePresence>
-          {showDl && (
-            <motion.div
-              initial={{ opacity: 0, y: -6, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -6, scale: 0.96 }}
-              transition={{ duration: 0.15 }}
-              style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, minWidth: 210, background: "rgba(18,18,20,0.97)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}
-            >
-              {DOWNLOAD_FORMATS.map(f => (
-                <button key={f.id} onClick={() => handleDownload(f.id)}
-                  style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 16px", background: "none", border: "none", color: "rgba(255,255,255,0.7)", fontSize: 12.5, cursor: "pointer", fontFamily: FONT, transition: "background 0.15s" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "none")}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-}
-
 /* ══════════════════════════════════════════════
    NOTE EDITOR — /tool/note
 ══════════════════════════════════════════════ */
@@ -179,27 +193,50 @@ export function NoteEditor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
+  const [createdContent, setCreatedContent] = useState("");
+
+  /* Copy link state */
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const handleCreate = useCallback(async () => {
+  /* Tùy chỉnh link (custom slug) */
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [customSlug, setCustomSlug] = useState("");
+  const [customError, setCustomError] = useState<string | null>(null);
+  const [customLoading, setCustomLoading] = useState(false);
+
+  const handleCreate = useCallback(async (slugOverride?: string) => {
     if (!content.trim()) return;
-    setLoading(true);
+    const useSlug = slugOverride?.trim() || undefined;
+
+    if (useSlug) setCustomLoading(true);
+    else setLoading(true);
     setError(null);
-    setShareLink(null);
+    setCustomError(null);
+
     try {
       const res = await fetch("/api/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), content: content.trim() }),
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+          ...(useSlug ? { customId: useSlug } : {}),
+        }),
       });
       const data = await res.json() as { id?: string; error?: string };
       if (!res.ok || !data.id) throw new Error(data.error ?? "Lỗi tạo note");
       const link = `${window.location.origin}${BASE}/tool/note/${data.id}`;
       setShareLink(link);
+      setCreatedContent(content.trim());
+      setShowCustomize(false);
+      setCustomSlug("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Lỗi không xác định");
+      const msg = e instanceof Error ? e.message : "Lỗi không xác định";
+      if (useSlug) setCustomError(msg);
+      else setError(msg);
     } finally {
       setLoading(false);
+      setCustomLoading(false);
     }
   }, [title, content]);
 
@@ -211,6 +248,15 @@ export function NoteEditor() {
   };
 
   const canCreate = content.trim().length > 0 && !loading;
+
+  const btnStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: 5,
+    padding: "7px 14px", borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.13)",
+    background: "rgba(255,255,255,0.05)",
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 12, cursor: "pointer", fontFamily: FONT, transition: "all 0.2s",
+  };
 
   return (
     <div style={{ minHeight: "100dvh", background: "#050505", fontFamily: FONT }}>
@@ -287,7 +333,7 @@ export function NoteEditor() {
         {/* Create link button */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} style={{ marginBottom: 20 }}>
           <AnimBorderCard speed={canCreate ? 3 : 8} color={canCreate ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.15)"} radius={14}>
-            <button onClick={handleCreate} disabled={!canCreate}
+            <button onClick={() => handleCreate()} disabled={!canCreate}
               style={{ width: "100%", padding: "15px", background: "transparent", border: "none", cursor: canCreate ? "pointer" : "not-allowed", color: canCreate ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.22)", fontSize: 14, fontWeight: 700, fontFamily: FONT, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               {loading
                 ? <><Loader2 style={{ width: 16, height: 16 }} className="animate-spin" /> Đang tạo...</>
@@ -303,27 +349,91 @@ export function NoteEditor() {
               initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               style={{ marginBottom: 24 }}
             >
+              {/* Header row: label + Copy link + Tùy chỉnh */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <CheckCircle2 style={{ width: 13, height: 13, color: "rgba(100,220,150,0.75)" }} />
+                  <CheckCircle2 style={{ width: 13, height: 13, color: "rgba(255,255,255,0.5)" }} />
                   <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.38)" }}>Liên kết chia sẻ</span>
                 </div>
-                <ActionBar content={content} title={title} />
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  {/* [4] Copy link button — trắng đen */}
+                  <button
+                    onClick={handleCopyLink}
+                    style={{ ...btnStyle, color: copiedLink ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)" }}
+                  >
+                    {copiedLink
+                      ? <CheckCircle2 style={{ width: 13, height: 13 }} />
+                      : <Copy style={{ width: 13, height: 13 }} />}
+                    {copiedLink ? "Đã copy link" : "Copy link"}
+                  </button>
+
+                  {/* [3] Tùy chỉnh link — replaces Download */}
+                  <button
+                    onClick={() => { setShowCustomize(v => !v); setCustomError(null); setCustomSlug(""); }}
+                    style={{ ...btnStyle, color: showCustomize ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)", border: showCustomize ? "1px solid rgba(255,255,255,0.28)" : "1px solid rgba(255,255,255,0.13)", background: showCustomize ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.05)" }}
+                  >
+                    <Sliders style={{ width: 13, height: 13 }} />
+                    Tùy chỉnh link
+                  </button>
+                </div>
               </div>
 
-              <AnimBorderCard speed={3} color="rgba(100,220,150,0.5)" radius={12}>
-                <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-                  <Link2 style={{ width: 14, height: 14, color: "rgba(100,220,150,0.6)", flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 12.5, color: "rgba(255,255,255,0.6)", wordBreak: "break-all", fontFamily: "monospace" }}>{shareLink}</span>
-                  <button onClick={handleCopyLink}
-                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(100,220,150,0.25)", background: "rgba(100,220,150,0.07)", color: copiedLink ? "rgba(100,220,150,0.9)" : "rgba(100,220,150,0.6)", fontSize: 11.5, cursor: "pointer", fontFamily: FONT, flexShrink: 0, transition: "all 0.2s" }}>
-                    {copiedLink ? <CheckCircle2 style={{ width: 11, height: 11 }} /> : <Copy style={{ width: 11, height: 11 }} />}
-                    {copiedLink ? "Đã copy" : "Copy link"}
-                  </button>
+              {/* [3] Tùy chỉnh link panel */}
+              <AnimatePresence>
+                {showCustomize && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                    style={{ overflow: "hidden", marginBottom: 10 }}
+                  >
+                    <AnimBorderCard speed={5} color="rgba(255,255,255,0.3)" radius={12}>
+                      <div style={{ padding: "14px 16px" }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.35)", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+                          Tạo link mới với slug tùy chỉnh
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: customError ? 8 : 0 }}>
+                          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap", fontFamily: "monospace" }}>
+                            /tool/note/
+                          </span>
+                          <input
+                            type="text"
+                            value={customSlug}
+                            onChange={e => { setCustomSlug(e.target.value.slice(0, 50)); setCustomError(null); }}
+                            placeholder="ten-cua-ban"
+                            style={{ flex: 1, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, outline: "none", color: "rgba(255,255,255,0.82)", fontSize: 13, padding: "8px 11px", fontFamily: "monospace", caretColor: "rgba(255,255,255,0.7)" }}
+                          />
+                          <button
+                            onClick={() => handleCreate(customSlug)}
+                            disabled={customSlug.trim().length < 3 || customLoading}
+                            style={{ padding: "8px 14px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.18)", background: customSlug.trim().length >= 3 ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.03)", color: customSlug.trim().length >= 3 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.22)", fontSize: 12, fontWeight: 600, cursor: customSlug.trim().length >= 3 ? "pointer" : "not-allowed", fontFamily: FONT, whiteSpace: "nowrap", transition: "all 0.2s" }}
+                          >
+                            {customLoading ? <Loader2 style={{ width: 12, height: 12 }} className="animate-spin" /> : "Tạo link mới"}
+                          </button>
+                        </div>
+                        {customError && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+                            <AlertCircle style={{ width: 12, height: 12, color: "rgba(255,120,120,0.7)", flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, color: "rgba(255,150,150,0.8)" }}>{customError}</span>
+                          </div>
+                        )}
+                        <p style={{ margin: "8px 0 0", fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
+                          Chỉ dùng chữ cái, số, dấu - hoặc _. Tối thiểu 3 ký tự.
+                        </p>
+                      </div>
+                    </AnimBorderCard>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* [1] Link box — trắng đen, không xanh */}
+              <AnimBorderCard speed={4} color="rgba(255,255,255,0.35)" radius={12}>
+                <div style={{ padding: "13px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <Link2 style={{ width: 13, height: 13, color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,0.5)", wordBreak: "break-all", fontFamily: "monospace" }}>{shareLink}</span>
                 </div>
               </AnimBorderCard>
 
-              {/* Quick view link */}
+              {/* Quick view */}
               <div style={{ marginTop: 10, textAlign: "center" }}>
                 <a href={shareLink} target="_blank" rel="noreferrer"
                   style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -384,6 +494,15 @@ export function NoteViewer() {
     ? new Date(note.created_at).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" })
     : "";
 
+  const btnStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: 5,
+    padding: "6px 12px", borderRadius: 8,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.04)",
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 12, cursor: "pointer", fontFamily: FONT, transition: "all 0.2s", flexShrink: 0,
+  };
+
   return (
     <div style={{ minHeight: "100dvh", background: "#050505", fontFamily: FONT }}>
       <Navigation />
@@ -427,29 +546,25 @@ export function NoteViewer() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
 
             {/* Header */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 8 }}>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                 <div style={{ width: 42, height: 42, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", flexShrink: 0 }}>
                   <NotebookPen className="w-5 h-5" style={{ color: "rgba(255,255,255,0.75)" }} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {note.title ? (
-                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "rgba(255,255,255,0.95)", margin: 0, wordBreak: "break-word" }}>{note.title}</h1>
-                  ) : (
-                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "rgba(255,255,255,0.3)", margin: 0, fontStyle: "italic" }}>Không có tiêu đề</h1>
-                  )}
+                  {note.title
+                    ? <h1 style={{ fontSize: 22, fontWeight: 800, color: "rgba(255,255,255,0.95)", margin: 0, wordBreak: "break-word" }}>{note.title}</h1>
+                    : <h1 style={{ fontSize: 22, fontWeight: 800, color: "rgba(255,255,255,0.3)", margin: 0, fontStyle: "italic" }}>Không có tiêu đề</h1>}
                   <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.22)", margin: 0, marginTop: 4 }}>Tạo lúc {createdDate}</p>
                 </div>
               </div>
             </div>
 
-            {/* Action bar */}
+            {/* [2] Action bar — copy nội dung + tải về (đặt ở viewer, đúng chỗ) */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <CheckCircle2 style={{ width: 13, height: 13, color: "rgba(100,220,150,0.75)" }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.38)" }}>Nội dung note</span>
-              </div>
-              <ActionBar content={note.content} title={note.title} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.3)" }}>Nội dung note</span>
+              {/* [5] Fix: copy nội dung, label rõ ràng */}
+              <ViewerActions content={note.content} title={note.title} />
             </div>
 
             {/* Note body */}
@@ -461,19 +576,22 @@ export function NoteViewer() {
               </div>
             </AnimBorderCard>
 
-            {/* Share link */}
-            <div style={{ marginTop: 8 }}>
+            {/* [1] Share link — trắng đen */}
+            <div>
               <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                <Link2 style={{ width: 12, height: 12, color: "rgba(255,255,255,0.3)" }} />
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>Link chia sẻ</span>
+                <Link2 style={{ width: 12, height: 12, color: "rgba(255,255,255,0.28)" }} />
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>Link chia sẻ note này</span>
               </div>
               <AnimBorderCard speed={6} color="rgba(255,255,255,0.2)" radius={10}>
                 <div style={{ padding: "11px 14px", display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ flex: 1, fontSize: 11.5, color: "rgba(255,255,255,0.4)", wordBreak: "break-all", fontFamily: "monospace" }}>{shareLink}</span>
-                  <button onClick={handleCopyLink}
-                    style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: copiedLink ? "rgba(100,220,150,0.8)" : "rgba(255,255,255,0.4)", fontSize: 11, cursor: "pointer", fontFamily: FONT, flexShrink: 0, transition: "all 0.2s" }}>
-                    {copiedLink ? <CheckCircle2 style={{ width: 10, height: 10 }} /> : <Copy style={{ width: 10, height: 10 }} />}
-                    {copiedLink ? "Đã copy" : "Copy"}
+                  {/* [1] Copy link button — trắng đen */}
+                  <button
+                    onClick={handleCopyLink}
+                    style={{ ...btnStyle, color: copiedLink ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)" }}
+                  >
+                    {copiedLink ? <CheckCircle2 style={{ width: 11, height: 11 }} /> : <Copy style={{ width: 11, height: 11 }} />}
+                    {copiedLink ? "Đã copy" : "Copy link"}
                   </button>
                 </div>
               </AnimBorderCard>

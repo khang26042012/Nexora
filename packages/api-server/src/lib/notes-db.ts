@@ -32,14 +32,15 @@ export interface Note {
   created_at: string;
 }
 
-export function createNote(title: string, content: string): string {
-  const id = randomBytes(6).toString("base64url");
-  db.prepare("INSERT INTO notes (id, title, content) VALUES (?, ?, ?)").run(
-    id,
-    title,
-    content,
-  );
+export function createNote(title: string, content: string, customId?: string): string {
+  const id = customId ?? randomBytes(6).toString("base64url");
+  db.prepare("INSERT INTO notes (id, title, content) VALUES (?, ?, ?)").run(id, title, content);
   return id;
+}
+
+export function noteIdExists(id: string): boolean {
+  const row = db.prepare("SELECT 1 FROM notes WHERE id = ?").get(id);
+  return row !== undefined;
 }
 
 export function getNoteById(id: string): Note | undefined {
