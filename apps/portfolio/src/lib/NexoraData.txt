@@ -502,6 +502,119 @@ Tính năng đã hoàn thiện:
   - AI được huấn luyện với toàn bộ data về Phan Trọng Khang và các dự án
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 8 — QR GENERATOR (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+─────────────────────────────────────────────────────────────
+Tên hiển thị: QR Generator
+Mô tả: Tạo mã QR từ văn bản, URL, số điện thoại — tùy chỉnh màu sắc, kích thước và tải về PNG
+URL: /tool/qr-generator
+Tag: Utility
+Trạng thái: LIVE
+Thư viện: qrcode (npm, render Canvas)
+Backend: Không cần — xử lý hoàn toàn trên Frontend
+
+Tính năng:
+  - Nhập văn bản / URL / số điện thoại / email → QR tự cập nhật realtime
+  - Chọn kích thước: 128px / 256px / 512px
+  - Tùy chọn màu mã QR và màu nền bằng color picker
+  - Mức sửa lỗi: L / M / Q / H (Low / Medium / Quartile / High)
+  - Sao chép ảnh PNG vào clipboard
+  - Tải về file PNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 9 — IMAGE COMPRESSOR (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+─────────────────────────────────────────────────────────────
+Tên hiển thị: Image Compressor
+Mô tả: Nén ảnh giảm dung lượng — chọn chất lượng, định dạng (WebP/JPEG/PNG), xem trước trước khi tải về
+URL: /tool/image-compressor
+Tag: Image
+Trạng thái: LIVE
+Thư viện: sharp (npm, backend Node.js)
+API Backend: POST /api/compress — multipart form (image + quality + format)
+
+Tính năng:
+  - Kéo thả hoặc chọn file ảnh (JPG/PNG/WebP/GIF, tối đa 20MB)
+  - Chọn định dạng xuất: WebP / JPEG / PNG
+  - Slider chất lượng 10–100%
+  - Xem ảnh sau khi nén với tỷ lệ tiết kiệm dung lượng
+  - Tải về file nén ngay
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 10 — AI SUMMARIZER (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+─────────────────────────────────────────────────────────────
+Tên hiển thị: AI Summarizer
+Mô tả: Tóm tắt văn bản dài bằng AI — chọn độ chi tiết ngắn/vừa/dài, kèm từ khoá chính
+URL: /tool/ai-summarizer
+Tag: AI
+Trạng thái: LIVE
+AI: Gemini 2.5 Flash (streaming SSE)
+API Backend: POST /api/summarize — { text, length: short|medium|long, lang: vi|en }
+
+Tính năng:
+  - Nhập văn bản cần tóm tắt (không giới hạn độ dài)
+  - Chọn độ chi tiết: Ngắn (3-5 câu) / Vừa (1-2 đoạn) / Chi tiết (đầy đủ)
+  - Chọn ngôn ngữ output: Tiếng Việt / English
+  - Kết quả streaming — chữ hiện dần theo thời gian thực
+  - Tự động thêm từ khoá chính cuối bản tóm tắt
+  - Sao chép kết quả
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 11 — AI TRANSLATOR (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+─────────────────────────────────────────────────────────────
+Tên hiển thị: AI Translator
+Mô tả: Dịch văn bản sang 10 ngôn ngữ bằng AI — chọn phong cách dịch và nhận ghi chú thuật ngữ
+URL: /tool/ai-translator
+Tag: AI
+Trạng thái: LIVE
+AI: Gemini 2.5 Flash (streaming SSE)
+API Backend: POST /api/translate — { text, from, to, mode: normal|formal|natural }
+
+Ngôn ngữ hỗ trợ: Việt, Anh, Trung (giản thể), Nhật, Hàn, Pháp, Đức, Tây Ban Nha, Thái, Nga
+Tính năng:
+  - Tự động nhận diện ngôn ngữ nguồn (auto detect)
+  - Chọn phong cách dịch: Chuẩn / Trang trọng / Tự nhiên (như người bản ngữ)
+  - Swap ngôn ngữ nguồn/đích nhanh
+  - Streaming kết quả realtime
+  - Ghi chú dịch thuật cho thành ngữ/thuật ngữ đặc biệt
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 12 — CODE EXPLAINER (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+─────────────────────────────────────────────────────────────
+Tên hiển thị: Code Explainer
+Mô tả: Dán code vào — AI giải thích từng phần, phát hiện bug và gợi ý cải thiện
+URL: /tool/code-explainer
+Tag: AI
+Trạng thái: LIVE
+AI: Gemini 2.5 Flash (streaming SSE)
+API Backend: POST /api/code-explain — { code, lang }
+
+Ngôn ngữ lập trình hỗ trợ: JS, TS, Python, C++, Java, Go, Rust, C#, PHP, Swift, Kotlin, HTML/CSS, SQL, Bash
+Tính năng:
+  - Nhận diện ngôn ngữ tự động hoặc chọn thủ công
+  - Giải thích: Tổng quan → Chi tiết → Luồng thực thi → Bug → Gợi ý cải thiện
+  - Render inline code đẹp trong output
+  - Streaming realtime
+  - Sao chép kết quả
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 13 — MATH SOLVER (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+─────────────────────────────────────────────────────────────
+Tên hiển thị: Math Solver
+Mô tả: Giải toán từng bước bằng AI — nhập đề bài hoặc chụp ảnh bài toán
+URL: /tool/math-solver
+Tag: AI
+Trạng thái: LIVE
+AI: Gemini 2.5 Flash multimodal (streaming SSE)
+API Backend: POST /api/math-solve — { text?, image? (base64) }
+
+Tính năng:
+  - Hai chế độ nhập: Gõ đề bài (text) / Chụp ảnh đề bài (image)
+  - Hỗ trợ ảnh base64 gửi trực tiếp qua Gemini Vision
+  - Có thể kết hợp ảnh + ghi chú text
+  - Lời giải: Phân tích → Từng bước → Kết quả → Kiểm tra → Lưu ý công thức
+  - Streaming realtime theo từng bước
+  - Highlight các bước giải riêng biệt
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHẦN 7 — KIẾN TRÚC MONOREPO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -762,7 +875,8 @@ PHẦN 11 — CHÚ Ý ĐẶC BIỆT KHI TRẢ LỜI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 KẾT THÚC FILE HUẤN LUYỆN
 Cập nhật lần cuối: 15/04/2026
-Phiên bản: 1.3
+Phiên bản: 1.4
 Thay đổi v1.2: Thêm TOOL 4 Image to Text (OCR), cập nhật danh sách tool, Q&A, endpoint API
 Thay đổi v1.3: Thêm TOOL 5 Note (ghi chú & chia sẻ qua link), TOOL 6 Prompt Builder (tạo prompt AI), cập nhật monorepo structure, Q&A, endpoint API. Chat Bot đổi thành TOOL 7.
+Thay đổi v1.4: Thêm 6 tool mới — TOOL 8 QR Generator, TOOL 9 Image Compressor, TOOL 10 AI Summarizer, TOOL 11 AI Translator, TOOL 12 Code Explainer, TOOL 13 Math Solver. Tất cả LIVE.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
