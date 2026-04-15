@@ -13,7 +13,7 @@ const TOOLS = [
     iconBorder: "rgba(255,255,255,0.18)",
     glowColor: "rgba(255,255,255,0.08)",
     name: "Prompt Builder",
-    desc: "Tạo prompt AI chuẩn — tự điền form hoặc để AI viết lại từ mô tả đơn giản. Chọn ngôn ngữ đầu ra VI / EN.",
+    desc: "Tạo prompt AI chuẩn — tự điền form hoặc để AI viết lại từ mô tả đơn giản.",
     tag: "AI",
     tagColor: "rgba(255,255,255,0.6)",
     available: true,
