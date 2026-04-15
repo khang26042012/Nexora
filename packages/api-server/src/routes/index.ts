@@ -8,6 +8,11 @@ import ocrRouter from "./ocr";
 import promptgenRouter from "./promptgen";
 import notesRouter from "./notes";
 import adminRouter from "./admin";
+import summarizerRouter from "./summarizer";
+import translatorRouter from "./translator";
+import compressRouter from "./compress";
+import codeexplainerRouter from "./codeexplainer";
+import mathsolverRouter from "./mathsolver";
 
 const router: IRouter = Router();
 
@@ -20,5 +25,10 @@ router.use(ocrRouter);
 router.use(promptgenRouter);
 router.use(notesRouter);
 router.use(adminRouter);
+router.use(summarizerRouter);
+router.use(translatorRouter);
+router.use(compressRouter);
+router.use(codeexplainerRouter);
+router.use(mathsolverRouter);
 
 export default router;

@@ -15,6 +15,11 @@ import { PromptBuilder } from "@/pages/tools/PromptBuilder";
 import { NoteEditor, NoteViewer } from "@/pages/tools/Note";
 import { Admin } from "@/pages/Admin";
 import { QRGenerator } from "@/pages/tools/QRGenerator";
+import { ImageCompressor } from "@/pages/tools/ImageCompressor";
+import { AISummarizer } from "@/pages/tools/AISummarizer";
+import { AITranslator } from "@/pages/tools/AITranslator";
+import { AICodeExplainer } from "@/pages/tools/AICodeExplainer";
+import { AIMathSolver } from "@/pages/tools/AIMathSolver";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +36,11 @@ function Router() {
       <Route path="/tool/note/:id" component={NoteViewer} />
       <Route path="/tool/note" component={NoteEditor} />
       <Route path="/tool/qr-generator" component={QRGenerator} />
+      <Route path="/tool/image-compressor" component={ImageCompressor} />
+      <Route path="/tool/ai-summarizer" component={AISummarizer} />
+      <Route path="/tool/ai-translator" component={AITranslator} />
+      <Route path="/tool/code-explainer" component={AICodeExplainer} />
+      <Route path="/tool/math-solver" component={AIMathSolver} />
       <Route path="/chat" component={Chat} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
