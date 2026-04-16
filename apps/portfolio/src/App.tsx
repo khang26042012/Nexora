@@ -20,6 +20,7 @@ import { AISummarizer } from "@/pages/tools/AISummarizer";
 import { AITranslator } from "@/pages/tools/AITranslator";
 import { AICodeExplainer } from "@/pages/tools/AICodeExplainer";
 import { AIMathSolver } from "@/pages/tools/AIMathSolver";
+import { BackgroundRemover } from "@/pages/tools/BackgroundRemover";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/tool/ai-translator" component={AITranslator} />
       <Route path="/tool/code-explainer" component={AICodeExplainer} />
       <Route path="/tool/math-solver" component={AIMathSolver} />
+      <Route path="/tool/bg-remover" component={BackgroundRemover} />
       <Route path="/chat" component={Chat} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />

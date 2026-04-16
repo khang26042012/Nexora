@@ -1,6 +1,6 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -88,6 +88,20 @@ const TOOLS = [
     tagColor: "rgba(255,255,255,0.6)",
     available: true,
     route: "/tool/math-solver",
+  },
+  {
+    id: "bg-remover",
+    icon: ImageOff,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Background Remover",
+    desc: "Xóa nền ảnh bằng AI — xuất PNG trong suốt, paste thẳng vào Canva hoặc PowerPoint. Chạy hoàn toàn trên thiết bị.",
+    tag: "AI · Image",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/bg-remover",
   },
   {
     id: "prompt-builder",
