@@ -473,6 +473,23 @@ router.get("/info", async (req, res) => {
   if (isTikTok(url)) {
     try {
       const data = await fetchTikTokData(url);
+
+      /* ── Photo / slideshow post ── */
+      const images: string[] = Array.isArray(data.images) ? data.images : [];
+      if (images.length > 0) {
+        return res.json({
+          title:      data.title || data.id || "TikTok Photo",
+          thumbnail:  data.cover || data.origin_cover || images[0] || "",
+          duration:   0,
+          channel:    data.author?.nickname ?? data.author?.unique_id ?? "TikTok",
+          platform:   "TikTok",
+          isPhoto:    true,
+          images,
+          photoCount: images.length,
+        });
+      }
+
+      /* ── Video post ── */
       const hasHd = !!data.hdplay;
       return res.json({
         title:     data.title || data.id || "TikTok Video",
@@ -685,6 +702,51 @@ router.get("/download", async (req, res) => {
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";
     if (!res.headersSent) res.status(500).json({ error: `Lỗi server: ${msg}` });
   }
+});
+
+/* ── GET /api/yt/photo-proxy?imgUrl=...&idx=0&dl=1 ─────────────
+ *  Proxy ảnh từ TikTok CDN về client — tránh CORS & CDN block
+ * ────────────────────────────────────────────────────────────── */
+router.get("/photo-proxy", async (req, res) => {
+  const imgUrl = String(req.query["imgUrl"] ?? "").trim();
+  const idx    = String(req.query["idx"] ?? "0");
+  const dl     = req.query["dl"] === "1";
+
+  if (!imgUrl) { res.status(400).json({ error: "Thiếu imgUrl" }); return; }
+
+  const makeReq = (url: string, redirectCount = 0) => {
+    if (redirectCount > 5) { if (!res.headersSent) res.status(500).json({ error: "Quá nhiều redirect" }); return; }
+    const lib = url.startsWith("https") ? https : http;
+    lib.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Referer": "https://www.tiktok.com/",
+        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+      },
+      timeout: 30_000,
+    }, (r: any) => {
+      if ([301, 302, 303, 307, 308].includes(r.statusCode) && r.headers.location) {
+        r.resume();
+        return makeReq(r.headers.location, redirectCount + 1);
+      }
+      if (r.statusCode !== 200) {
+        r.resume();
+        if (!res.headersSent) res.status(502).json({ error: `CDN trả về ${r.statusCode}` });
+        return;
+      }
+      const ct = r.headers["content-type"] ?? "image/jpeg";
+      const ext = ct.includes("webp") ? "webp" : ct.includes("png") ? "png" : "jpg";
+      res.setHeader("Content-Type", ct);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      if (dl) res.setHeader("Content-Disposition", `attachment; filename="tiktok_photo_${idx}.${ext}"`);
+      if (r.headers["content-length"]) res.setHeader("Content-Length", r.headers["content-length"]);
+      r.pipe(res);
+      r.on("error", (e: Error) => { if (!res.headersSent) res.status(500).json({ error: e.message }); });
+    }).on("error", (e: Error) => {
+      if (!res.headersSent) res.status(500).json({ error: e.message });
+    });
+  };
+  makeReq(imgUrl);
 });
 
 /** Trả về path ffmpeg đang dùng (null nếu chưa sẵn sàng) */

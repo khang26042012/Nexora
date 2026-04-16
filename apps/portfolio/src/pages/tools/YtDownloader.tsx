@@ -2,7 +2,8 @@ import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Download, Search, Clock, User,
-  CheckCircle2, AlertCircle, Film, Loader2, Video
+  CheckCircle2, AlertCircle, Film, Loader2, Video,
+  Images, ImageDown,
 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -36,10 +37,13 @@ type VideoInfo = {
   title: string; thumbnail: string; duration: number; channel: string;
   platform: string; ffmpegAvailable?: boolean; qualityNote?: string | null;
   availableQualities?: string[]; maxQuality?: string;
+  isPhoto?: boolean; images?: string[]; photoCount?: number;
 };
 
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
 async function fetchVideoInfo(url: string): Promise<VideoInfo> {
-  const res = await fetch(`/api/yt/info?url=${encodeURIComponent(url)}`, {
+  const res = await fetch(`${BASE}/api/yt/info?url=${encodeURIComponent(url)}`, {
     signal: AbortSignal.timeout(90_000),
   });
   if (!res.ok) {
@@ -106,6 +110,8 @@ export function YtDownloader() {
   const [quality, setQuality]     = useState("best");
   const [dlReady, setDlReady]     = useState(false);
   const [dlLoading, setDlLoading] = useState(false);
+  const [dlImgIdx, setDlImgIdx]   = useState<number | null>(null);
+  const [dlAllLoading, setDlAllLoading] = useState(false);
 
   const handleFetch = async () => {
     const trimmed = url.trim();
@@ -127,7 +133,7 @@ export function YtDownloader() {
     setDlLoading(true); setDlReady(false); setError("");
     try {
       const params = new URLSearchParams({ url: url.trim(), quality, title: info.title });
-      const res = await fetch(`/api/yt/download?${params.toString()}`, {
+      const res = await fetch(`${BASE}/api/yt/download?${params.toString()}`, {
         signal: AbortSignal.timeout(300_000),
       });
       if (!res.ok) {
@@ -149,6 +155,34 @@ export function YtDownloader() {
     } finally {
       setDlLoading(false);
     }
+  };
+
+  const downloadImage = async (imgUrl: string, idx: number) => {
+    if (dlImgIdx !== null) return;
+    setDlImgIdx(idx);
+    try {
+      const proxyUrl = `${BASE}/api/yt/photo-proxy?imgUrl=${encodeURIComponent(imgUrl)}&idx=${idx}&dl=1`;
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(30_000) });
+      if (!res.ok) throw new Error(`Lỗi ${res.status}`);
+      const blob = await res.blob();
+      const ext = blob.type.includes("webp") ? "webp" : blob.type.includes("png") ? "png" : "jpg";
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `tiktok_photo_${idx + 1}.${ext}`;
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+    } catch (e: any) { setError(e.message ?? "Lỗi tải ảnh"); }
+    finally { setDlImgIdx(null); }
+  };
+
+  const downloadAllImages = async () => {
+    if (!info?.images || dlAllLoading) return;
+    setDlAllLoading(true); setError("");
+    for (let i = 0; i < info.images.length; i++) {
+      await downloadImage(info.images[i]!, i);
+      await new Promise(r => setTimeout(r, 600));
+    }
+    setDlAllLoading(false);
   };
 
   const available = info?.availableQualities ?? QUALITIES.map(q => q.value);
@@ -315,7 +349,7 @@ export function YtDownloader() {
           )}
         </AnimatePresence>
 
-        {/* Video Info Card */}
+        {/* Video / Photo Info Card */}
         <AnimatePresence>
           {info && (
             <motion.div
@@ -324,10 +358,11 @@ export function YtDownloader() {
               exit={{ opacity: 0, y: 16, scale: 0.97 }}
               transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             >
+              {/* Info header */}
               <AnimBorderCard speed={5} color="rgba(255,255,255,0.4)" radius={18}
                 innerStyle={{ background: "rgba(255,255,255,0.03)", marginBottom: "16px", overflow: "hidden" }}>
                 <div>
-                  {info.thumbnail && (
+                  {info.thumbnail && !info.isPhoto && (
                     <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
                       <img src={info.thumbnail} alt={info.title} className="w-full h-full object-cover" />
                       <div className="absolute inset-0"
@@ -346,11 +381,26 @@ export function YtDownloader() {
                       </div>
                     </div>
                   )}
-                  <div className="px-5 py-4">
-                    <h2 className="text-base font-bold text-white leading-snug mb-2 line-clamp-2">{info.title}</h2>
-                    <div className="flex items-center gap-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                      <User className="w-3.5 h-3.5" />
-                      <span className="text-xs">{info.channel}</span>
+                  <div className="px-5 py-4 flex items-start gap-3">
+                    {info.isPhoto && info.thumbnail && (
+                      <img src={`${BASE}/api/yt/photo-proxy?imgUrl=${encodeURIComponent(info.thumbnail)}`}
+                        alt="" className="w-14 h-14 object-cover rounded-xl flex-shrink-0"
+                        style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      {info.isPhoto && (
+                        <div className="flex items-center gap-1.5 mb-2 text-xs"
+                          style={{ color: "rgba(255,255,255,0.6)" }}>
+                          <Images className="w-3.5 h-3.5" />
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                          TikTok Photo · {info.photoCount} ảnh
+                        </div>
+                      )}
+                      <h2 className="text-base font-bold text-white leading-snug mb-2 line-clamp-2">{info.title}</h2>
+                      <div className="flex items-center gap-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        <User className="w-3.5 h-3.5" />
+                        <span className="text-xs">{info.channel}</span>
+                      </div>
                     </div>
                   </div>
                   {info.qualityNote && (
@@ -362,81 +412,148 @@ export function YtDownloader() {
                 </div>
               </AnimBorderCard>
 
-              {/* Quality Selection */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold tracking-wider uppercase"
-                    style={{ color: "rgba(255,255,255,0.35)" }}>Chọn chất lượng</p>
-                  {info.maxQuality && (
-                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                      Cao nhất: <span style={{ color: "#34d399" }}>
-                        {QUALITIES.find(q => q.value === info.maxQuality)?.label ?? info.maxQuality}
-                      </span>
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {QUALITIES.map(q => {
-                    const active = quality === q.value;
-                    const isAvail = available.includes(q.value);
-                    return (
-                      <motion.button
-                        key={q.value}
-                        whileHover={isAvail ? { scale: 1.04, y: -1 } : {}}
-                        whileTap={isAvail ? { scale: 0.94 } : {}}
-                        onClick={() => isAvail && setQuality(q.value)}
-                        disabled={!isAvail}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200"
-                        style={{
-                          background: !isAvail ? "rgba(255,255,255,0.02)"
-                            : active ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
-                          border: !isAvail ? "1px solid rgba(255,255,255,0.04)"
-                            : active ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.09)",
-                          color: !isAvail ? "rgba(255,255,255,0.18)"
-                            : active ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)",
-                          cursor: isAvail ? "pointer" : "not-allowed",
-                        }}
+              {/* ── PHOTO MODE ── */}
+              {info.isPhoto && info.images && (
+                <>
+                  {/* Download All */}
+                  <AnimBorderCard speed={dlAllLoading ? 2 : 5} color="rgba(255,255,255,0.55)" radius={14}
+                    innerStyle={{ marginBottom: 16 }}>
+                    <motion.button
+                      whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                      onClick={downloadAllImages}
+                      disabled={dlAllLoading || dlImgIdx !== null}
+                      className="w-full flex items-center justify-center gap-2.5 py-4 rounded-[13px] text-base font-bold text-white transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{ background: "rgba(255,255,255,0.07)" }}>
+                      {dlAllLoading
+                        ? <><Loader2 className="w-5 h-5 animate-spin" />Đang tải tất cả...</>
+                        : <><ImageDown className="w-5 h-5" />Tải tất cả {info.photoCount} ảnh</>
+                      }
+                    </motion.button>
+                  </AnimBorderCard>
+
+                  {/* Photo grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {info.images.map((imgUrl, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, scale: 0.92 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: idx * 0.04, duration: 0.35 }}
+                        className="relative rounded-2xl overflow-hidden"
+                        style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }}
                       >
-                        <Film className="w-3.5 h-3.5" />
-                        {q.label}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>
-                  Nút mờ = video không có chất lượng đó
-                </p>
-              </div>
+                        <img
+                          src={`${BASE}/api/yt/photo-proxy?imgUrl=${encodeURIComponent(imgUrl)}`}
+                          alt={`Ảnh ${idx + 1}`}
+                          className="w-full object-cover"
+                          style={{ aspectRatio: "1/1", objectFit: "cover" }}
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)" }} />
+                        <div className="absolute bottom-0 left-0 right-0 p-2.5 flex items-center justify-between">
+                          <span className="text-xs font-bold text-white/60">{idx + 1}/{info.photoCount}</span>
+                          <motion.button
+                            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+                            onClick={() => downloadImage(imgUrl, idx)}
+                            disabled={dlImgIdx !== null}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50"
+                            style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.25)" }}>
+                            {dlImgIdx === idx
+                              ? <Loader2 className="w-3 h-3 animate-spin" />
+                              : <Download className="w-3 h-3" />
+                            }
+                            Tải
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                  <p className="text-center text-xs mt-2 mb-4" style={{ color: "rgba(255,255,255,0.25)" }}>
+                    Ảnh được proxy qua server — chất lượng gốc, không watermark
+                  </p>
+                </>
+              )}
 
-              {/* Download Button */}
-              <AnimBorderCard speed={dlLoading ? 2.5 : 5} color={dlReady ? "rgba(52,211,153,0.7)" : "rgba(255,255,255,0.5)"} radius={14}>
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleDownload}
-                  disabled={dlReady || dlLoading}
-                  className="w-full flex items-center justify-center gap-2.5 py-4 rounded-[13px] text-base font-bold text-white transition-all duration-300 disabled:cursor-not-allowed"
-                  style={{
-                    background: dlReady
-                      ? "rgba(5,150,105,0.2)"
-                      : dlLoading
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(255,255,255,0.07)",
-                    boxShadow: dlReady ? "0 8px 32px rgba(5,150,105,0.2)" : "none",
-                  }}
-                >
-                  {dlReady
-                    ? <><CheckCircle2 className="w-5 h-5 text-emerald-400" />Tải xong!</>
-                    : dlLoading
-                    ? <><Loader2 className="w-5 h-5 animate-spin" />Đang tải xuống...</>
-                    : <><Download className="w-5 h-5" />Tải xuống {QUALITIES.find(q => q.value === quality)?.label}</>
-                  }
-                </motion.button>
-              </AnimBorderCard>
+              {/* ── VIDEO MODE ── */}
+              {!info.isPhoto && (
+                <>
+                  {/* Quality Selection */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-semibold tracking-wider uppercase"
+                        style={{ color: "rgba(255,255,255,0.35)" }}>Chọn chất lượng</p>
+                      {info.maxQuality && (
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          Cao nhất: <span style={{ color: "#34d399" }}>
+                            {QUALITIES.find(q => q.value === info.maxQuality)?.label ?? info.maxQuality}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {QUALITIES.map(q => {
+                        const active = quality === q.value;
+                        const isAvail = available.includes(q.value);
+                        return (
+                          <motion.button
+                            key={q.value}
+                            whileHover={isAvail ? { scale: 1.04, y: -1 } : {}}
+                            whileTap={isAvail ? { scale: 0.94 } : {}}
+                            onClick={() => isAvail && setQuality(q.value)}
+                            disabled={!isAvail}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200"
+                            style={{
+                              background: !isAvail ? "rgba(255,255,255,0.02)"
+                                : active ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
+                              border: !isAvail ? "1px solid rgba(255,255,255,0.04)"
+                                : active ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(255,255,255,0.09)",
+                              color: !isAvail ? "rgba(255,255,255,0.18)"
+                                : active ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)",
+                              cursor: isAvail ? "pointer" : "not-allowed",
+                            }}
+                          >
+                            <Film className="w-3.5 h-3.5" />
+                            {q.label}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>
+                      Nút mờ = video không có chất lượng đó
+                    </p>
+                  </div>
 
-              <p className="text-center text-xs mt-3" style={{ color: "rgba(255,255,255,0.25)" }}>
-                Server tải video trước, có thể mất 10–60 giây tuỳ độ dài video
-              </p>
+                  {/* Download Button */}
+                  <AnimBorderCard speed={dlLoading ? 2.5 : 5} color={dlReady ? "rgba(52,211,153,0.7)" : "rgba(255,255,255,0.5)"} radius={14}>
+                    <motion.button
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleDownload}
+                      disabled={dlReady || dlLoading}
+                      className="w-full flex items-center justify-center gap-2.5 py-4 rounded-[13px] text-base font-bold text-white transition-all duration-300 disabled:cursor-not-allowed"
+                      style={{
+                        background: dlReady
+                          ? "rgba(5,150,105,0.2)"
+                          : dlLoading
+                          ? "rgba(255,255,255,0.05)"
+                          : "rgba(255,255,255,0.07)",
+                        boxShadow: dlReady ? "0 8px 32px rgba(5,150,105,0.2)" : "none",
+                      }}
+                    >
+                      {dlReady
+                        ? <><CheckCircle2 className="w-5 h-5 text-emerald-400" />Tải xong!</>
+                        : dlLoading
+                        ? <><Loader2 className="w-5 h-5 animate-spin" />Đang tải xuống...</>
+                        : <><Download className="w-5 h-5" />Tải xuống {QUALITIES.find(q => q.value === quality)?.label}</>
+                      }
+                    </motion.button>
+                  </AnimBorderCard>
+
+                  <p className="text-center text-xs mt-3" style={{ color: "rgba(255,255,255,0.25)" }}>
+                    Server tải video trước, có thể mất 10–60 giây tuỳ độ dài video
+                  </p>
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

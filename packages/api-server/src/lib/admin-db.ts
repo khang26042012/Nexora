@@ -12,7 +12,8 @@ if (!fs.existsSync(dataDir)) {
 
 const DB_PATH = path.join(dataDir, "nexora.db");
 const db = new Database(DB_PATH);
-db.pragma("journal_mode = WAL");
+db.pragma("busy_timeout = 5000");
+try { db.pragma("journal_mode = WAL"); } catch (e) { console.warn("[db] WAL mode skipped:", (e as Error).message); }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS access_logs (
