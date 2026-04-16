@@ -13,6 +13,7 @@ import translatorRouter from "./translator";
 import compressRouter from "./compress";
 import codeexplainerRouter from "./codeexplainer";
 import mathsolverRouter from "./mathsolver";
+import bgremoverRouter from "./bgremover";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(translatorRouter);
 router.use(compressRouter);
 router.use(codeexplainerRouter);
 router.use(mathsolverRouter);
+router.use(bgremoverRouter);
 
 export default router;

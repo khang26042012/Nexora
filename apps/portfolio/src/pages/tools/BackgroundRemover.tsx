@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Upload, Download, X, Loader2, Sparkles, ImageOff, CheckCircle2 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { removeBackground } from "@imgly/background-removal";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function AnimBorderCard({ children, speed = 4, color = "rgba(255,255,255,0.85)", radius = 16, innerStyle = {}, className = "" }: {
   children: React.ReactNode; speed?: number; color?: string; radius?: number; innerStyle?: React.CSSProperties; className?: string;
@@ -17,57 +17,60 @@ function AnimBorderCard({ children, speed = 4, color = "rgba(255,255,255,0.85)",
   );
 }
 
-type Stage = "idle" | "loading_model" | "processing" | "done" | "error";
+type Stage = "idle" | "processing" | "done" | "error";
 
 const CHECKERS = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='8' height='8' fill='%23555'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%23555'/%3E%3Crect x='8' y='0' width='8' height='8' fill='%23888'/%3E%3Crect x='0' y='8' width='8' height='8' fill='%23888'/%3E%3C/svg%3E")`;
 
 export function BackgroundRemover() {
   const [, navigate] = useLocation();
   const [stage, setStage] = useState<Stage>("idle");
-  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<string>("");
   const [resultUrl, setResultUrl] = useState<string>("");
-  const [resultBlob, setResultBlob] = useState<Blob | null>(null);
   const [fileName, setFileName] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [credits, setCredits] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
-    setStage("idle"); setError(""); setPreview(""); setResultUrl(""); setResultBlob(null); setFileName(""); setProgress(0);
+    setStage("idle"); setError(""); setFileName(""); setCredits("");
     if (resultUrl) URL.revokeObjectURL(resultUrl);
-    if (preview) URL.revokeObjectURL(preview);
+    if (preview)   URL.revokeObjectURL(preview);
+    setResultUrl(""); setPreview("");
   };
 
   const process = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) { setError("Chỉ hỗ trợ file ảnh (JPG, PNG, WebP)"); setStage("error"); return; }
-    if (file.size > 20 * 1024 * 1024) { setError("Ảnh tối đa 20MB"); setStage("error"); return; }
+    if (file.size > 25 * 1024 * 1024) { setError("Ảnh tối đa 25MB"); setStage("error"); return; }
 
     setFileName(file.name.replace(/\.[^.]+$/, ""));
     setPreview(URL.createObjectURL(file));
-    setResultUrl(""); setResultBlob(null); setError(""); setProgress(0);
-    setStage("loading_model");
+    setResultUrl(""); setError(""); setCredits("");
+    setStage("processing");
 
     try {
-      const resultBlob = await removeBackground(file, {
-        publicPath: `https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/`,
-        progress: (key: string, current: number, total: number) => {
-          if (key === "compute:inference") {
-            setStage("processing");
-            setProgress(total > 0 ? Math.round((current / total) * 100) : 50);
-          } else if (current < total) {
-            setStage("loading_model");
-            setProgress(Math.round((current / total) * 100));
-          }
-        },
+      const form = new FormData();
+      form.append("image", file);
+
+      const res = await fetch(`${BASE}/api/bg-remove`, {
+        method: "POST",
+        body: form,
+        signal: AbortSignal.timeout(70_000),
       });
-      const url = URL.createObjectURL(resultBlob);
-      setResultUrl(url);
-      setResultBlob(resultBlob);
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error ?? `Lỗi ${res.status}`);
+      }
+
+      const creditsUsed = res.headers.get("X-Credits-Charged") ?? "";
+      if (creditsUsed) setCredits(creditsUsed);
+
+      const blob = await res.blob();
+      setResultUrl(URL.createObjectURL(blob));
       setStage("done");
-      setProgress(100);
     } catch (e: any) {
-      setError(e?.message ?? "Lỗi xử lý ảnh. Thử lại với ảnh khác.");
+      setError(e?.message ?? "Lỗi không xác định. Thử lại.");
       setStage("error");
     }
   }, []);
@@ -81,14 +84,12 @@ export function BackgroundRemover() {
   }, []);
 
   const handleDownload = () => {
-    if (!resultBlob) return;
+    if (!resultUrl) return;
     const link = document.createElement("a");
     link.href = resultUrl;
     link.download = `${fileName || "result"}_no_bg.png`;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
-
-  const isProcessing = stage === "loading_model" || stage === "processing";
 
   return (
     <div className="min-h-screen" style={{ background: "#050505", fontFamily: FONT }}>
@@ -110,7 +111,7 @@ export function BackgroundRemover() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Background Remover</h1>
-              <p className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>Xóa nền ảnh bằng AI — chạy hoàn toàn trên thiết bị</p>
+              <p className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>Xóa nền ảnh bằng AI — xuất PNG trong suốt</p>
             </div>
           </div>
         </motion.div>
@@ -121,7 +122,7 @@ export function BackgroundRemover() {
             <AnimBorderCard speed={5} color={dragging ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)"} radius={20}
               innerStyle={{ marginBottom: 16 }}>
               <div
-                className="flex flex-col items-center justify-center py-14 px-6 text-center cursor-pointer transition-all"
+                className="flex flex-col items-center justify-center py-14 px-6 text-center cursor-pointer"
                 style={{ borderRadius: 19 }}
                 onDragOver={e => { e.preventDefault(); setDragging(true); }}
                 onDragLeave={() => setDragging(false)}
@@ -137,7 +138,7 @@ export function BackgroundRemover() {
                 <p className="text-base font-semibold text-white/80 mb-1">
                   {dragging ? "Thả ảnh vào đây" : "Kéo thả hoặc nhấn để chọn ảnh"}
                 </p>
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>JPG, PNG, WebP · Tối đa 20MB</p>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>JPG, PNG, WebP · Tối đa 25MB</p>
               </div>
             </AnimBorderCard>
 
@@ -146,9 +147,9 @@ export function BackgroundRemover() {
 
             <div className="flex flex-col gap-2 mt-4">
               {[
-                { icon: "🤖", text: "AI chạy trực tiếp trên trình duyệt — không upload lên server" },
-                { icon: "🪄", text: "Xuất file PNG trong suốt, dùng được ngay trên Canva, PowerPoint" },
-                { icon: "🔒", text: "Ảnh của bạn không rời khỏi thiết bị" },
+                { icon: "🤖", text: "Powered by remove.bg — AI chuyên nghiệp, cắt nền chính xác" },
+                { icon: "🪄", text: "Xuất file PNG trong suốt, dùng được ngay trên Canva, PowerPoint, Figma" },
+                { icon: "⚡", text: "Xử lý trên server — không lag, không lỗi model trên thiết bị" },
               ].map(({ icon, text }) => (
                 <div key={text} className="flex items-start gap-2.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
                   <span className="text-base leading-none">{icon}</span>
@@ -161,36 +162,24 @@ export function BackgroundRemover() {
 
         {/* Processing */}
         <AnimatePresence>
-          {isProcessing && (
+          {stage === "processing" && (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}>
-              <AnimBorderCard speed={1.8} color="rgba(255,255,255,0.6)" radius={20} innerStyle={{ marginBottom: 16 }}>
-                <div className="py-10 px-6 flex flex-col items-center gap-5">
+              <AnimBorderCard speed={1.5} color="rgba(255,255,255,0.6)" radius={20} innerStyle={{ marginBottom: 16 }}>
+                <div className="py-12 px-6 flex flex-col items-center gap-5">
                   {preview && (
                     <div className="relative w-40 h-40 rounded-2xl overflow-hidden"
                       style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
                       <img src={preview} alt="" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 flex items-center justify-center"
-                        style={{ background: "rgba(5,5,5,0.65)", backdropFilter: "blur(4px)" }}>
-                        <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        style={{ background: "rgba(5,5,5,0.6)", backdropFilter: "blur(4px)" }}>
+                        <Loader2 className="w-9 h-9 text-white animate-spin" />
                       </div>
                     </div>
                   )}
-                  <div className="w-full text-center">
-                    <p className="font-semibold text-white mb-1">
-                      {stage === "loading_model" ? "Đang tải mô hình AI..." : "Đang xử lý ảnh..."}
-                    </p>
-                    <p className="text-xs mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>
-                      {stage === "loading_model"
-                        ? "Lần đầu chạy sẽ mất ~15s để tải model, lần sau tức thì"
-                        : "AI đang tách từng pixel..."}
-                    </p>
-                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-                      <motion.div className="h-full rounded-full" animate={{ width: `${progress}%` }}
-                        transition={{ duration: 0.3 }}
-                        style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.4), rgba(255,255,255,0.9))" }} />
-                    </div>
-                    <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.3)" }}>{progress}%</p>
+                  <div className="text-center">
+                    <p className="font-semibold text-white mb-1">Đang xóa nền...</p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>AI đang xử lý ảnh, có thể mất 5–15 giây</p>
                   </div>
                 </div>
               </AnimBorderCard>
@@ -204,12 +193,18 @@ export function BackgroundRemover() {
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
 
-              {/* Preview card */}
               <AnimBorderCard speed={4} color="rgba(255,255,255,0.4)" radius={20} innerStyle={{ marginBottom: 16 }}>
                 <div className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span className="text-sm font-semibold text-white/80">Tách nền thành công!</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span className="text-sm font-semibold text-white/80">Tách nền thành công!</span>
+                    </div>
+                    {credits && (
+                      <span className="text-xs px-2 py-1 rounded-lg" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                        -{credits} credit
+                      </span>
+                    )}
                   </div>
 
                   {/* Before / After */}
@@ -222,13 +217,15 @@ export function BackgroundRemover() {
                     </div>
                     <div>
                       <p className="text-xs mb-1.5 text-center" style={{ color: "rgba(255,255,255,0.35)" }}>Đã xóa nền</p>
-                      <div className="rounded-xl overflow-hidden" style={{ backgroundImage: CHECKERS, backgroundSize: "16px 16px", border: "1px solid rgba(255,255,255,0.1)" }}>
-                        <img src={resultUrl} alt="result" className="w-full object-cover" style={{ aspectRatio: "1/1", objectFit: "contain" }} />
+                      <div className="rounded-xl overflow-hidden"
+                        style={{ backgroundImage: CHECKERS, backgroundSize: "16px 16px", border: "1px solid rgba(255,255,255,0.1)" }}>
+                        <img src={resultUrl} alt="result" className="w-full object-cover"
+                          style={{ aspectRatio: "1/1", objectFit: "contain" }} />
                       </div>
                     </div>
                   </div>
                   <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.25)" }}>
-                    Ô vuông = trong suốt — hoàn hảo để paste vào Canva, PowerPoint
+                    Ô vuông = trong suốt — paste vào Canva, PowerPoint là dùng được ngay
                   </p>
                 </div>
               </AnimBorderCard>
@@ -244,7 +241,6 @@ export function BackgroundRemover() {
                 </motion.button>
               </AnimBorderCard>
 
-              {/* Try another */}
               <button onClick={reset}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm transition-all"
                 style={{ color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)" }}
