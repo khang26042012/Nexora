@@ -163,6 +163,7 @@ export function Chat() {
   const [focused, setFocused]         = useState(false);
   const [isLoading, setIsLoading]     = useState(false);
   const [streamText, setStreamText]   = useState("");
+  const [isThinking, setIsThinking]   = useState(false);
   const [error, setError]             = useState<string | null>(null);
 
   const fileRef     = useRef<HTMLInputElement>(null);
@@ -276,6 +277,11 @@ export function Chat() {
           if (parsed?.error) {
             throw new Error(parsed.error);
           }
+          // Thinking state event from backend
+          if (parsed?.type === "thinking") {
+            setIsThinking(parsed.active as boolean);
+            continue;
+          }
           const chunk =
             parsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
           if (chunk) {
@@ -362,6 +368,7 @@ export function Chat() {
     } finally {
       setIsLoading(false);
       setStreamText("");
+      setIsThinking(false);
     }
   };
 
@@ -667,7 +674,20 @@ export function Chat() {
                     border: "1px solid rgba(255,255,255,0.08)",
                     fontSize: 13.5, lineHeight: 1.7, color: "rgba(255,255,255,0.82)",
                   }}>
-                    {streamText ? (
+                    {isThinking && !streamText ? (
+                      <motion.div
+                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                        style={{ display: "flex", alignItems: "center", gap: 7, padding: "2px 0" }}
+                      >
+                        <motion.span
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          style={{ fontSize: 14, display: "inline-block" }}
+                        >⚙️</motion.span>
+                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.55)" }}>Đang suy nghĩ...</span>
+                      </motion.div>
+                    ) : streamText ? (
                       <>
                         {renderText(streamText)}
                         <motion.span
