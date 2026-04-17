@@ -30,14 +30,11 @@ Dưới đây là toàn bộ tài liệu kỹ thuật hệ thống NexoraGarden 
 
 ${NEXORA_SYSTEM_DATA}`;
 
-type GeminiPart =
-  | { text: string }
-  | { inlineData: { mimeType: string; data: string } };
-
-type GeminiMessage = {
-  role: "user" | "model";
-  parts: GeminiPart[];
+type OpenAIMessage = {
+  role: "user" | "assistant";
+  content: string;
 };
+
 
 type AttachedFile = {
   name: string;
@@ -163,7 +160,7 @@ function OrbitDot({ radius, speed, startAngle, size = 3, opacity = 0.5 }: {
 
 export function Chat() {
   const [msgs, setMsgs]               = useState<Msg[]>([]);
-  const [history, setHistory]         = useState<GeminiMessage[]>([]);
+  const [history, setHistory]         = useState<OpenAIMessage[]>([]);
   const [input, setInput]             = useState("");
   const [attached, setAttached]       = useState<AttachedFile | null>(null);
   const [focused, setFocused]         = useState(false);
@@ -221,38 +218,31 @@ export function Chat() {
     }
   }, []);
 
-  const callGeminiStream = async (
+  const callCerebrasStream = async (
     userText: string,
     fileData: AttachedFile | null,
-    currentHistory: GeminiMessage[]
+    currentHistory: OpenAIMessage[]
   ): Promise<string> => {
-    const userParts: GeminiPart[] = [];
-
-    if (fileData) {
-      userParts.push({
-        inlineData: { mimeType: fileData.type, data: fileData.base64 },
-      });
+    let userContent = userText.trim();
+    if (fileData && fileData.type.startsWith("image/")) {
+      userContent = userContent
+        ? `[Đính kèm ảnh: ${fileData.name}]\n${userContent}`
+        : `[Đính kèm ảnh: ${fileData.name}]`;
+    } else if (fileData) {
+      userContent = userContent
+        ? `[Đính kèm file: ${fileData.name}]\n${userContent}`
+        : `[Đính kèm file: ${fileData.name}]`;
     }
-    if (userText.trim()) {
-      userParts.push({ text: userText.trim() });
-    }
 
-    const body = {
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [
-        ...currentHistory,
-        { role: "user", parts: userParts },
-      ],
-      generationConfig: {
-        temperature: 0.8,
-        maxOutputTokens: 2048,
-      },
-    };
+    const messages: OpenAIMessage[] = [
+      ...currentHistory,
+      { role: "user", content: userContent },
+    ];
 
     const res = await fetch(CHAT_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ messages, system: SYSTEM_PROMPT }),
     });
 
     if (!res.ok) {
@@ -279,17 +269,18 @@ export function Chat() {
         const data = line.slice(6).trim();
         if (!data || data === "[DONE]") continue;
         try {
-          const parsed = JSON.parse(data);
-          if (parsed?.error) {
-            throw new Error(parsed.error);
-          }
-          // Thinking state event from backend
+          const parsed = JSON.parse(data) as {
+            error?: string;
+            type?: string;
+            active?: boolean;
+            text?: string;
+          };
+          if (parsed?.error) throw new Error(parsed.error);
           if (parsed?.type === "thinking") {
-            setIsThinking(parsed.active as boolean);
+            setIsThinking(parsed.active ?? false);
             continue;
           }
-          const chunk =
-            parsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+          const chunk = parsed?.text ?? "";
           if (chunk) {
             fullText += chunk;
             setStreamText(fullText);
@@ -330,21 +321,11 @@ export function Chat() {
     setIsLoading(true);
     setStreamText("");
 
-    const userParts: GeminiPart[] = [];
-    if (fileSnapshot) {
-      userParts.push({
-        inlineData: { mimeType: fileSnapshot.type, data: fileSnapshot.base64 },
-      });
-    }
-    if (text) userParts.push({ text });
-
-    const nextHistory: GeminiMessage[] = [
-      ...history,
-      { role: "user", parts: userParts },
-    ];
+    let userContent = text;
+    if (fileSnapshot && !text) userContent = `[File: ${fileSnapshot.name}]`;
 
     try {
-      const botText = await callGeminiStream(text, fileSnapshot, history);
+      const botText = await callCerebrasStream(text, fileSnapshot, history);
 
       const botMsg: Msg = {
         id: Date.now() + 1,
@@ -354,9 +335,10 @@ export function Chat() {
       };
 
       setMsgs((prev) => [...prev, botMsg]);
-      setHistory([
-        ...nextHistory,
-        { role: "model", parts: [{ text: botText }] },
+      setHistory((prev) => [
+        ...prev,
+        { role: "user", content: userContent || "" },
+        { role: "assistant", content: botText },
       ]);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Lỗi không xác định";
