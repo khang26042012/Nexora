@@ -277,3 +277,12 @@
   background: rgba(124,58,237,0.35);
   color: #e2d9ff;
 }
+
+/* Chat textarea — hide scrollbar */
+.chat-textarea::-webkit-scrollbar {
+  display: none;
+}
+.chat-textarea {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}

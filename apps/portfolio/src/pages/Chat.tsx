@@ -411,7 +411,7 @@ export function Chat() {
               style={{ textAlign: "center", padding: "0 32px" }}
             >
               {/* Avatar cluster */}
-              <div style={{ position: "relative", width: 140, height: 140, margin: "0 auto 28px" }}>
+              <div style={{ position: "relative", width: 100, height: 100, margin: "0 auto 20px" }}>
 
                 {/* Outer glow */}
                 <motion.div
@@ -479,10 +479,10 @@ export function Chat() {
                 />
 
                 {/* Orbit dots */}
-                <OrbitDot radius={60} speed={5}  startAngle={0}   size={4} opacity={0.6} />
-                <OrbitDot radius={68} speed={9}  startAngle={120} size={2.5} opacity={0.35} />
-                <OrbitDot radius={75} speed={14} startAngle={240} size={3} opacity={0.25} />
-                <OrbitDot radius={56} speed={7}  startAngle={60}  size={2} opacity={0.45} />
+                <OrbitDot radius={44} speed={5}  startAngle={0}   size={4} opacity={0.6} />
+                <OrbitDot radius={50} speed={9}  startAngle={120} size={2.5} opacity={0.35} />
+                <OrbitDot radius={56} speed={14} startAngle={240} size={3} opacity={0.25} />
+                <OrbitDot radius={41} speed={7}  startAngle={60}  size={2} opacity={0.45} />
 
                 {/* Avatar image */}
                 <motion.div
@@ -515,7 +515,7 @@ export function Chat() {
               <div style={{ marginBottom: 10 }}>
                 <span
                   style={{
-                    fontSize: 22,
+                    fontSize: 17,
                     fontWeight: 700,
                     letterSpacing: "0.06em",
                     background: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(200,170,255,0.8) 100%)",
@@ -547,10 +547,10 @@ export function Chat() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1.6, duration: 0.6 }}
                 style={{
-                  fontSize: 13,
+                  fontSize: 11,
                   color: "rgba(255,255,255,0.32)",
                   lineHeight: 1.65,
-                  maxWidth: 260,
+                  maxWidth: 220,
                   margin: "0 auto",
                   letterSpacing: "0.01em",
                 }}
@@ -818,6 +818,7 @@ export function Chat() {
                   placeholder={isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"}
                   disabled={isLoading}
                   rows={1}
+                  className="chat-textarea"
                   style={{
                     flex: 1,
                     background: "none",
