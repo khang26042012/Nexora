@@ -4,7 +4,7 @@ import { insertToolLog } from "../lib/admin-db.js";
 const router = Router();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-const GEMINI_MODEL   = "gemini-1.5-flash";
+const GEMINI_MODEL   = "gemma-4-26b-a4b-it";
 const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
 
 router.post("/chat", async (req: Request, res: Response) => {
