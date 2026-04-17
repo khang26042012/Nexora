@@ -77,11 +77,42 @@ Set trong **Railway → Service → Variables**:
 - Unlock timeout: 500 giây
 - Offline alert: 5 giây
 
+## Migration nhanh (đổi Replit account/môi trường mới)
+
+Đây là quy trình chuẩn khi chuyển sang Replit environment mới. **Chỉ cần 2 bước:**
+
+### Bước 1 — Cài packages
+```bash
+pnpm install --ignore-scripts
+```
+
+### Bước 2 — Restart workflows (theo thứ tự)
+1. Restart workflow **`packages/api-server: API Server`**
+   - Script `setup-sqlite.mjs` tự động chạy trước khi build
+   - Nó copy prebuilt `better_sqlite3.node` từ `packages/api-server/prebuilt/` → không cần build lại từ source
+   - Log sẽ in: `[sqlite] better_sqlite3.node already exists ✅` hoặc `✅ Prebuilt binary copied & verified (instant!)`
+2. Restart workflow **`Start application`** (portfolio port 21113)
+
+### Xử lý nếu prebuilt binary không tương thích (hiếm — khi Replit đổi Node version)
+Script tự fallback build từ source, in log: `⚠️ Prebuilt binary incompatible, rebuilding from source...`
+Sau khi build xong, copy binary mới vào `prebuilt/` và push GitHub:
+```bash
+cp node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3/build/Release/better_sqlite3.node packages/api-server/prebuilt/
+# Rồi push GitHub bằng Tree API như bình thường
+```
+
+### WARN bình thường (không phải lỗi)
+- `TELEGRAM_TOKEN not set` → cần set Secrets nếu muốn bot Telegram hoạt động
+- `NexoraGarden dist not found` / `Portfolio dist not found` → dev mode, bình thường
+- `attached_assets/* workflows: NOT_STARTED` → chỉ là file tham khảo cũ
+
+---
+
 ## Lệnh thường dùng
 
 ```bash
 pnpm install --ignore-scripts          # Cài deps nhanh (bỏ qua build scripts)
-pnpm --filter @workspace/api-server run dev   # Chạy API server
+pnpm --filter @workspace/api-server run dev   # Chạy API server (tự chạy setup-sqlite.mjs trước)
 pnpm --filter @workspace/portfolio run dev    # Chạy portfolio
 pnpm run typecheck                            # Typecheck toàn bộ
 ```

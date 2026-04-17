@@ -33,8 +33,10 @@ WARN (không phải lỗi):
 
 Note kỹ thuật (dùng cho migration sau):
   - Node 24.13.0 không có prebuild binary cho better-sqlite3
-  - Cần dùng: npx node-gyp --nodedir="/nix/store/9cyx2v23dip6p9q98384k9v06c96qskb-nodejs-24.13.0" configure && build --release
-  - Tạo build/node_gyp_bins/ trước khi chạy node-gyp
+  - Từ session 40: ĐÃ CÓ setup-sqlite.mjs tự động → không cần build thủ công nữa
+  - Binary prebuilt lưu tại: packages/api-server/prebuilt/better_sqlite3.node (đã push GitHub)
+  - Script tự copy binary → nếu incompatible mới fallback build từ source
+  - Dev command tự chạy script trước: "node ./setup-sqlite.mjs && pnpm run build && ..."
 
 ESP32 cần nạp firmware: KHÔNG
 
