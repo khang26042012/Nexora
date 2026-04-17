@@ -62,9 +62,28 @@ router.post("/chat", async (req: Request, res: Response) => {
     ? (thinking ? system + THINKING_SUFFIX : system)
     : undefined;
 
+  // llama3.1-8b có context limit 8192 tokens (~4 chars/token)
+  // Giữ lại system + tin nhắn mới nhất, trim bớt cũ nếu quá dài
+  function trimMessages(msgs: OpenAIMessage[], maxChars = 18000): OpenAIMessage[] {
+    let total = 0;
+    const result: OpenAIMessage[] = [];
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      const len = typeof m.content === "string"
+        ? m.content.length
+        : m.content.map(p => ("text" in p ? p.text ?? "" : "")).join("").length;
+      if (total + len > maxChars && result.length > 0) break;
+      result.unshift(m);
+      total += len;
+    }
+    return result;
+  }
+
+  const trimmed = trimMessages(messages);
+
   const allMessages: OpenAIMessage[] = [
     ...(sysContent ? [{ role: "system" as const, content: sysContent }] : []),
-    ...messages,
+    ...trimmed,
   ];
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -87,7 +106,7 @@ router.post("/chat", async (req: Request, res: Response) => {
         model: CEREBRAS_MODEL,
         stream: true,
         temperature: 0.7,
-        max_tokens: 4096,
+        max_tokens: 2048,
         messages: allMessages,
       }),
     });
