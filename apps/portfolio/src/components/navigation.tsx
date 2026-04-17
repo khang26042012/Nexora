@@ -6,13 +6,19 @@ import avatarImg from "@/assets/avatar_new.jpg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
-type NavLink = { name: string; href: string; icon: LucideIcon };
+type NavLink = { name: string; href: string; icon: LucideIcon; accent: string };
 
 const NAV_LINKS: NavLink[] = [
-  { name: "Trang chủ", href: "/",     icon: Home },
-  { name: "Tool",       href: "/tool", icon: Wrench },
-  { name: "Chat Bot",   href: "/chat", icon: MessageCircle },
+  { name: "Trang chủ", href: "/",     icon: Home,          accent: "rgba(180,220,255,0.7)" },
+  { name: "Tool",       href: "/tool", icon: Wrench,        accent: "rgba(180,255,210,0.7)" },
+  { name: "Chat Bot",   href: "/chat", icon: MessageCircle, accent: "rgba(220,180,255,0.7)" },
 ];
+
+function getActiveFromLocation(loc: string): string {
+  if (loc.startsWith("/chat")) return "/chat";
+  if (loc.startsWith("/tool")) return "/tool";
+  return "/";
+}
 
 /* ── Spin Ring — CSS only ── */
 function SpinRing({ inset, duration, reverse = false, opacity = 0.5, dashed = false }: {
@@ -35,57 +41,26 @@ function SpinRing({ inset, duration, reverse = false, opacity = 0.5, dashed = fa
   );
 }
 
-/* ── Animated Border Item ── */
-function AnimBorderItem({
-  children, speed = 4, color = "rgba(255,255,255,0.85)", radius = 12, isActive = false,
-  style: extraStyle = {}, className = "",
-}: {
-  children: React.ReactNode; speed?: number; color?: string;
-  radius?: number; isActive?: boolean; style?: React.CSSProperties; className?: string;
-}) {
-  return (
-    <div
-      className={`running-border ${className}`}
-      style={{
-        "--rb-speed": isActive ? `${speed}s` : `${speed * 2}s`,
-        "--rb-color": color,
-        "--rb-radius": `${radius}px`,
-        ...extraStyle,
-      } as React.CSSProperties}
-    >
-      {children}
-    </div>
-  );
-}
-
-/* ── Detect active tab từ location ── */
-function getActiveFromLocation(loc: string): string {
-  if (loc.startsWith("/chat")) return "/chat";
-  if (loc.startsWith("/tool")) return "/tool";
-  return "/";
-}
-
 export function Navigation() {
-  const [isOpen, setIsOpen]   = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [location, navigate]  = useLocation();
-  const [active, setActive]   = useState(() => getActiveFromLocation(location));
+  const [isOpen, setIsOpen]     = useState(false);
+  const [location, navigate]    = useLocation();
+  const [active, setActive]     = useState(() => getActiveFromLocation(location));
+  const [hovered, setHovered]   = useState<string | null>(null);
 
-  /* Sync active khi location thay đổi (fix bug active state) */
   useEffect(() => {
     setActive(getActiveFromLocation(location));
   }, [location]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setIsOpen(false); };
-    const handleScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("keydown", handleEsc);
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener("keydown", handleEsc);
-      window.removeEventListener("scroll", handleScroll);
-    };
+    return () => window.removeEventListener("keydown", handleEsc);
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
 
   const handleNavClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -98,212 +73,343 @@ export function Navigation() {
 
   return (
     <>
-      {/* Header bar */}
+      {/* ── Hamburger button ── */}
       <motion.header
         className="fixed top-0 left-0 right-0 z-40 px-5 h-16 flex items-center pointer-events-none"
-        style={{
-          background: "transparent",
-          backdropFilter: "none",
-          borderBottom: "none",
-        }}
+        style={{ background: "transparent" }}
       >
         <motion.button
           onClick={() => setIsOpen(true)}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.93 }}
-          className="pointer-events-auto relative p-2.5 rounded-xl transition-all duration-200"
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.9 }}
+          className="pointer-events-auto relative p-2.5 rounded-2xl"
           style={{
-            background: "rgba(0,0,0,0.55)",
+            background: "rgba(255,255,255,0.07)",
             border: "1px solid rgba(255,255,255,0.14)",
-            backdropFilter: "blur(10px)",
+            backdropFilter: "blur(16px)",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
           }}
           aria-label="Mở menu"
         >
-          <Menu className="w-5 h-5 text-white/70" />
+          <Menu className="w-5 h-5 text-white/75" />
         </motion.button>
       </motion.header>
 
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Overlay */}
+            {/* ── Overlay ── */}
             <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.22 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.28 }}
               onClick={() => setIsOpen(false)}
               className="fixed inset-0 z-50"
-              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+              style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(12px)" }}
             />
 
-            {/* Sidebar */}
+            {/* ── Sidebar ── */}
             <motion.aside
-              initial={{ x: "-100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "-100%", opacity: 0 }}
-              transition={{ type: "spring", damping: 28, stiffness: 240 }}
-              className="fixed top-0 left-0 bottom-0 w-72 max-w-[82vw] z-50 flex flex-col overflow-hidden"
+              initial={{ x: "-100%", opacity: 0, filter: "blur(8px)" }}
+              animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
+              exit={{ x: "-100%", opacity: 0, filter: "blur(6px)" }}
+              transition={{ type: "spring", damping: 30, stiffness: 260 }}
+              className="fixed top-0 left-0 bottom-0 w-72 max-w-[84vw] z-50 flex flex-col overflow-hidden"
               style={{
-                background: "#080808",
-                borderRight: "1px solid rgba(255,255,255,0.08)",
-                boxShadow: "8px 0 50px rgba(0,0,0,0.8)",
+                background: "rgba(14,14,16,0.82)",
+                backdropFilter: "blur(48px) saturate(160%)",
+                borderRight: "1px solid rgba(255,255,255,0.1)",
+                boxShadow: "8px 0 60px rgba(0,0,0,0.7), inset -1px 0 0 rgba(255,255,255,0.05)",
                 fontFamily: FONT,
               }}
             >
-              {/* Top glow orb */}
-              <motion.div
-                animate={{ opacity: [0.3, 0.6, 0.3], scale: [1, 1.15, 1] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute top-0 left-0 w-56 h-56 pointer-events-none"
-                style={{ background: "radial-gradient(ellipse at 0% 0%, rgba(255,255,255,0.04) 0%, transparent 70%)" }}
+              {/* ── Ambient glow top-left ── */}
+              <div
+                className="absolute top-0 left-0 w-64 h-64 pointer-events-none"
+                style={{
+                  background: "radial-gradient(ellipse at 0% 0%, rgba(120,180,255,0.07) 0%, transparent 65%)",
+                }}
+              />
+              {/* ── Ambient glow bottom-right ── */}
+              <div
+                className="absolute bottom-0 right-0 w-48 h-48 pointer-events-none"
+                style={{
+                  background: "radial-gradient(ellipse at 100% 100%, rgba(180,120,255,0.06) 0%, transparent 65%)",
+                }}
               />
 
-              {/* Header with avatar */}
-              <div
-                className="relative px-5 h-20 flex items-center justify-between flex-shrink-0"
-                style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+              {/* ── Header ── */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08, duration: 0.4 }}
+                className="relative px-5 py-5 flex items-center justify-between flex-shrink-0"
+                style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
               >
-                <motion.div
-                  initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1, duration: 0.4 }}
-                  className="flex items-center gap-3"
-                >
-                  <div style={{ position: "relative", width: 40, height: 40 }}>
-                    <SpinRing inset={-8} duration={20} reverse opacity={0.15} dashed />
-                    <SpinRing inset={-4} duration={7} opacity={0.55} />
+                {/* Avatar + name */}
+                <div className="flex items-center gap-3">
+                  {/* Avatar ring */}
+                  <div style={{ position: "relative", width: 44, height: 44 }}>
+                    <SpinRing inset={-7} duration={22} reverse opacity={0.12} dashed />
+                    <SpinRing inset={-3} duration={6} opacity={0.5} />
+                    {/* Glow */}
                     <motion.div
-                      animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.55, 0.3] }}
-                      transition={{ duration: 3, repeat: Infinity }}
+                      animate={{ opacity: [0.25, 0.5, 0.25], scale: [1, 1.12, 1] }}
+                      transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
                       style={{
-                        position: "absolute", inset: -3, borderRadius: "50%",
-                        boxShadow: "0 0 16px 3px rgba(255,255,255,0.12)",
+                        position: "absolute", inset: -4, borderRadius: "50%",
+                        boxShadow: "0 0 20px 4px rgba(160,200,255,0.18)",
                         pointerEvents: "none",
                       }}
                     />
                     <div style={{
-                      width: 40, height: 40, borderRadius: "50%", overflow: "hidden",
-                      border: "2px solid rgba(255,255,255,0.2)",
-                      boxShadow: "0 0 20px rgba(255,255,255,0.08)",
+                      width: 44, height: 44, borderRadius: "50%", overflow: "hidden",
+                      border: "2px solid rgba(255,255,255,0.18)",
+                      boxShadow: "0 0 0 1px rgba(255,255,255,0.05)",
                     }}>
                       <img src={avatarImg} alt="Phan Trọng Khang" className="w-full h-full object-cover" />
                     </div>
+                    {/* Online dot */}
                     <motion.div
-                      animate={{ scale: [1, 1.2, 1], opacity: [1, 0.6, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
+                      animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
+                      transition={{ duration: 2.2, repeat: Infinity }}
                       style={{
                         position: "absolute", bottom: 1, right: 1,
-                        width: 9, height: 9, borderRadius: "50%",
-                        background: "#34d399", border: "1.5px solid #080808",
+                        width: 10, height: 10, borderRadius: "50%",
+                        background: "#34d399",
+                        border: "2px solid rgba(14,14,16,0.9)",
+                        boxShadow: "0 0 8px rgba(52,211,153,0.6)",
                       }}
                     />
                   </div>
-                  <motion.span
-                    initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.18, duration: 0.4 }}
-                    className="text-sm font-semibold text-white/65"
-                    style={{ fontFamily: FONT }}
-                  >
-                    Phan Trọng Khang
-                  </motion.span>
-                </motion.div>
 
+                  <div className="flex flex-col gap-0.5">
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: "rgba(255,255,255,0.88)", fontFamily: FONT, letterSpacing: "-0.01em" }}
+                    >
+                      Phan Trọng Khang
+                    </span>
+                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)", fontFamily: FONT }}>
+                      Portfolio
+                    </span>
+                  </div>
+                </div>
+
+                {/* Close button */}
                 <motion.button
                   onClick={() => setIsOpen(false)}
                   whileHover={{ scale: 1.1, rotate: 90 }}
-                  whileTap={{ scale: 0.9 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  className="p-2 rounded-xl"
-                  style={{ border: "1px solid rgba(255,255,255,0.09)" }}
+                  whileTap={{ scale: 0.88 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 16 }}
+                  className="p-2 rounded-xl flex-shrink-0"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                  }}
                 >
-                  <X className="w-4 h-4 text-white/45" />
+                  <X className="w-4 h-4 text-white/50" />
                 </motion.button>
-              </div>
+              </motion.div>
 
-              {/* Nav links */}
-              <nav className="flex-1 px-3 py-5 flex flex-col gap-1.5 overflow-y-auto">
+              {/* ── Label ── */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.15 }}
+                className="px-5 pt-5 pb-2 text-[10px] font-semibold tracking-widest uppercase"
+                style={{ color: "rgba(255,255,255,0.2)", fontFamily: FONT }}
+              >
+                Điều hướng
+              </motion.p>
+
+              {/* ── Nav links ── */}
+              <nav className="flex-1 px-3 pb-4 flex flex-col gap-1.5 overflow-y-auto">
                 {NAV_LINKS.map((link, i) => {
-                  const Icon = link.icon;
-                  const isActive = active === link.href;
+                  const Icon  = link.icon;
+                  const isAct = active === link.href;
+                  const isHov = hovered === link.href;
+
                   return (
                     <motion.div
-                      key={link.name}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.06 + i * 0.055, type: "spring", stiffness: 300, damping: 24 }}
+                      key={link.href}
+                      initial={{ opacity: 0, x: -24, filter: "blur(4px)" }}
+                      animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                      transition={{ delay: 0.12 + i * 0.06, type: "spring", stiffness: 320, damping: 26 }}
                     >
-                      {isActive ? (
-                        <AnimBorderItem speed={4 + i * 0.5} color="rgba(255,255,255,0.45)" radius={12} isActive>
-                          <motion.a
-                            href={link.href}
-                            onClick={(e) => handleNavClick(e, link.href)}
-                            whileHover={{ x: 3 }} whileTap={{ scale: 0.97 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                            className="relative flex items-center gap-3 px-3 py-3 rounded-[11px] cursor-pointer"
-                            style={{ background: "rgba(255,255,255,0.09)" }}
-                          >
+                      <motion.a
+                        href={link.href}
+                        onClick={(e) => handleNavClick(e, link.href)}
+                        onMouseEnter={() => setHovered(link.href)}
+                        onMouseLeave={() => setHovered(null)}
+                        whileTap={{ scale: 0.97 }}
+                        className="relative flex items-center gap-3 px-3 py-3 cursor-pointer select-none overflow-hidden"
+                        style={{
+                          borderRadius: 16,
+                          background: isAct
+                            ? "rgba(255,255,255,0.1)"
+                            : isHov
+                            ? "rgba(255,255,255,0.055)"
+                            : "transparent",
+                          border: isAct
+                            ? "1px solid rgba(255,255,255,0.14)"
+                            : "1px solid transparent",
+                          transition: "background 0.22s ease, border-color 0.22s ease",
+                          boxShadow: isAct
+                            ? "0 2px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)"
+                            : "none",
+                        }}
+                      >
+                        {/* Active accent glow */}
+                        <AnimatePresence>
+                          {isAct && (
+                            <motion.div
+                              key="glow"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              style={{
+                                position: "absolute", inset: 0, borderRadius: 16,
+                                background: `radial-gradient(ellipse at 20% 50%, ${link.accent.replace("0.7", "0.08")} 0%, transparent 70%)`,
+                                pointerEvents: "none",
+                              }}
+                            />
+                          )}
+                        </AnimatePresence>
+
+                        {/* Active indicator bar */}
+                        <AnimatePresence>
+                          {isAct && (
                             <motion.div
                               layoutId="activeBar"
-                              className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-white/70"
-                            />
-                            <div
-                              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                              initial={{ scaleY: 0, opacity: 0 }}
+                              animate={{ scaleY: 1, opacity: 1 }}
+                              exit={{ scaleY: 0, opacity: 0 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 28 }}
                               style={{
-                                background: "rgba(255,255,255,0.12)",
-                                border: "1px solid rgba(255,255,255,0.2)",
+                                position: "absolute", left: 0, top: "20%", bottom: "20%",
+                                width: 3, borderRadius: "0 3px 3px 0",
+                                background: link.accent,
+                                boxShadow: `0 0 12px ${link.accent}`,
                               }}
-                            >
-                              <Icon className="w-4 h-4" style={{ color: "rgba(255,255,255,0.9)" }} />
-                            </div>
-                            <span className="text-sm font-medium flex-1" style={{ color: "rgba(255,255,255,0.92)" }}>
-                              {link.name}
-                            </span>
-                            <motion.div
-                              initial={{ scale: 0 }} animate={{ scale: 1 }}
-                              className="w-1.5 h-1.5 rounded-full bg-white/50"
                             />
-                          </motion.a>
-                        </AnimBorderItem>
-                      ) : (
-                        <motion.a
-                          href={link.href}
-                          onClick={(e) => handleNavClick(e, link.href)}
-                          whileHover={{ x: 3 }} whileTap={{ scale: 0.97 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                          className="relative flex items-center gap-3 px-3 py-3 rounded-[11px] cursor-pointer"
-                          style={{ background: "rgba(255,255,255,0.01)", borderRadius: 12 }}
+                          )}
+                        </AnimatePresence>
+
+                        {/* Icon box */}
+                        <motion.div
+                          animate={isAct ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+                          transition={{ duration: 2.5, repeat: isAct ? Infinity : 0, ease: "easeInOut" }}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{
+                            background: isAct
+                              ? "rgba(255,255,255,0.13)"
+                              : "rgba(255,255,255,0.05)",
+                            border: isAct
+                              ? `1px solid rgba(255,255,255,0.18)`
+                              : "1px solid rgba(255,255,255,0.07)",
+                            boxShadow: isAct
+                              ? `0 0 16px ${link.accent.replace("0.7", "0.2")}, inset 0 1px 0 rgba(255,255,255,0.12)`
+                              : "none",
+                            transition: "all 0.25s ease",
+                          }}
                         >
-                          <div
-                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
-                          >
-                            <Icon className="w-4 h-4" style={{ color: "rgba(255,255,255,0.40)" }} />
-                          </div>
-                          <span className="text-sm font-medium flex-1" style={{ color: "rgba(255,255,255,0.55)" }}>
-                            {link.name}
-                          </span>
-                        </motion.a>
-                      )}
+                          <Icon
+                            className="w-4 h-4"
+                            style={{ color: isAct ? link.accent : "rgba(255,255,255,0.38)", transition: "color 0.22s ease" }}
+                          />
+                        </motion.div>
+
+                        {/* Label */}
+                        <span
+                          className="text-sm font-medium flex-1"
+                          style={{
+                            color: isAct ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.5)",
+                            fontFamily: FONT,
+                            letterSpacing: "-0.01em",
+                            transition: "color 0.22s ease",
+                          }}
+                        >
+                          {link.name}
+                        </span>
+
+                        {/* Active dot */}
+                        <AnimatePresence>
+                          {isAct && (
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                              style={{
+                                width: 6, height: 6, borderRadius: "50%",
+                                background: link.accent,
+                                boxShadow: `0 0 8px ${link.accent}`,
+                                flexShrink: 0,
+                              }}
+                            />
+                          )}
+                        </AnimatePresence>
+
+                        {/* Hover shimmer */}
+                        <AnimatePresence>
+                          {isHov && !isAct && (
+                            <motion.div
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 10 }}
+                              transition={{ duration: 0.18 }}
+                              style={{
+                                position: "absolute", inset: 0, borderRadius: 16,
+                                background: "linear-gradient(90deg, rgba(255,255,255,0.03) 0%, transparent 70%)",
+                                pointerEvents: "none",
+                              }}
+                            />
+                          )}
+                        </AnimatePresence>
+                      </motion.a>
                     </motion.div>
                   );
                 })}
               </nav>
 
-              {/* Footer */}
-              <div className="px-5 py-5 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.18)", fontFamily: FONT }}>
-                  © 2026 Phan Trọng Khang
-                </p>
-                <div className="flex items-center gap-1.5 mt-2">
-                  {[0.5, 0.3, 0.15].map((op, idx) => (
+              {/* ── Footer ── */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="px-5 py-5 flex-shrink-0"
+                style={{
+                  borderTop: "1px solid rgba(255,255,255,0.07)",
+                  background: "rgba(255,255,255,0.02)",
+                }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  {[
+                    { color: "#ff5f57", size: 9 },
+                    { color: "#febc2e", size: 9 },
+                    { color: "#28c840", size: 9 },
+                  ].map((dot, i) => (
                     <motion.div
-                      key={idx}
-                      animate={{ opacity: [op, op * 2, op] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: idx * 0.4 }}
-                      className="w-1.5 h-1.5 rounded-full bg-white"
-                      style={{ opacity: op }}
+                      key={i}
+                      whileHover={{ scale: 1.4 }}
+                      style={{
+                        width: dot.size, height: dot.size,
+                        borderRadius: "50%",
+                        background: dot.color,
+                        opacity: 0.6,
+                        cursor: "default",
+                        boxShadow: `0 0 6px ${dot.color}55`,
+                      }}
                     />
                   ))}
                 </div>
-              </div>
+                <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.18)", fontFamily: FONT }}>
+                  © 2026 Phan Trọng Khang
+                </p>
+              </motion.div>
             </motion.aside>
           </>
         )}
