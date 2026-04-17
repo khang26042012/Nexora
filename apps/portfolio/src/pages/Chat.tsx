@@ -14,6 +14,12 @@ Trả lời tiếng Việt trừ khi người dùng viết bằng ngôn ngữ kh
 Thân thiện, ngắn gọn, thực tế. Dùng emoji hợp lý.
 Nếu người dùng hỏi về kỹ thuật, hãy giải thích rõ ràng và cụ thể.
 
+QUY TẮC BẮT BUỘC VỀ LINK:
+- Khi cần đề cập link hoặc hướng dẫn đến tool/trang nào đó, chỉ đưa ra ĐÚNG MỘT đường link duy nhất quan trọng nhất.
+- LUÔN dùng định dạng markdown: [tên hiển thị](https://nexorax.cloud/đường-dẫn)
+- Ví dụ đúng: Bạn vào [Background Remover](https://nexorax.cloud/tool/bg-remover) để tách nền nhé!
+- KHÔNG liệt kê nhiều link cùng lúc trong một câu trả lời.
+
 Dưới đây là toàn bộ tài liệu kỹ thuật hệ thống NexoraGarden mà bạn cần nắm rõ:
 
 ${NEXORA_SYSTEM_DATA}`;
@@ -52,7 +58,7 @@ function FileIcon({ type }: { type: string }) {
 
 function renderLine(line: string, key: number) {
   const parts: React.ReactNode[] = [];
-  const regex = /\*\*(.+?)\*\*|`(.+?)`|\*(.+?)\*/g;
+  const regex = /\*\*(.+?)\*\*|`(.+?)`|\*(.+?)\*|\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(line)) !== null) {
@@ -63,6 +69,18 @@ function renderLine(line: string, key: number) {
       parts.push(<code key={match.index} style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "1px 5px", fontSize: "0.88em", fontFamily: "monospace" }}>{match[2]}</code>);
     else if (match[3] !== undefined)
       parts.push(<em key={match.index}>{match[3]}</em>);
+    else if (match[4] !== undefined && match[5] !== undefined)
+      parts.push(
+        <a
+          key={match.index}
+          href={match[5]}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#60a5fa", textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}
+        >
+          {match[4]}
+        </a>
+      );
     last = match.index + match[0].length;
   }
   if (last < line.length) parts.push(line.slice(last));

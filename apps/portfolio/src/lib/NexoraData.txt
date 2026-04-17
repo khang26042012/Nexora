@@ -615,6 +615,35 @@ Tính năng:
   - Highlight các bước giải riêng biệt
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 14 — BACKGROUND REMOVER (ĐÃ HOÀN THIỆN, ĐANG HOẠT ĐỘNG)
+─────────────────────────────────────────────────────────────
+Tên hiển thị: Background Remover
+Mô tả: Tách nền ảnh tự động bằng AI — upload ảnh, xóa background trong vài giây, tải về PNG trong suốt
+URL: /tool/bg-remover
+Tag: Image
+Trạng thái: LIVE
+API Backend: POST /api/bg-remove — multipart form (image)
+
+Tính năng:
+  - Kéo thả hoặc chọn ảnh (JPG, PNG, WebP — tối đa 25MB)
+  - Xem preview ảnh gốc trước khi xử lý
+  - AI tự động tách nền — không cần chọn vùng thủ công
+  - Hiển thị ảnh kết quả trên nền checker (bàn cờ) để thấy vùng trong suốt
+  - Tải về file PNG với nền trong suốt (alpha channel)
+  - Thời gian xử lý thường dưới 10 giây
+
+Phù hợp cho:
+  - Tách nền ảnh sản phẩm để dùng thương mại
+  - Xóa background ảnh chân dung, avatar
+  - Chuẩn bị ảnh cho thiết kế đồ họa, poster
+  - Tách đối tượng khỏi ảnh phức tạp
+
+Giới hạn:
+  - Tối đa 25MB mỗi ảnh
+  - Định dạng hỗ trợ: JPG, PNG, WebP
+  - Kết quả tốt nhất với ảnh có chủ thể rõ ràng, tương phản cao với nền
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHẦN 7 — KIẾN TRÚC MONOREPO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
