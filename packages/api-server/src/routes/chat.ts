@@ -4,7 +4,7 @@ import { insertToolLog } from "../lib/admin-db.js";
 const router = Router();
 
 const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY ?? "";
-const CEREBRAS_MODEL   = "qwen-3-235b-a22b-instruct-2507";
+const CEREBRAS_MODEL   = "llama3.1-8b";
 const CEREBRAS_URL     = "https://api.cerebras.ai/v1/chat/completions";
 
 type OpenAIMessage = {
