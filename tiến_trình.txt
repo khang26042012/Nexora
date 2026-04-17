@@ -1,8 +1,27 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: [session 40] MIGRATION Replit environment mới lần 12
+  Cập nhật: [session 41] FIX — Chatbot đổi model sang gemma-4-26b-a4b-it
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[session 41] FIX — Chatbot đổi model sang gemma-4-26b-a4b-it
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - gemini-1.5-flash không còn hỗ trợ cho API v1beta → chatbot báo lỗi "not found"
+
+Đã làm:
+  - Đổi GEMINI_MODEL trong packages/api-server/src/routes/chat.ts
+    từ: "gemini-1.5-flash"
+    sang: "gemma-4-26b-a4b-it"
+  - Restart "packages/api-server: API Server" → RUNNING ✅
+  - Push GitHub: commit a22e06ba (Tree API, 1 file) ✅
+
+Files thay đổi:
+  - packages/api-server/src/routes/chat.ts
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [session 40] MIGRATION — Replit environment mới (lần 12)
