@@ -1,8 +1,39 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: [session 41] FIX — Chatbot đổi model sang gemma-4-26b-a4b-it
+  Cập nhật: [session 42] FEAT — Chatbot: thinking mode ẩn tokens, hiện ⚙️ Đang suy nghĩ...
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[session 42] FEAT — Chatbot: thinking mode ẩn tokens, hiện ⚙️ Đang suy nghĩ...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model: gemma-4-26b-a4b-it (hỗ trợ thinking qua thinking_config runtime)
+
+Backend (chat.ts):
+  - needsThinking(): phát hiện câu phức tạp hoặc chứa keyword "thinking":
+    + Keyword: "thinking", "viết code", "lập trình", "thuật toán", "debug", "phân tích sâu"...
+    + Hoặc message > 300 ký tự
+  - Nếu cần thinking: gửi thinking_budget=8192, ngược lại: 0 (không thinking)
+  - Stream filtering: lọc bỏ các chunk có thought=true (thinking tokens) — không forward
+  - Gửi SSE event đặc biệt: {"type":"thinking","active":true/false} cho frontend
+
+Frontend (Chat.tsx):
+  - Thêm state isThinking
+  - callGeminiStream xử lý event type:"thinking" → cập nhật setIsThinking
+  - UI streaming bubble:
+    + isThinking && !streamText → ⚙️ Đang suy nghĩ... (pulsing)
+    + streamText → hiện text + cursor nhấp nháy
+    + fallback → 3 dots bouncing
+  - finally: reset isThinking=false
+
+Files thay đổi:
+  - packages/api-server/src/routes/chat.ts
+  - apps/portfolio/src/pages/Chat.tsx
+
+Push GitHub: commit b0fe3228 ✅
+Restart: API Server ✅ | Start application ✅
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [session 41] FIX — Chatbot đổi model sang gemma-4-26b-a4b-it
