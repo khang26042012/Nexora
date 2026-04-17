@@ -3,9 +3,12 @@ import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
-const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY ?? "";
-const CEREBRAS_MODEL   = "qwen-3-235b-a22b-instruct-2507";
-const CEREBRAS_URL     = "https://api.cerebras.ai/v1/chat/completions";
+// GitHub Models — GPT-5 (free via GitHub token)
+// Endpoint: https://models.inference.ai.azure.com
+// Rate limit (GitHub Free): 1 RPM, 8 req/day, 4000 in/4000 out tokens
+const GITHUB_TOKEN   = process.env.GITHUB_TOKEN ?? "";
+const GITHUB_MODEL   = "gpt-5";
+const GITHUB_URL     = "https://models.inference.ai.azure.com/chat/completions";
 
 type OpenAIMessage = {
   role: "system" | "user" | "assistant";
@@ -49,6 +52,11 @@ router.post("/chat", async (req: Request, res: Response) => {
     return;
   }
 
+  if (!GITHUB_TOKEN) {
+    res.status(500).json({ error: "GITHUB_TOKEN chưa được cấu hình" });
+    return;
+  }
+
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
   const lastUser = [...messages].reverse().find(m => m.role === "user");
   const lastUserText = typeof lastUser?.content === "string"
@@ -62,9 +70,8 @@ router.post("/chat", async (req: Request, res: Response) => {
     ? (thinking ? system + THINKING_SUFFIX : system)
     : undefined;
 
-  // llama3.1-8b có context limit 8192 tokens (~4 chars/token)
-  // Giữ lại system + tin nhắn mới nhất, trim bớt cũ nếu quá dài
-  function trimMessages(msgs: OpenAIMessage[], maxChars = 18000): OpenAIMessage[] {
+  // GitHub Models GPT-5: 4000 input tokens max (~16000 chars)
+  function trimMessages(msgs: OpenAIMessage[], maxChars = 14000): OpenAIMessage[] {
     let total = 0;
     const result: OpenAIMessage[] = [];
     for (let i = msgs.length - 1; i >= 0; i--) {
@@ -96,17 +103,17 @@ router.post("/chat", async (req: Request, res: Response) => {
   }
 
   try {
-    const upstream = await fetch(CEREBRAS_URL, {
+    const upstream = await fetch(GITHUB_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${CEREBRAS_API_KEY}`,
+        "Authorization": `Bearer ${GITHUB_TOKEN}`,
       },
       body: JSON.stringify({
-        model: CEREBRAS_MODEL,
+        model: GITHUB_MODEL,
         stream: true,
         temperature: 0.7,
-        max_tokens: 2048,
+        max_tokens: 4000,
         messages: allMessages,
       }),
     });
@@ -145,7 +152,6 @@ router.post("/chat", async (req: Request, res: Response) => {
           const chunk = parsed?.choices?.[0]?.delta?.content ?? "";
           if (!chunk) continue;
 
-          // Handle <think> tag boundaries for thinking events
           if (chunk.includes("<think>")) {
             inThinkTag = true;
             if (!thinkingEmitted) {
@@ -156,7 +162,6 @@ router.post("/chat", async (req: Request, res: Response) => {
           if (chunk.includes("</think>")) {
             inThinkTag = false;
             res.write(`data: ${JSON.stringify({ type: "thinking", active: false })}\n\n`);
-            // Strip the closing tag and send remaining content
             const after = chunk.split("</think>").slice(1).join("</think>");
             if (after) {
               res.write(`data: ${JSON.stringify({ text: after })}\n\n`);
@@ -164,7 +169,6 @@ router.post("/chat", async (req: Request, res: Response) => {
             continue;
           }
 
-          // Don't stream thinking content to the user as chat text
           if (!inThinkTag) {
             res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
           }

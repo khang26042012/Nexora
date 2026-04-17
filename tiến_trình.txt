@@ -1,8 +1,31 @@
 ================================================================
-  TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
-  Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: [session 44] FEAT — 3 tool mới: Code Review AI, Email Writer, Password Generator
-================================================================
+    TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
+    Ghi lại mọi thứ đã làm được để AI khác hiểu context
+    Cập nhật: [session 45] SWITCH — Chatbot đổi sang GitHub Models GPT-5
+  ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 45] SWITCH — Chatbot đổi sang GitHub Models GPT-5
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    - Đổi chatbot từ Cerebras (qwen-3-235b) → GitHub Models (gpt-5)
+    - Endpoint: https://models.inference.ai.azure.com/chat/completions
+    - Model ID: gpt-5
+    - Auth: GITHUB_TOKEN (set trong Replit env var, KHÔNG hardcode vào code)
+    - Rate limit (GitHub Free): 1 RPM, 8 req/ngày, 4000 in/4000 out tokens
+    - max_tokens giảm từ 2048 → 4000 (match GitHub Models limit)
+    - trimMessages giảm maxChars từ 18000 → 14000 (match 4000 input tokens)
+    - Thinking mode vẫn hoạt động bình thường (prompt-based <think> tag)
+
+  Files thay đổi:
+    - packages/api-server/src/routes/chat.ts
+
+  Restart: API Server ✅ | Build OK ✅
+  Push GitHub: commit (Tree API, 1 commit) ✅
+  ESP32 cần nạp firmware: KHÔNG
+
+  
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [session 44] FEAT — 3 tool mới: Code Review AI, Email Writer, Password Generator
