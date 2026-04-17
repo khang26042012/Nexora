@@ -145,17 +145,9 @@ export function BackgroundRemover() {
             <input ref={fileRef} type="file" accept="image/*" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
 
-            <div className="flex flex-col gap-2 mt-4">
-              {[
-                { icon: "🤖", text: "Powered by RMBG-1.4 (HuggingFace) — AI xóa nền chính xác, miễn phí" },
-                { icon: "🪄", text: "Xuất file PNG trong suốt, dùng được ngay trên Canva, PowerPoint, Figma" },
-                { icon: "⚡", text: "Xử lý trên server — không lag, không cần cài gì thêm" },
-              ].map(({ icon, text }) => (
-                <div key={text} className="flex items-start gap-2.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-                  <span className="text-base leading-none">{icon}</span>
-                  <span>{text}</span>
-                </div>
-              ))}
+            <div className="flex items-start gap-2 mt-4 text-xs px-1" style={{ color: "rgba(255,200,50,0.6)" }}>
+              <span className="text-sm leading-none flex-shrink-0">⚠️</span>
+              <span>Tool này miễn phí nhưng vui lòng không lạm dụng — khuyến nghị dùng cách nhau ít nhất 5 phút mỗi lần.</span>
             </div>
           </motion.div>
         )}
