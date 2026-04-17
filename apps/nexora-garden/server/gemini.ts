@@ -36,7 +36,7 @@ export async function askGemini(userMessage: string): Promise<string> {
 Độ ẩm đất: ${state.soil}% | Mức nước: ${state.water}% | Nhiệt độ: ${state.temp}°C | Độ ẩm KK: ${state.hum}% | Máy bơm: ${state.pump} | Lửa: ${state.fire} | Mưa: ${state.rain}`;
 
     const model = ai.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-1.5-flash",
       systemInstruction: SYSTEM_PROMPT,
     });
 
