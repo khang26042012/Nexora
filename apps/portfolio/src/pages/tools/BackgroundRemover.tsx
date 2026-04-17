@@ -147,9 +147,9 @@ export function BackgroundRemover() {
 
             <div className="flex flex-col gap-2 mt-4">
               {[
-                { icon: "🤖", text: "Powered by remove.bg — AI chuyên nghiệp, cắt nền chính xác" },
+                { icon: "🤖", text: "Powered by RMBG-1.4 (HuggingFace) — AI xóa nền chính xác, miễn phí" },
                 { icon: "🪄", text: "Xuất file PNG trong suốt, dùng được ngay trên Canva, PowerPoint, Figma" },
-                { icon: "⚡", text: "Xử lý trên server — không lag, không lỗi model trên thiết bị" },
+                { icon: "⚡", text: "Xử lý trên server — không lag, không cần cài gì thêm" },
               ].map(({ icon, text }) => (
                 <div key={text} className="flex items-start gap-2.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
                   <span className="text-base leading-none">{icon}</span>
