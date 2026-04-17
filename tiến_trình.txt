@@ -1,8 +1,72 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: [session 42] FEAT — Chatbot: thinking mode ẩn tokens, hiện ⚙️ Đang suy nghĩ...
+  Cập nhật: [session 44] FEAT — 3 tool mới: Code Review AI, Email Writer, Password Generator
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[session 44] FEAT — 3 tool mới: Code Review AI, Email Writer, Password Generator
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Backend:
+  - packages/api-server/src/routes/codereview.ts (MỚI)
+    POST /api/code-review: nhận { code, lang, focus } → stream Gemini 2.5 Flash
+    6 phần output: Tổng quan, Bug, Hiệu năng, Bảo mật, Gợi ý refactor, Điểm tốt
+    Focus filter: all / bug / performance / security / refactor
+  - packages/api-server/src/routes/emailwriter.ts (MỚI)
+    POST /api/email-write: nhận { idea, recipient, tone, type, lang } → stream Gemini
+    8 loại email: request/followup/thankyou/introduction/complaint/apology/invitation/other
+    5 tone: formal/professional/friendly/casual/urgent
+    Hỗ trợ VI & EN
+  - packages/api-server/src/routes/index.ts: thêm 2 router mới
+
+Frontend:
+  - apps/portfolio/src/pages/tools/CodeReview.tsx (MỚI)
+    Language selector (15 ngôn ngữ) + Focus filter + Code textarea + Streaming output
+  - apps/portfolio/src/pages/tools/EmailWriter.tsx (MỚI)
+    Type pills + Tone pills + Recipient input + Language toggle + Streaming output
+    Subject line được highlight riêng trong output
+  - apps/portfolio/src/pages/tools/PasswordGenerator.tsx (MỚI)
+    Hoàn toàn client-side (Web Crypto API), không gửi server
+    Slider độ dài 6–64, options: upper/lower/digits/symbols/no-ambiguous
+    Số lượng: 1/3/5/10, strength indicator (XH/ONNX-free), show/hide toggle
+  - apps/portfolio/src/App.tsx: thêm 3 route mới
+  - apps/portfolio/src/pages/Tool.tsx: thêm 3 card đầu danh sách
+
+Trạng thái:
+  - API Server: RUNNING (port 8080) ✅
+  - Portfolio: RUNNING (port 21113) ✅
+
+ESP32 cần nạp firmware: KHÔNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[session 43] MIGRATION — Replit environment mới (lần 13)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. node_modules đã có sẵn → không cần pnpm install
+  2. prebuilt/better_sqlite3.node có sẵn → setup-sqlite.mjs tự copy ✅
+  3. Tạo workflow "packages/api-server: API Server" (PORT=8080) bằng configureWorkflow ✅
+  4. Restart "Start application" (portfolio, port 21113) → RUNNING ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - SQLite DB initialized ✅
+  - ffmpeg: bundled vào dist/ffmpeg ✅
+  - yt-dlp: downloaded & ready ✅
+
+WARN (không phải lỗi):
+  - TELEGRAM_TOKEN not set → Bot Telegram tắt (cần set trong Secrets)
+  - NexoraGarden dist not found → bình thường dev mode
+  - Portfolio dist not found → bình thường dev mode
+
+Note kỹ thuật (migration sau):
+  - Môi trường Replit mới KHÔNG có workflow "packages/api-server: API Server" sẵn
+  - Phải tạo lại bằng configureWorkflow() với PORT=8080
+  - node_modules thường đã có sẵn từ import, chỉ cần restart workflow là xong
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [session 42] FEAT — Chatbot: thinking mode ẩn tokens, hiện ⚙️ Đang suy nghĩ...

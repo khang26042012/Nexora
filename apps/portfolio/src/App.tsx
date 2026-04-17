@@ -21,6 +21,9 @@ import { AITranslator } from "@/pages/tools/AITranslator";
 import { AICodeExplainer } from "@/pages/tools/AICodeExplainer";
 import { AIMathSolver } from "@/pages/tools/AIMathSolver";
 import { BackgroundRemover } from "@/pages/tools/BackgroundRemover";
+import { CodeReview } from "@/pages/tools/CodeReview";
+import { EmailWriter } from "@/pages/tools/EmailWriter";
+import { PasswordGenerator } from "@/pages/tools/PasswordGenerator";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +46,9 @@ function Router() {
       <Route path="/tool/code-explainer" component={AICodeExplainer} />
       <Route path="/tool/math-solver" component={AIMathSolver} />
       <Route path="/tool/bg-remover" component={BackgroundRemover} />
+      <Route path="/tool/code-review" component={CodeReview} />
+      <Route path="/tool/email-writer" component={EmailWriter} />
+      <Route path="/tool/password-generator" component={PasswordGenerator} />
       <Route path="/chat" component={Chat} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />

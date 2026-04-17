@@ -1,10 +1,52 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const TOOLS = [
+  {
+    id: "code-review",
+    icon: ShieldCheck,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Code Review AI",
+    desc: "Phân tích code chuyên sâu: phát hiện bug, lỗ hổng bảo mật, vấn đề hiệu năng và gợi ý refactor.",
+    tag: "AI",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/code-review",
+  },
+  {
+    id: "email-writer",
+    icon: Mail,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Email Writer",
+    desc: "Nhập ý tưởng ngắn — AI viết email hoàn chỉnh, chuyên nghiệp với nhiều tone và loại email.",
+    tag: "AI",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/email-writer",
+  },
+  {
+    id: "password-generator",
+    icon: KeyRound,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Password Generator",
+    desc: "Tạo mật khẩu mạnh, ngẫu nhiên — tuỳ chỉnh độ dài, ký tự, kiểm tra độ bảo mật. Chạy 100% trên trình duyệt.",
+    tag: "Security",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/password-generator",
+  },
   {
     id: "qr-generator",
     icon: QrCode,

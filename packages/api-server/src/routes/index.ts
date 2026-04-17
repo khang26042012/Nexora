@@ -14,6 +14,8 @@ import compressRouter from "./compress";
 import codeexplainerRouter from "./codeexplainer";
 import mathsolverRouter from "./mathsolver";
 import bgremoverRouter from "./bgremover";
+import codereviewRouter from "./codereview";
+import emailwriterRouter from "./emailwriter";
 
 const router: IRouter = Router();
 
@@ -32,5 +34,7 @@ router.use(compressRouter);
 router.use(codeexplainerRouter);
 router.use(mathsolverRouter);
 router.use(bgremoverRouter);
+router.use(codereviewRouter);
+router.use(emailwriterRouter);
 
 export default router;
