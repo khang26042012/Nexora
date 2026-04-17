@@ -16,6 +16,7 @@ import mathsolverRouter from "./mathsolver";
 import bgremoverRouter from "./bgremover";
 import codereviewRouter from "./codereview";
 import emailwriterRouter from "./emailwriter";
+import promptimageRouter from "./promptimage";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(mathsolverRouter);
 router.use(bgremoverRouter);
 router.use(codereviewRouter);
 router.use(emailwriterRouter);
+router.use(promptimageRouter);
 
 export default router;

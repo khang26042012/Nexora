@@ -1,10 +1,24 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const TOOLS = [
+  {
+    id: "prompt-image",
+    icon: ImageIcon,
+    iconColor: "rgba(255,255,255,0.75)",
+    iconBg: "rgba(255,255,255,0.06)",
+    iconBorder: "rgba(255,255,255,0.18)",
+    glowColor: "rgba(255,255,255,0.08)",
+    name: "Prompt Image",
+    desc: "Upload ảnh bất kỳ — AI suy nghĩ sâu và tạo prompt chi tiết để tái tạo ảnh với độ giống 98–100% cho Midjourney, DALL-E, Flux.",
+    tag: "AI · Image",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    route: "/tool/prompt-image",
+  },
   {
     id: "code-review",
     icon: ShieldCheck,

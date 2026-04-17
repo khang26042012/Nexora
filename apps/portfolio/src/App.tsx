@@ -24,6 +24,7 @@ import { BackgroundRemover } from "@/pages/tools/BackgroundRemover";
 import { CodeReview } from "@/pages/tools/CodeReview";
 import { EmailWriter } from "@/pages/tools/EmailWriter";
 import { PasswordGenerator } from "@/pages/tools/PasswordGenerator";
+import { PromptImage } from "@/pages/tools/PromptImage";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/tool/code-review" component={CodeReview} />
       <Route path="/tool/email-writer" component={EmailWriter} />
       <Route path="/tool/password-generator" component={PasswordGenerator} />
+      <Route path="/tool/prompt-image" component={PromptImage} />
       <Route path="/chat" component={Chat} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
