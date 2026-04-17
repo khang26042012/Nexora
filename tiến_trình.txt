@@ -1,8 +1,42 @@
 ================================================================
   TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
   Ghi lại mọi thứ đã làm được để AI khác hiểu context
-  Cập nhật: [session 38c] MIGRATION Replit environment mới lần 11
+  Cập nhật: [session 40] MIGRATION Replit environment mới lần 12
 ================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[session 40] MIGRATION — Replit environment mới (lần 12)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. pnpm install --ignore-scripts → OK (packages đã up to date, 2.4s)
+  2. better-sqlite3 build từ source:
+     - prebuild-install: không có binary cho Node 24.13.0
+     - Dùng node-gyp với nodedir=/nix/store/.../nodejs-24.13.0 → build thành công ✅
+     - better_sqlite3.node + test_extension.node tại build/Release/ ✅
+  3. Restart "Start application" (portfolio, port 21113) → RUNNING ✅
+  4. Restart "packages/api-server: API Server" (port 8080) → RUNNING ✅
+  5. Gửi Telegram thông báo hoàn tất ✅
+
+Kết quả:
+  - Portfolio (port 21113): RUNNING ✅
+  - API Server (port 8080): RUNNING ✅
+  - SQLite DB initialized ✅
+  - ffmpeg: bundled vào dist/ffmpeg ✅
+  - yt-dlp: downloaded & ready ✅
+
+WARN (không phải lỗi):
+  - TELEGRAM_TOKEN not set → Bot Telegram tắt (cần set trong Secrets)
+  - NexoraGarden dist not found → bình thường dev mode
+  - Portfolio dist not found → bình thường dev mode
+  - attached_assets/* workflows: NOT_STARTED → bình thường (file tham khảo cũ)
+
+Note kỹ thuật (dùng cho migration sau):
+  - Node 24.13.0 không có prebuild binary cho better-sqlite3
+  - Cần dùng: npx node-gyp --nodedir="/nix/store/9cyx2v23dip6p9q98384k9v06c96qskb-nodejs-24.13.0" configure && build --release
+  - Tạo build/node_gyp_bins/ trước khi chạy node-gyp
+
+ESP32 cần nạp firmware: KHÔNG
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [session 39] FEAT — Thêm tool mới: Prompt Builder
