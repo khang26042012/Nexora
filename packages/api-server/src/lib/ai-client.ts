@@ -1,7 +1,10 @@
-const ZUKI_MODEL  = "gemini-2.5-flash";
-const ZUKI_URL    = "https://api.zukijourney.com/v1/chat/completions";
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_BASE  = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+const ZUKI_BASE     = "https://api.zukijourney.com/v1";
+const GEMINI_MODEL  = "gemini-2.5-flash";
+const GEMINI_BASE   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+
+function getZukiKey(): string {
+  return process.env.ZUKI_API_KEY ?? "zu-4f8d8ea27c4e2bd7d7bfefe780f5a846";
+}
 
 type TextPart  = { type: "text"; text?: string };
 type ImagePart = { type: "image_url"; image_url: { url: string } };
@@ -15,8 +18,11 @@ export interface AIMessage {
 
 export interface StreamOptions {
   temperature?: number;
-  maxTokens?: number;
+  maxTokens?:   number;
+  model?:       string;
 }
+
+export type Intent = "direct" | "thinking" | "bigcontext" | "imagegen";
 
 function toGeminiParts(content: MessageContent): object[] {
   if (typeof content === "string") return [{ text: content }];
@@ -32,9 +38,9 @@ function toGeminiParts(content: MessageContent): object[] {
 }
 
 async function* parseOpenAIStream(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const reader = body.getReader();
+  const reader  = body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
+  let buffer    = "";
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -55,9 +61,9 @@ async function* parseOpenAIStream(body: ReadableStream<Uint8Array>): AsyncGenera
 }
 
 async function* parseGeminiStream(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const reader = body.getReader();
+  const reader  = body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
+  let buffer    = "";
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -70,7 +76,7 @@ async function* parseGeminiStream(body: ReadableStream<Uint8Array>): AsyncGenera
       if (!raw || raw === "[DONE]") continue;
       try {
         const parsed = JSON.parse(raw);
-        const parts = parsed?.candidates?.[0]?.content?.parts ?? [];
+        const parts  = parsed?.candidates?.[0]?.content?.parts ?? [];
         for (const part of parts) {
           if (part.thought === true) continue;
           if (part.text) yield part.text as string;
@@ -80,68 +86,179 @@ async function* parseGeminiStream(body: ReadableStream<Uint8Array>): AsyncGenera
   }
 }
 
-export async function* streamAI(
+async function* streamGeminiNative(
   messages: AIMessage[],
-  opts: StreamOptions = {},
+  opts: StreamOptions,
 ): AsyncGenerator<string> {
-  const { temperature = 0.7, maxTokens = 4096 } = opts;
-  const ZUKI_API_KEY  = process.env.ZUKI_API_KEY  ?? "";
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
-  if (ZUKI_API_KEY) {
-    try {
-      const res = await fetch(ZUKI_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${ZUKI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: ZUKI_MODEL,
-          stream: true,
-          temperature,
-          max_tokens: maxTokens,
-          messages,
-        }),
-      });
-      if (res.ok && res.body) {
-        yield* parseOpenAIStream(res.body);
-        return;
-      }
-    } catch {
-      // fallthrough to Gemini
-    }
-  }
-
-  if (!GEMINI_API_KEY) {
-    throw new Error("Không có API key khả dụng (ZUKI_API_KEY và GEMINI_API_KEY đều chưa set)");
-  }
-
-  const systemMsg = messages.find(m => m.role === "system");
+  const systemMsg  = messages.find(m => m.role === "system");
   const otherMsgs  = messages.filter(m => m.role !== "system");
-
   const payload: Record<string, unknown> = {
     contents: otherMsgs.map(m => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: toGeminiParts(m.content),
     })),
-    generationConfig: { temperature, maxOutputTokens: maxTokens },
+    generationConfig: {
+      temperature:      opts.temperature ?? 0.7,
+      maxOutputTokens:  opts.maxTokens   ?? 4096,
+    },
   };
   if (systemMsg) {
     const sysText = typeof systemMsg.content === "string" ? systemMsg.content : "";
     payload.system_instruction = { parts: [{ text: sysText }] };
   }
-
-  const gemRes = await fetch(`${GEMINI_BASE}&key=${GEMINI_API_KEY}`, {
-    method: "POST",
+  const res = await fetch(`${GEMINI_BASE}&key=${GEMINI_API_KEY}`, {
+    method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body:    JSON.stringify(payload),
   });
+  if (!res.ok || !res.body) {
+    const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(err?.error?.message ?? `Gemini HTTP ${res.status}`);
+  }
+  yield* parseGeminiStream(res.body);
+}
 
-  if (!gemRes.ok || !gemRes.body) {
-    const err = await gemRes.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `Gemini HTTP ${gemRes.status}`);
+export async function* streamAI(
+  messages: AIMessage[],
+  opts: StreamOptions = {},
+): AsyncGenerator<string> {
+  const { temperature = 0.7, maxTokens = 4096, model = "gemini-2.5-flash" } = opts;
+  const apiKey = getZukiKey();
+
+  try {
+    const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, stream: true, temperature, max_tokens: maxTokens, messages }),
+    });
+    if (res.ok && res.body) {
+      yield* parseOpenAIStream(res.body);
+      return;
+    }
+  } catch { /* fallthrough */ }
+
+  yield* streamGeminiNative(messages, opts);
+}
+
+export async function moderateContent(text: string): Promise<{ flagged: boolean; reason?: string }> {
+  const apiKey = getZukiKey();
+  try {
+    const res = await fetch(`${ZUKI_BASE}/moderations`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body:    JSON.stringify({ model: "omni-moderation-latest", input: text }),
+    });
+    if (!res.ok) return { flagged: false };
+    const data   = await res.json() as { results?: { flagged?: boolean }[] };
+    const result = data?.results?.[0];
+    return {
+      flagged: result?.flagged ?? false,
+      reason:  result?.flagged ? "Nội dung vi phạm chính sách an toàn" : undefined,
+    };
+  } catch {
+    return { flagged: false };
+  }
+}
+
+export async function routeIntent(
+  userText: string,
+  hasFile:  boolean,
+  hasImage: boolean,
+): Promise<Intent> {
+  if (hasImage) return "bigcontext";
+  if (/^(vẽ |draw |generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình)/i.test(userText.trim())) {
+    return "imagegen";
   }
 
-  yield* parseGeminiStream(gemRes.body);
+  const apiKey = getZukiKey();
+  try {
+    const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model:      "gpt-4o",
+        stream:     false,
+        max_tokens: 10,
+        temperature: 0,
+        messages: [
+          {
+            role:    "system",
+            content: `Classify the user message. Reply with ONLY one word:
+"imagegen" — user wants to generate/draw/render an image, diagram, or illustration
+"thinking"  — code, C/C++/firmware/ESP32, algorithm, math, debug, logic, step-by-step reasoning
+"bigcontext" — analyse file/log/document, translate long text, summarize large content${hasFile ? " (file attached)" : ""}
+"direct"    — everything else: greetings, general info, simple questions`,
+          },
+          { role: "user", content: userText.slice(0, 600) },
+        ],
+      }),
+    });
+    if (res.ok) {
+      const data  = await res.json() as { choices?: { message?: { content?: string } }[] };
+      const reply = (data?.choices?.[0]?.message?.content ?? "").trim().toLowerCase();
+      if (reply.startsWith("imagegen")) return "imagegen";
+      if (reply.startsWith("thinking")) return "thinking";
+      if (reply.startsWith("bigcontext")) return "bigcontext";
+    }
+  } catch { /* fallback to direct */ }
+
+  return "direct";
+}
+
+export async function generateImage(prompt: string): Promise<string> {
+  const apiKey = getZukiKey();
+  const res = await fetch(`${ZUKI_BASE}/images/generations`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+    body:    JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024" }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(err?.error?.message ?? `Image gen HTTP ${res.status}`);
+  }
+  const data = await res.json() as { data?: { url?: string }[] };
+  const url  = data?.data?.[0]?.url;
+  if (!url) throw new Error("Không nhận được URL ảnh từ dall-e-3");
+  return url;
+}
+
+export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Promise<string> {
+  const apiKey = getZukiKey();
+  const ext    = mimeType.includes("webm") ? "webm"
+               : mimeType.includes("ogg")  ? "ogg"
+               : mimeType.includes("mp4")  ? "mp4"
+               : "wav";
+  const form = new FormData();
+  form.append("model", "whisper-1");
+  form.append("file", new Blob([audioBuffer], { type: mimeType }), `audio.${ext}`);
+
+  const res = await fetch(`${ZUKI_BASE}/audio/transcriptions`, {
+    method:  "POST",
+    headers: { "Authorization": `Bearer ${apiKey}` },
+    body:    form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(err?.error?.message ?? `STT HTTP ${res.status}`);
+  }
+  const data = await res.json() as { text?: string };
+  return data?.text ?? "";
+}
+
+export async function synthesizeSpeech(text: string, voice = "nova"): Promise<Buffer> {
+  const apiKey = getZukiKey();
+  const res = await fetch(`${ZUKI_BASE}/audio/speech`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+    body:    JSON.stringify({ model: "gpt-4o-mini-tts", input: text.slice(0, 4096), voice }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(err?.error?.message ?? `TTS HTTP ${res.status}`);
+  }
+  const arrayBuf = await res.arrayBuffer();
+  return Buffer.from(arrayBuf);
 }

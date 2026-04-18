@@ -1,26 +1,18 @@
 import { Router, type Request, type Response } from "express";
+import multer from "multer";
 import { insertToolLog } from "../lib/admin-db.js";
-import { streamAI, type AIMessage } from "../lib/ai-client.js";
+import {
+  streamAI,
+  moderateContent,
+  routeIntent,
+  generateImage,
+  transcribeAudio,
+  synthesizeSpeech,
+  type AIMessage,
+} from "../lib/ai-client.js";
 
-const router = Router();
-
-function isComplexQuestion(messages: AIMessage[]): boolean {
-  const lastUser = [...messages].reverse().find(m => m.role === "user");
-  if (!lastUser) return false;
-  const text = typeof lastUser.content === "string"
-    ? lastUser.content
-    : (lastUser.content as { text?: string }[]).map(p => p.text ?? "").join(" ");
-  const lower = text.toLowerCase();
-  if (lower.includes("thinking")) return true;
-  if (text.length > 300) return true;
-  const complexKw = [
-    "giải thích chi tiết", "phân tích", "so sánh", "tại sao lại", "chứng minh",
-    "lập trình", "code", "thuật toán", "toán học", "đạo hàm", "tích phân",
-    "explain", "analyze", "compare", "algorithm", "implement", "debug", "prove",
-    "why does", "how does", "step by step", "từng bước",
-  ];
-  return complexKw.some(k => lower.includes(k));
-}
+const router  = Router();
+const upload  = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 const THINKING_SUFFIX = `
 
@@ -32,7 +24,7 @@ function trimMessages(msgs: AIMessage[], maxChars = 14000): AIMessage[] {
   let total = 0;
   const result: AIMessage[] = [];
   for (let i = msgs.length - 1; i >= 0; i--) {
-    const m = msgs[i];
+    const m   = msgs[i];
     const len = typeof m.content === "string"
       ? m.content.length
       : (m.content as { text?: string }[]).map(p => p.text ?? "").join("").length;
@@ -43,6 +35,52 @@ function trimMessages(msgs: AIMessage[], maxChars = 14000): AIMessage[] {
   return result;
 }
 
+function sseWrite(res: Response, data: object) {
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+function setupSSE(res: Response) {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+}
+
+async function streamWithThinkFilter(
+  res: Response,
+  messages: AIMessage[],
+  model: string,
+  maxTokens = 4000,
+): Promise<string> {
+  let inThinkTag    = false;
+  let thinkEmitted  = false;
+  let fullText      = "";
+
+  for await (const chunk of streamAI(messages, { temperature: 0.7, maxTokens, model })) {
+    if (chunk.includes("<think>")) {
+      inThinkTag = true;
+      if (!thinkEmitted) {
+        sseWrite(res, { type: "thinking", active: true });
+        thinkEmitted = true;
+      }
+    }
+    if (chunk.includes("</think>")) {
+      inThinkTag = false;
+      sseWrite(res, { type: "thinking", active: false });
+      const after = chunk.split("</think>").slice(1).join("</think>");
+      if (after) { sseWrite(res, { text: after }); fullText += after; }
+      continue;
+    }
+    if (!inThinkTag) {
+      sseWrite(res, { text: chunk });
+      fullText += chunk;
+    }
+  }
+
+  if (thinkEmitted) sseWrite(res, { type: "thinking", active: false });
+  return fullText;
+}
+
 router.post("/chat", async (req: Request, res: Response) => {
   const { messages, system } = req.body as { messages: AIMessage[]; system?: string };
 
@@ -51,61 +89,115 @@ router.post("/chat", async (req: Request, res: Response) => {
     return;
   }
 
-  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
-  const lastUser = [...messages].reverse().find(m => m.role === "user");
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? req.ip ?? "unknown";
+
+  const lastUser     = [...messages].reverse().find(m => m.role === "user");
   const lastUserText = typeof lastUser?.content === "string"
     ? lastUser.content
     : (lastUser?.content as { text?: string }[] ?? []).map(p => p.text ?? "").join("");
   insertToolLog({ ip, tool: "chat", action: "message", detail: lastUserText.slice(0, 500) });
 
-  const thinking = isComplexQuestion(messages);
-  const sysContent = system ? (thinking ? system + THINKING_SUFFIX : system) : undefined;
+  const hasImage = messages.some(m =>
+    Array.isArray(m.content) &&
+    (m.content as { type?: string }[]).some(p => p.type === "image_url")
+  );
+  const hasFile = !hasImage && lastUserText.startsWith("[Đính kèm file:");
 
-  const allMessages: AIMessage[] = [
-    ...(sysContent ? [{ role: "system" as const, content: sysContent }] : []),
-    ...trimMessages(messages),
-  ];
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-
-  if (thinking) res.write(`data: ${JSON.stringify({ type: "thinking", active: true })}\n\n`);
+  setupSSE(res);
 
   try {
-    let inThinkTag = false;
-    let thinkingEmitted = thinking;
+    sseWrite(res, { type: "pipeline", stage: "moderating" });
 
-    for await (const chunk of streamAI(allMessages, { temperature: 0.7, maxTokens: 4000 })) {
-      if (chunk.includes("<think>")) {
-        inThinkTag = true;
-        if (!thinkingEmitted) {
-          res.write(`data: ${JSON.stringify({ type: "thinking", active: true })}\n\n`);
-          thinkingEmitted = true;
-        }
-      }
-      if (chunk.includes("</think>")) {
-        inThinkTag = false;
-        res.write(`data: ${JSON.stringify({ type: "thinking", active: false })}\n\n`);
-        const after = chunk.split("</think>").slice(1).join("</think>");
-        if (after) res.write(`data: ${JSON.stringify({ text: after })}\n\n`);
-        continue;
-      }
-      if (!inThinkTag) {
-        res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
-      }
+    const modResult = await moderateContent(lastUserText);
+    if (modResult.flagged) {
+      sseWrite(res, { error: `⚠️ ${modResult.reason ?? "Nội dung không được phép"}` });
+      res.end();
+      return;
     }
 
-    if (thinking || thinkingEmitted) {
-      res.write(`data: ${JSON.stringify({ type: "thinking", active: false })}\n\n`);
+    sseWrite(res, { type: "pipeline", stage: "routing" });
+
+    const intent = await routeIntent(lastUserText, hasFile, hasImage);
+
+    if (intent === "imagegen") {
+      sseWrite(res, { type: "model", name: "dall-e-3" });
+      sseWrite(res, { type: "pipeline", stage: "generating" });
+
+      const prompt = lastUserText.replace(/^(vẽ|draw|generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình)\s*/i, "").trim();
+      try {
+        const imageUrl = await generateImage(prompt || lastUserText);
+        sseWrite(res, { type: "image", url: imageUrl });
+        sseWrite(res, { text: `\n🎨 Ảnh đã được tạo bằng DALL-E 3.` });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Lỗi tạo ảnh";
+        sseWrite(res, { error: `Lỗi tạo ảnh: ${msg}` });
+      }
+      res.end();
+      return;
     }
+
+    let model: string;
+    if (intent === "thinking") {
+      model = "deepseek-reasoner";
+      sseWrite(res, { type: "model", name: "deepseek-reasoner" });
+      sseWrite(res, { type: "thinking", active: true });
+    } else if (intent === "bigcontext") {
+      model = "gemini-2.5-flash";
+      sseWrite(res, { type: "model", name: "gemini-2.5-flash" });
+    } else {
+      model = "gpt-4o";
+      sseWrite(res, { type: "model", name: "gpt-4o" });
+    }
+
+    const sysContent = system
+      ? (intent === "thinking" ? system + THINKING_SUFFIX : system)
+      : undefined;
+
+    const allMessages: AIMessage[] = [
+      ...(sysContent ? [{ role: "system" as const, content: sysContent }] : []),
+      ...trimMessages(messages),
+    ];
+
+    await streamWithThinkFilter(res, allMessages, model, intent === "thinking" ? 8000 : 4000);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    sseWrite(res, { error: msg });
   }
 
   res.end();
+});
+
+router.post("/chat/stt", upload.single("audio"), async (req: Request, res: Response) => {
+  const file = (req as Request & { file?: Express.Multer.File }).file;
+  if (!file) {
+    res.status(400).json({ error: "audio file required" });
+    return;
+  }
+  try {
+    const text = await transcribeAudio(file.buffer, file.mimetype || "audio/webm");
+    res.json({ text });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "STT error";
+    res.status(500).json({ error: msg });
+  }
+});
+
+router.post("/chat/tts", async (req: Request, res: Response) => {
+  const { text, voice = "nova" } = req.body as { text?: string; voice?: string };
+  if (!text || !text.trim()) {
+    res.status(400).json({ error: "text required" });
+    return;
+  }
+  try {
+    const audioBuf = await synthesizeSpeech(text, voice);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Length", audioBuf.length);
+    res.send(audioBuf);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "TTS error";
+    res.status(500).json({ error: msg });
+  }
 });
 
 export default router;

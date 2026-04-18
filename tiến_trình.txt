@@ -1,8 +1,82 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 45] SWITCH — Chatbot đổi sang GitHub Models GPT-5
+    Cập nhật: [session 46] MIGRATION — Replit environment mới (lần 14)
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 47] FEAT — Multi-layer AI Chatbot + Voice (6-layer pipeline)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+  Backend:
+  - Rewrite packages/api-server/src/lib/ai-client.ts:
+    + getZukiKey(): lấy ZUKI_API_KEY env hoặc fallback test key
+    + moderateContent(): gọi omni-moderation-latest qua Zuki /v1/moderations
+    + routeIntent(): gọi gpt-4o phân loại intent → direct/thinking/bigcontext/imagegen
+    + generateImage(): dall-e-3 qua /v1/images/generations → trả về URL
+    + transcribeAudio(): whisper-1 qua /v1/audio/transcriptions (FormData)
+    + synthesizeSpeech(): gpt-4o-mini-tts qua /v1/audio/speech → Buffer MP3
+    + streamAI(): thêm model param, mọi model qua Zuki + Gemini native fallback
+  - Rewrite packages/api-server/src/routes/chat.ts:
+    + Pipeline SSE events: {type:"pipeline",stage:"moderating|routing|generating"}
+    + Pipeline SSE events: {type:"model",name:"gpt-4o|deepseek-reasoner|..."}
+    + POST /api/chat: Layer 0 (moderation) → Layer 1 (router gpt-4o) → Layer 2/3/4
+      Layer 2 thinking → deepseek-reasoner (8000 tokens)
+      Layer 3 bigcontext → gemini-2.5-flash
+      Layer 4 imagegen → dall-e-3, trả về {type:"image",url:"..."}
+      Layer 1 direct → gpt-4o
+    + POST /api/chat/stt: multer audio upload → whisper-1 → {text}
+    + POST /api/chat/tts: {text,voice?} → gpt-4o-mini-tts → mp3 blob
+
+  Frontend:
+  - Rewrite apps/portfolio/src/pages/Chat.tsx:
+    + ModelBadge component: hiện badge màu per-model trong message bubble
+    + Streaming: xử lý event pipeline/model/thinking/image
+    + Nút micro (🎤): giữ để ghi âm (MediaRecorder), thả → STT whisper-1 → điền vào input
+    + Nút TTS (🔊): toggle bật/tắt đọc to, tự phát audio sau mỗi AI response
+    + Image display: hiện ảnh dall-e-3 inline trong bubble chat
+    + Stage labels: "Đang kiểm duyệt..." → "Đang phân tích..." → "Đang suy nghĩ sâu..."
+    + curModel state: badge hiện trong streaming bubble
+
+  Note:
+  - ZUKI_API_KEY đã set trên Railway → pipeline hoạt động full ở production
+  - Replit dev: Zuki test key bị IP-lock → cần GEMINI_API_KEY để test local
+  - Pipeline test thành công trên Replit (SSE events đúng, lỗi chỉ do không có API key)
+
+  Files thay đổi:
+  - packages/api-server/src/lib/ai-client.ts (rewrite)
+  - packages/api-server/src/routes/chat.ts (rewrite)
+  - apps/portfolio/src/pages/Chat.tsx (rewrite)
+
+  Build: OK ✅ | API Server: RUNNING ✅ | Portfolio: RUNNING ✅
+  Push GitHub: commit (Tree API) ✅
+  ESP32 cần nạp firmware: KHÔNG
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 46] MIGRATION — Replit environment mới (lần 14)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    1. pnpm install --ignore-scripts → OK (packages đã có sẵn)
+    2. prebuilt/better_sqlite3.node có sẵn → setup-sqlite.mjs tự copy ✅
+       Log: "[sqlite] ✅ Prebuilt binary copied & verified (instant!)"
+    3. Tạo workflow "packages/api-server: API Server" (PORT=8080) bằng configureWorkflow ✅
+    4. Restart "Start application" (portfolio, port 21113) → RUNNING ✅
+
+  Kết quả:
+    - Portfolio (port 21113): RUNNING ✅
+    - API Server (port 8080): RUNNING ✅
+    - SQLite DB initialized ✅
+    - ffmpeg: bundled vào dist/ffmpeg ✅
+    - yt-dlp: downloaded & ready ✅
+
+  WARN (không phải lỗi):
+    - TELEGRAM_TOKEN not set → Bot Telegram tắt (cần set trong Secrets)
+    - NexoraGarden dist not found → bình thường dev mode
+    - Portfolio dist not found → bình thường dev mode
+
+  ESP32 cần nạp firmware: KHÔNG
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 45] SWITCH — Chatbot đổi sang GitHub Models GPT-5
