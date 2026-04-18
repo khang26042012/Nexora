@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowUp, Paperclip, X, FileVideo, FileImage, File, AlertCircle,
-  Mic, MicOff, Volume2, VolumeX, StopCircle, ImageIcon, Plus, Download,
+  ImageIcon, Plus, Download, Camera,
 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { NEXORA_SYSTEM_DATA } from "@/lib/nexoraData";
@@ -249,33 +249,17 @@ export function Chat() {
   const [curModel,   setCurModel]   = useState<string>("");
   const [error,      setError]      = useState<string | null>(null);
 
-  const [isRecording,     setIsRecording]     = useState(false);
-  const [ttsEnabled,      setTtsEnabled]      = useState(false);
-  const [isPlaying,       setIsPlaying]       = useState(false);
   const [imageGenEnabled, setImageGenEnabled] = useState(false);
   const [toolsOpen,       setToolsOpen]       = useState(false);
 
   const fileRef        = useRef<HTMLInputElement>(null);
+  const cameraRef      = useRef<HTMLInputElement>(null);
   const bottomRef      = useRef<HTMLDivElement>(null);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
-  const mediaRecRef    = useRef<MediaRecorder | null>(null);
   const toolsRef       = useRef<HTMLDivElement>(null);
-  const audioChunks    = useRef<Blob[]>([]);
-  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  const micBtnRef      = useRef<HTMLButtonElement>(null);
 
   const { displayed: typedName, done: typingDone } = useTypingText(TYPING_FULL, 90, 500);
 
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "hidden" && mediaRecRef.current?.state === "recording") {
-        mediaRecRef.current.stop();
-        setIsRecording(false);
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, isLoading, streamText]);
 
@@ -314,63 +298,6 @@ export function Chat() {
     } catch { setError("Không đọc được file."); }
   }, []);
 
-  const stopPlayback = useCallback(() => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current = null;
-    }
-    setIsPlaying(false);
-  }, []);
-
-  const playTTS = useCallback(async (text: string) => {
-    if (!ttsEnabled || !text.trim()) return;
-    try {
-      const res = await fetch("/api/chat/tts", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ text: text.slice(0, 800) }),
-      });
-      if (!res.ok) return;
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      stopPlayback();
-      const audio = new Audio(url);
-      audioPlayerRef.current = audio;
-      audio.onplay  = () => setIsPlaying(true);
-      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
-      audio.onpause = () => setIsPlaying(false);
-      audio.play().catch(() => {});
-    } catch { /* silent */ }
-  }, [ttsEnabled, stopPlayback]);
-
-  const startRecording = useCallback(async () => {
-    if (isLoading || isRecording) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunks.current = [];
-      const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg" });
-      mr.ondataavailable = e => { if (e.data.size > 0) audioChunks.current.push(e.data); };
-      mr.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const blob     = new Blob(audioChunks.current, { type: mr.mimeType });
-        const formData = new FormData();
-        formData.append("audio", blob, "recording.webm");
-        try {
-          const res  = await fetch("/api/chat/stt", { method: "POST", body: formData });
-          const data = await res.json() as { text?: string; error?: string };
-          if (data.text) setInput(prev => (prev ? prev + " " : "") + data.text);
-        } catch { setError("Không thể chuyển giọng nói thành văn bản."); }
-      };
-      mediaRecRef.current = mr;
-      mr.start();
-      setIsRecording(true);
-    } catch { setError("Không thể truy cập microphone."); }
-  }, [isLoading, isRecording]);
-
-  const stopRecording = useCallback(() => {
-    mediaRecRef.current?.stop();
-    setIsRecording(false);
-  }, []);
 
   const callChatStream = async (
     userText:       string,
@@ -574,7 +501,6 @@ export function Chat() {
         { role: "assistant", content: botText },
       ]);
 
-      if (ttsEnabled && botText) playTTS(botText);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Lỗi không xác định";
       setError(`Lỗi: ${errMsg}`);
@@ -844,12 +770,19 @@ export function Chat() {
                   style={{ display: "none" }}
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }} />
 
+                {/* Hidden camera input */}
+                <input ref={cameraRef} type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }} />
+
                 {/* Textarea */}
                 <textarea ref={textareaRef} value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={handleKey}
                   onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-                  placeholder={isRecording ? "Đang ghi âm… thả để dừng" : isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"}
+                  placeholder={isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"}
                   disabled={isLoading} rows={1} className="chat-textarea"
                   style={{ width: "100%", background: "none", border: "none", outline: "none", resize: "none",
                     color: "rgba(255,255,255,0.85)", fontSize: 15, fontFamily: FONT, lineHeight: 1.6,
@@ -887,21 +820,18 @@ export function Chat() {
                             borderRadius: 16, padding: "6px 0", minWidth: 190,
                             boxShadow: "0 8px 32px rgba(0,0,0,0.6)", backdropFilter: "blur(20px)", zIndex: 100 }}>
 
-                          {/* Ghi âm */}
+                          {/* Camera */}
                           <button
-                            onMouseDown={e => { e.preventDefault(); setToolsOpen(false); startRecording(); }}
-                            onMouseUp={stopRecording}
-                            onTouchStart={e => { e.preventDefault(); setToolsOpen(false); startRecording(); }}
-                            onTouchEnd={stopRecording}
+                            onClick={() => { cameraRef.current?.click(); setToolsOpen(false); }}
                             disabled={isLoading}
                             style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "11px 16px",
-                              background: isRecording ? "rgba(239,68,68,0.08)" : "none", border: "none", cursor: "pointer",
-                              color: isRecording ? "rgba(239,120,120,0.9)" : "rgba(255,255,255,0.75)", textAlign: "left" }}>
+                              background: "none", border: "none", cursor: isLoading ? "not-allowed" : "pointer",
+                              color: "rgba(255,255,255,0.75)", textAlign: "left", opacity: isLoading ? 0.4 : 1 }}>
                             <div style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                              background: isRecording ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.08)" }}>
-                              {isRecording ? <MicOff style={{ width: 15, height: 15 }} /> : <Mic style={{ width: 15, height: 15 }} />}
+                              background: "rgba(255,255,255,0.08)" }}>
+                              <Camera style={{ width: 15, height: 15 }} />
                             </div>
-                            <span style={{ fontSize: 14, fontFamily: FONT, fontWeight: 500 }}>{isRecording ? "Dừng ghi âm" : "Ghi âm"}</span>
+                            <span style={{ fontSize: 14, fontFamily: FONT, fontWeight: 500 }}>Camera</span>
                           </button>
 
                           {/* Tạo ảnh */}
@@ -917,21 +847,6 @@ export function Chat() {
                             </div>
                             <span style={{ fontSize: 14, fontFamily: FONT, fontWeight: 500 }}>
                               Tạo ảnh {imageGenEnabled ? "✓" : ""}
-                            </span>
-                          </button>
-
-                          {/* Đọc to */}
-                          <button
-                            onClick={() => { if (ttsEnabled) stopPlayback(); setTtsEnabled(v => !v); setToolsOpen(false); }}
-                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "11px 16px",
-                              background: ttsEnabled ? "rgba(99,102,241,0.08)" : "none", border: "none", cursor: "pointer",
-                              color: ttsEnabled ? "rgba(139,148,255,0.9)" : "rgba(255,255,255,0.75)", textAlign: "left" }}>
-                            <div style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                              background: ttsEnabled ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.08)" }}>
-                              {ttsEnabled ? <Volume2 style={{ width: 15, height: 15 }} /> : <VolumeX style={{ width: 15, height: 15 }} />}
-                            </div>
-                            <span style={{ fontSize: 14, fontFamily: FONT, fontWeight: 500 }}>
-                              Đọc to {ttsEnabled ? "✓" : ""}
                             </span>
                           </button>
 
@@ -956,23 +871,6 @@ export function Chat() {
 
                   {/* Spacer */}
                   <div style={{ flex: 1 }} />
-
-                  {/* Stop playback */}
-                  <AnimatePresence>
-                    {isPlaying && (
-                      <motion.button key="stop-btn"
-                        initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
-                        transition={{ duration: 0.15 }}
-                        onClick={stopPlayback}
-                        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
-                        title="Dừng phát"
-                        style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center",
-                          justifyContent: "center", cursor: "pointer", flexShrink: 0,
-                          background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}>
-                        <StopCircle style={{ width: 15, height: 15, color: "rgba(239,100,100,0.9)" }} />
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
 
                   {/* Send circle button */}
                   <motion.button onClick={sendMsg}
