@@ -208,10 +208,32 @@ export async function routeIntent(
 }
 
 export async function generateImage(prompt: string): Promise<string> {
-  const encoded = encodeURIComponent(prompt);
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
+
+  let enhancedPrompt = prompt;
+  if (GEMINI_API_KEY) {
+    const payload = {
+      contents: [{
+        role: "user",
+        parts: [{ text: `You are an expert image prompt engineer. Translate the following prompt to English (if not already) and enhance it with vivid details, artistic style, lighting, and composition cues to maximize image quality. Return ONLY the enhanced English prompt, nothing else.\n\nPrompt: ${prompt}` }],
+      }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 300 },
+    };
+    const gemRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+    ).catch(() => null);
+    if (gemRes?.ok) {
+      const data = await gemRes.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (text) enhancedPrompt = text;
+    }
+  }
+
+  const encoded = encodeURIComponent(enhancedPrompt);
   const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&model=flux`;
   const res = await fetch(url, { method: "GET" });
-  if (!res.ok) throw new Error(`Pollinations image gen failed: HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Image gen failed: HTTP ${res.status}`);
   return url;
 }
 
