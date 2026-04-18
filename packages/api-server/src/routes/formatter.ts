@@ -1,12 +1,9 @@
 import { Router, type Request, type Response } from "express";
 import mammoth from "mammoth";
 import { insertToolLog } from "../lib/admin-db.js";
+import { streamAI, type AIMessage } from "../lib/ai-client.js";
 
 const router = Router();
-
-const ZUKI_API_KEY = process.env.ZUKI_API_KEY ?? "";
-const ZUKI_MODEL   = "claude-3.7-sonnet";
-const ZUKI_URL     = "https://api.zukijourney.com/v1/chat/completions";
 
 const FORMAT_SYSTEM_PROMPT = `Bạn là chuyên gia định dạng văn bản chuyên nghiệp tiếng Việt.
 Nhận văn bản thô và trả về phiên bản đã được định dạng chuẩn.
@@ -64,15 +61,6 @@ Các dự án chính:
 3. NexoraTool (2024–2026, LIVE) — Nền tảng tải video (YouTube/1000+ trang), cắt video, Text Formatter AI. URL: nexorax.cloud/tool
 4. Portfolio cá nhân (2026) — nexorax.cloud, React+Vite+Tailwind, dark theme, video background
 
-Lịch sử:
-- 2021: Bắt đầu học tin học
-- 3/2022: Giải Nhất Tin học cấp trường
-- 5/2022: Giải Khuyến Khích tin học cấp tỉnh
-- 2023: Chuyển sang lập trình web (HTML, CSS, JS, React)
-- 2024: Fullstack thực chiến, nhiều project thực tế
-- 2025: Ra mắt NexoraAI (Gemini + Telegram)
-- 2026: Ra mắt NexoraGarden (IoT + ESP32 + WebSocket)
-
 Website: nexorax.cloud | Deploy: Railway (backend Docker) + Render (backup)
 === KẾT THÚC THÔNG TIN NEXORA ===
 `;
@@ -84,84 +72,25 @@ ${NEXORA_CONTEXT}
 
 QUY TẮC OUTPUT (áp dụng khi xuất kết quả):
 - Tiêu đề chính dùng marker: [C]NỘI DUNG TIÊU ĐỀ THỰC TẾ[/C]
-  Ví dụ: [C]ĐỀ THI TRẮC NGHIỆM VỀ NEXORA VÀ PHAN TRỌNG KHANG[/C]
 - Đề mục lớn: số La Mã + tên thực tế, in đậm
-  Ví dụ: **I. Thông tin cá nhân** hoặc **II. Các dự án Nexora**
 - Đề mục nhỏ: số thường + tên thực tế, in đậm
-  Ví dụ: **1. NexoraGarden** hoặc **2. NexoraAI**
 - Danh sách: bắt đầu bằng dấu "- "
 - Câu hỏi trắc nghiệm:
   **Câu 1:** [nội dung câu hỏi]
-  A. [đáp án A]
-  B. [đáp án B]
-  C. [đáp án C]
-  D. [đáp án D]
+  A. [đáp án A]  B. [đáp án B]  C. [đáp án C]  D. [đáp án D]
   ✔ Đáp án: A
 - Dòng kẻ phân cách section: ---
 - Từ khóa quan trọng: in đậm **từ khóa**
 
 NGHIÊM CẤM:
 - KHÔNG viết ra quy tắc định dạng, hướng dẫn, hay placeholder vào kết quả
-- KHÔNG viết "**I. Tên**" hay "**1. Tên**" — phải dùng tên thực tế
 - KHÔNG lặp lại thông tin context ở cuối output
 - CHỈ trả về nội dung hoàn chỉnh theo yêu cầu, không giải thích gì thêm`;
 
-type MessageContent =
-  | string
-  | { type: string; text?: string; image_url?: { url: string } }[];
-
-async function callZukiStream(
-  res: Response,
-  systemPrompt: string,
-  userContent: MessageContent,
-  temperature = 0.2,
-) {
-  const upstream = await fetch(ZUKI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ZUKI_API_KEY}` },
-    body: JSON.stringify({
-      model: ZUKI_MODEL,
-      stream: true,
-      temperature,
-      max_tokens: 8192,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    }),
-  });
-
-  if (!upstream.ok || !upstream.body) {
-    const errData = await upstream.json().catch(() => ({})) as { error?: { message?: string } };
-    res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: `❌ Lỗi: ${errData?.error?.message ?? `HTTP ${upstream.status}`}` }] } }] })}\n\n`);
-    res.end();
-    return;
+async function callAIStream(res: Response, messages: AIMessage[], temperature = 0.2) {
+  for await (const chunk of streamAI(messages, { temperature, maxTokens: 8192 })) {
+    res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: chunk }] } }] })}\n\n`);
   }
-
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const raw = line.slice(6).trim();
-      if (!raw || raw === "[DONE]") continue;
-      try {
-        const chunk = (JSON.parse(raw) as { choices?: { delta?: { content?: string } }[] })?.choices?.[0]?.delta?.content ?? "";
-        if (chunk) {
-          res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: chunk }] } }] })}\n\n`);
-        }
-      } catch { /* skip */ }
-    }
-  }
-
-  res.end();
 }
 
 router.post("/format", async (req: Request, res: Response) => {
@@ -174,19 +103,15 @@ router.post("/format", async (req: Request, res: Response) => {
 
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
   insertToolLog({
-    ip,
-    tool: "formatter",
-    action: mode ?? "text",
+    ip, tool: "formatter", action: mode ?? "text",
     detail: mode === "generate" ? (prompt ?? "").slice(0, 300) : `[${mimeType ?? "text"}]`,
   });
 
   if (mode === "generate" && !prompt?.trim()) {
-    res.status(400).json({ error: "Thiếu nội dung yêu cầu" });
-    return;
+    res.status(400).json({ error: "Thiếu nội dung yêu cầu" }); return;
   }
   if (mode !== "generate" && !content?.trim()) {
-    res.status(400).json({ error: "Thiếu nội dung cần định dạng" });
-    return;
+    res.status(400).json({ error: "Thiếu nội dung cần định dạng" }); return;
   }
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -196,59 +121,50 @@ router.post("/format", async (req: Request, res: Response) => {
 
   try {
     if (mode === "generate") {
-      await callZukiStream(
-        res,
-        GENERATE_SYSTEM_PROMPT,
-        `Yêu cầu tạo nội dung: ${prompt}`,
-        0.7,
-      );
+      await callAIStream(res, [
+        { role: "system", content: GENERATE_SYSTEM_PROMPT },
+        { role: "user", content: `Yêu cầu tạo nội dung: ${prompt}` },
+      ], 0.7);
 
     } else if (mode === "file" && mimeType && content) {
-      const isDocx =
-        mimeType.includes("wordprocessingml") ||
-        mimeType.includes("msword") ||
-        mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      const isDocx = mimeType.includes("wordprocessingml") || mimeType.includes("msword");
       const isImage = mimeType.startsWith("image/");
 
       if (isDocx) {
         const buf = Buffer.from(content, "base64");
         const extracted = await mammoth.extractRawText({ buffer: buf });
-        await callZukiStream(
-          res,
-          FORMAT_SYSTEM_PROMPT,
-          `Định dạng văn bản sau:\n\n${extracted.value}`,
-        );
+        await callAIStream(res, [
+          { role: "system", content: FORMAT_SYSTEM_PROMPT },
+          { role: "user", content: `Định dạng văn bản sau:\n\n${extracted.value}` },
+        ]);
       } else if (isImage) {
-        const imageUrl = `data:${mimeType};base64,${content}`;
-        await callZukiStream(
-          res,
-          FORMAT_SYSTEM_PROMPT,
-          [
-            { type: "image_url", image_url: { url: imageUrl } },
-            { type: "text", text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng." },
-          ],
-        );
+        await callAIStream(res, [
+          { role: "system", content: FORMAT_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${content}` } },
+              { type: "text", text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng." },
+            ] as never,
+          },
+        ]);
       } else {
-        await callZukiStream(
-          res,
-          FORMAT_SYSTEM_PROMPT,
-          `Định dạng văn bản sau:\n\n${content}`,
-        );
+        await callAIStream(res, [
+          { role: "system", content: FORMAT_SYSTEM_PROMPT },
+          { role: "user", content: `Định dạng văn bản sau:\n\n${content}` },
+        ]);
       }
-
     } else {
-      await callZukiStream(
-        res,
-        FORMAT_SYSTEM_PROMPT,
-        `Định dạng văn bản sau:\n\n${content}`,
-      );
+      await callAIStream(res, [
+        { role: "system", content: FORMAT_SYSTEM_PROMPT },
+        { role: "user", content: `Định dạng văn bản sau:\n\n${content}` },
+      ]);
     }
-
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: `❌ Lỗi: ${msg}` }] } }] })}\n\n`);
-    res.end();
   }
+  res.end();
 });
 
 export default router;

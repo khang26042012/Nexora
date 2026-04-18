@@ -1,15 +1,11 @@
 import { Router, type Request, type Response } from "express";
 import { insertToolLog } from "../lib/admin-db.js";
+import { streamAI } from "../lib/ai-client.js";
 
 const router = Router();
 
-const ZUKI_API_KEY = process.env.ZUKI_API_KEY ?? "";
-const ZUKI_MODEL   = "claude-3.7-sonnet";
-const ZUKI_URL     = "https://api.zukijourney.com/v1/chat/completions";
-
 function buildSystemPrompt(mode: string, lang: string): string {
   const langLabel = lang === "en" ? "English" : "Tiếng Việt";
-
   if (mode === "manual") {
     return `You are a world-class prompt engineer. Your job is to take the user's structured parameters and craft ONE polished, complete, ready-to-use AI prompt.
 
@@ -24,7 +20,6 @@ CRITICAL RULES — follow strictly:
 - Write the output prompt in ${langLabel}
 - Make it specific, clear, and actionable`;
   }
-
   return `You are a world-class prompt engineer. The user gives you a short rough idea. Your job is to immediately write a complete, detailed, ready-to-use AI prompt.
 
 CRITICAL RULES — follow strictly:
@@ -54,12 +49,8 @@ function buildUserMessage(mode: string, body: Record<string, string>): string {
 
 router.post("/prompt-gen", async (req: Request, res: Response) => {
   const { mode = "ai", lang = "vi", ...rest } = req.body as Record<string, string>;
-
   const userMsg = buildUserMessage(mode, rest);
-  if (!userMsg) {
-    res.status(400).json({ error: "Không có nội dung" });
-    return;
-  }
+  if (!userMsg) { res.status(400).json({ error: "Không có nội dung" }); return; }
 
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
   insertToolLog({ ip, tool: "prompt-gen", action: mode, detail: userMsg.slice(0, 500) });
@@ -69,51 +60,15 @@ router.post("/prompt-gen", async (req: Request, res: Response) => {
   res.setHeader("Connection", "keep-alive");
 
   try {
-    const upstream = await fetch(ZUKI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ZUKI_API_KEY}` },
-      body: JSON.stringify({
-        model: ZUKI_MODEL,
-        stream: true,
-        temperature: 0.85,
-        max_tokens: 2048,
-        messages: [
-          { role: "system", content: buildSystemPrompt(mode, lang) },
-          { role: "user", content: userMsg },
-        ],
-      }),
-    });
-
-    if (!upstream.ok || !upstream.body) {
-      const errText = await upstream.text().catch(() => "");
-      res.write(`data: ${JSON.stringify({ error: `HTTP ${upstream.status}: ${errText.slice(0, 200)}` })}\n\n`);
-      res.end(); return;
-    }
-
-    const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const raw = line.slice(6).trim();
-        if (!raw || raw === "[DONE]") continue;
-        try {
-          const chunk = (JSON.parse(raw) as { choices?: { delta?: { content?: string } }[] })?.choices?.[0]?.delta?.content ?? "";
-          if (chunk) res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
-        } catch { /* skip */ }
-      }
+    for await (const chunk of streamAI([
+      { role: "system", content: buildSystemPrompt(mode, lang) },
+      { role: "user", content: userMsg },
+    ], { temperature: 0.85, maxTokens: 2048 })) {
+      res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
     }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" })}\n\n`);
   }
-
   res.write("data: [DONE]\n\n");
   res.end();
 });

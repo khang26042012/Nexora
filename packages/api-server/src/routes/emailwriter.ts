@@ -1,11 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import { insertToolLog } from "../lib/admin-db.js";
+import { streamAI } from "../lib/ai-client.js";
 
 const router = Router();
-
-const ZUKI_API_KEY = process.env.ZUKI_API_KEY ?? "";
-const ZUKI_MODEL   = "claude-3.7-sonnet";
-const ZUKI_URL     = "https://api.zukijourney.com/v1/chat/completions";
 
 const SYSTEM = `Bạn là chuyên gia viết email chuyên nghiệp. Nhiệm vụ: viết email hoàn chỉnh từ ý tưởng/ghi chú ngắn của người dùng.
 
@@ -58,51 +55,15 @@ router.post("/email-write", async (req: Request, res: Response) => {
   const userPrompt = `${langNote}Loại email: ${typeHint}\nTone: ${tone}\n${recipientNote}\nNội dung/ý tưởng:\n${idea}`;
 
   try {
-    const upstream = await fetch(ZUKI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ZUKI_API_KEY}` },
-      body: JSON.stringify({
-        model: ZUKI_MODEL,
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 2048,
-        messages: [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
-
-    if (!upstream.ok || !upstream.body) {
-      const err = await upstream.json().catch(() => ({})) as { error?: { message?: string } };
-      res.write(`data: ${JSON.stringify({ error: err?.error?.message ?? `HTTP ${upstream.status}` })}\n\n`);
-      res.end(); return;
-    }
-
-    const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const raw = line.slice(6).trim();
-        if (!raw || raw === "[DONE]") continue;
-        try {
-          const chunk = (JSON.parse(raw) as { choices?: { delta?: { content?: string } }[] })?.choices?.[0]?.delta?.content ?? "";
-          if (chunk) res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
-        } catch { /* skip */ }
-      }
+    for await (const chunk of streamAI([
+      { role: "system", content: SYSTEM },
+      { role: "user", content: userPrompt },
+    ], { temperature: 0.7, maxTokens: 2048 })) {
+      res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
     }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" })}\n\n`);
   }
-
   res.write("data: [DONE]\n\n");
   res.end();
 });
