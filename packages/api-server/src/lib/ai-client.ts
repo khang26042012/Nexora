@@ -147,9 +147,15 @@ export async function* streamAI(
 }
 
 
+const IMAGEGEN_START_RE = /^(vẽ|draw|generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình|hãy tạo ảnh|hãy tạo hình)/i;
+const IMAGEGEN_ANY_RE   = /\btạo (một |cho tôi |cho mình )?(bức |tấm )?(ảnh|hình ảnh)\b|\b(generate|create|draw|render) (an? )?(image|picture|photo|illustration)\b/i;
+function isImagegenRequest(userText: string): boolean {
+  return IMAGEGEN_START_RE.test(userText.trim()) || IMAGEGEN_ANY_RE.test(userText);
+}
+
 function ruleBasedIntent(userText: string, hasFile: boolean): Intent {
   const t = userText.toLowerCase();
-  if (/^(vẽ |draw |generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình)/i.test(userText.trim())) return "imagegen";
+  if (isImagegenRequest(userText)) return "imagegen";
   if (hasFile || userText.length > 800) return "bigcontext";
   if (/viết code|lập trình|thuật toán|algorithm|debug|c\+\+|esp32|firmware|arduino|javascript|python|typescript|sql|regex|toán học|math|tính toán|phân tích sâu|giải thích chi tiết/.test(t)) return "thinking";
   return "direct";
@@ -161,7 +167,7 @@ export async function routeIntent(
   hasImage: boolean,
 ): Promise<Intent> {
   if (hasImage) return "bigcontext";
-  if (/^(vẽ |draw |generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình)/i.test(userText.trim())) return "imagegen";
+  if (isImagegenRequest(userText)) return "imagegen";
 
   const apiKey = process.env.ZUKI_API_KEY ?? "";
   if (!apiKey) return ruleBasedIntent(userText, hasFile);

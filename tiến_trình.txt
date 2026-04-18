@@ -1,8 +1,36 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 48] FIX — Xóa moderation layer + fix mic STT dùng Gemini
+    Cập nhật: [session 49] FIX — NexoraAI identity, image gen toggle + routing fix
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 49] FIX — NexoraAI identity, image gen toggle + routing fix
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+  1. Xóa "NexoraAI" label + ModelBadge khỏi bot message header (chỉ còn thời gian)
+     File: apps/portfolio/src/pages/Chat.tsx — dòng 511-515
+
+  2. Đổi SYSTEM_PROMPT thành hàm buildSystemPrompt(imageGenEnabled: boolean):
+     - Thêm section DANH TÍNH: NexoraAI được Khang tạo ra, KHÔNG phải GPT/Claude/Gemini
+     - Khi imageGenEnabled=true: thông báo có thể tạo ảnh
+     - Khi imageGenEnabled=false: nhắc user bật nút 🎨 nếu hỏi về tạo ảnh
+
+  3. Fix regex imagegen intent detection (ruleBasedIntent + routeIntent trong ai-client.ts):
+     - Cũ: chỉ khớp đầu chuỗi với từ chính xác → miss "Tạo một bức ảnh về..."
+     - Mới: IMAGEGEN_START_RE + IMAGEGEN_ANY_RE (hàm isImagegenRequest)
+     - Catch được: "Tạo một bức ảnh", "tạo cho tôi một bức ảnh", "create an image", etc.
+
+  4. Thêm nút toggle "Tạo ảnh" kế bên nút Ghi âm (ImageIcon pill):
+     - Mặc định: OFF (imageGenEnabled = false)
+     - ON → màu tím highlight, hệ thống cho phép gọi model tạo ảnh
+     - OFF → màu xám, backend override intent về "direct"
+
+  5. Backend (chat.ts): Nhận imageGenEnabled từ body, nếu false thì rawIntent "imagegen" → "direct"
+     ai-client.ts: buildSystemPrompt dùng imageGenEnabled để pass lên API
+
+  6. Frontend (Chat.tsx): truyền imageGenEnabled vào fetch body + dùng buildSystemPrompt(imageGenEnabled)
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 48] FIX — Xóa moderation layer + fix mic STT dùng Gemini

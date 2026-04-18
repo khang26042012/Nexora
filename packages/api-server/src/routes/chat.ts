@@ -81,7 +81,7 @@ async function streamWithThinkFilter(
 }
 
 router.post("/chat", async (req: Request, res: Response) => {
-  const { messages, system } = req.body as { messages: AIMessage[]; system?: string };
+  const { messages, system, imageGenEnabled = true } = req.body as { messages: AIMessage[]; system?: string; imageGenEnabled?: boolean };
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "messages array required" });
@@ -108,7 +108,8 @@ router.post("/chat", async (req: Request, res: Response) => {
   try {
     sseWrite(res, { type: "pipeline", stage: "routing" });
 
-    const intent = await routeIntent(lastUserText, hasFile, hasImage);
+    const rawIntent = await routeIntent(lastUserText, hasFile, hasImage);
+    const intent = (rawIntent === "imagegen" && !imageGenEnabled) ? "direct" : rawIntent;
 
     if (intent === "imagegen") {
       sseWrite(res, { type: "model", name: "dall-e-3" });

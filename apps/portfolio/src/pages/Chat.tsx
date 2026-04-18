@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowUp, Paperclip, X, FileVideo, FileImage, File, AlertCircle,
-  Mic, MicOff, Volume2, VolumeX, StopCircle,
+  Mic, MicOff, Volume2, VolumeX, StopCircle, ImageIcon,
 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { NEXORA_SYSTEM_DATA } from "@/lib/nexoraData";
@@ -11,11 +11,23 @@ const FONT         = "'Plus Jakarta Sans', sans-serif";
 const CHAT_API_URL = "/api/chat";
 const MAX_FILE_MB  = 15;
 
-const SYSTEM_PROMPT = `Bạn là NexoraAI — trợ lý thông minh được tích hợp trong portfolio của Phan Trọng Khang.
+function buildSystemPrompt(imageGenEnabled: boolean): string {
+  return `Bạn là NexoraAI — trợ lý thông minh được tích hợp trong portfolio của Phan Trọng Khang.
 Xưng "mình", gọi người dùng thân mật tùy ngữ cảnh.
 Trả lời tiếng Việt trừ khi người dùng viết bằng ngôn ngữ khác.
 Thân thiện, ngắn gọn, thực tế. Dùng emoji hợp lý.
 Nếu người dùng hỏi về kỹ thuật, hãy giải thích rõ ràng và cụ thể.
+
+DANH TÍNH — BẮT BUỘC TUÂN THỦ TUYỆT ĐỐI:
+- Mình là NexoraAI, được Phan Trọng Khang tạo ra và huấn luyện riêng cho hệ thống Nexora.
+- Mình KHÔNG phải ChatGPT, Claude, Gemini, Grok hay bất kỳ sản phẩm nào của OpenAI, Anthropic, Google, xAI hay các công ty AI lớn khác.
+- Nếu ai hỏi "bạn là ai?", "bạn dùng model gì?", "bạn là GPT không?", "bạn có phải AI của..." → luôn trả lời: mình là NexoraAI do Khang tạo ra. KHÔNG tiết lộ model thực tế bên dưới dưới bất kỳ hình thức nào.
+
+${imageGenEnabled
+  ? "CHẾ ĐỘ TẠO ẢNH: ĐANG BẬT — Mình có thể tạo ảnh theo yêu cầu."
+  : `CHẾ ĐỘ TẠO ẢNH: ĐANG TẮT
+- Tính năng tạo ảnh hiện đang bị tắt.
+- Nếu người dùng yêu cầu tạo ảnh, vẽ ảnh, sinh ảnh hoặc bất kỳ yêu cầu tạo hình ảnh nào → nhắc nhở họ bật nút 🎨 "Tạo ảnh" ở thanh nhập phía dưới trước, rồi gửi lại yêu cầu. KHÔNG tự tạo ảnh khi chế độ đang tắt.`}
 
 QUY TẮC MỨC ĐỘ SUY NGHĨ (BẮT BUỘC TUÂN THỦ):
 - Câu hỏi đơn giản, chào hỏi, hoặc thông tin đã có sẵn trong tài liệu bên dưới → trả lời NGAY, ngắn gọn, KHÔNG suy nghĩ dài dòng.
@@ -32,6 +44,7 @@ QUY TẮC BẮT BUỘC VỀ LINK:
 Dưới đây là toàn bộ tài liệu kỹ thuật hệ thống NexoraGarden mà bạn cần nắm rõ:
 
 ${NEXORA_SYSTEM_DATA}`;
+}
 
 type OpenAIMessage = { role: "user" | "assistant"; content: string };
 
@@ -176,9 +189,10 @@ export function Chat() {
   const [curModel,   setCurModel]   = useState<string>("");
   const [error,      setError]      = useState<string | null>(null);
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [ttsEnabled,  setTtsEnabled]  = useState(false);
-  const [isPlaying,   setIsPlaying]   = useState(false);
+  const [isRecording,     setIsRecording]     = useState(false);
+  const [ttsEnabled,      setTtsEnabled]      = useState(false);
+  const [isPlaying,       setIsPlaying]       = useState(false);
+  const [imageGenEnabled, setImageGenEnabled] = useState(false);
 
   const fileRef        = useRef<HTMLInputElement>(null);
   const bottomRef      = useRef<HTMLDivElement>(null);
@@ -312,7 +326,7 @@ export function Chat() {
     const res = await fetch(CHAT_API_URL, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ messages, system: SYSTEM_PROMPT }),
+      body:    JSON.stringify({ messages, system: buildSystemPrompt(imageGenEnabled), imageGenEnabled }),
     });
 
     if (!res.ok) {
@@ -510,9 +524,7 @@ export function Chat() {
                   style={{ display: "flex", flexDirection: "column", alignItems: msg.role === "user" ? "flex-end" : "flex-start", gap: 3 }}>
                   <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", marginBottom: 2,
                     marginLeft: msg.role === "bot" ? 4 : 0, marginRight: msg.role === "user" ? 4 : 0 }}>
-                    {msg.role === "bot" ? "NexoraAI" : ""}
-                    {msg.role === "bot" && msg.model && <ModelBadge model={msg.model} />}
-                    {msg.role === "bot" ? " · " : ""}{msg.time}
+                    {msg.time}
                   </span>
                   <div style={{
                     maxWidth: "80%", padding: "10px 14px",
@@ -685,6 +697,23 @@ export function Chat() {
                     ? <MicOff style={{ width: 14, height: 14 }} />
                     : <Mic style={{ width: 14, height: 14 }} />}
                   {isRecording ? "Dừng" : "Ghi âm"}
+                </motion.button>
+
+                {/* Image gen toggle pill */}
+                <motion.button
+                  onClick={() => setImageGenEnabled(v => !v)}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
+                  disabled={isLoading}
+                  title={imageGenEnabled ? "Tắt tạo ảnh" : "Bật tạo ảnh"}
+                  animate={imageGenEnabled
+                    ? { background: "rgba(168,85,247,0.18)", borderColor: "rgba(168,85,247,0.45)" }
+                    : { background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.12)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20,
+                    border: "1px solid rgba(255,255,255,0.12)", cursor: isLoading ? "not-allowed" : "pointer",
+                    color: imageGenEnabled ? "rgba(200,160,255,0.9)" : "rgba(255,255,255,0.55)",
+                    fontSize: 13, fontFamily: FONT, fontWeight: 500, opacity: isLoading ? 0.4 : 1, flexShrink: 0 }}>
+                  <ImageIcon style={{ width: 14, height: 14 }} />
+                  {imageGenEnabled ? "Tạo ảnh" : "Tạo ảnh"}
                 </motion.button>
 
                 {/* Spacer */}
