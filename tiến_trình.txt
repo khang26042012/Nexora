@@ -1,8 +1,33 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 49] FIX — NexoraAI identity, image gen toggle + routing fix
+    Cập nhật: [session 50] MIGRATION — Replit environment mới (lần 15)
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 50] MIGRATION — Replit environment mới (lần 15)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    1. Đọc replit.md, tiến_trình.txt, quy_trinh_lam_viec.txt, NexoraData.txt ✅
+    2. pnpm install --ignore-scripts → 820 packages OK (45s)
+    3. Tạo workflow "packages/api-server: API Server" (PORT=8080) ✅
+    4. Restart "Start application" (portfolio, port 21113) ✅
+    5. Gửi Telegram thông báo hoàn tất ✅
+
+  Kết quả:
+    - Portfolio (port 21113): RUNNING ✅
+    - API Server (port 8080): RUNNING ✅
+    - SQLite DB initialized ✅
+    - ffmpeg bundled vào dist/ffmpeg ✅
+    - yt-dlp: downloaded & ready ✅
+
+  WARN (không phải lỗi):
+    - TELEGRAM_TOKEN not set → Bot Telegram tắt (cần set trong Secrets)
+    - NexoraGarden dist not found → bình thường dev mode
+    - Portfolio dist not found → bình thường dev mode
+
+  ESP32 cần nạp firmware: KHÔNG
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 49] FIX — NexoraAI identity, image gen toggle + routing fix
