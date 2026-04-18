@@ -566,8 +566,7 @@ export function Chat() {
                   initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
                   <span style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", marginLeft: 4 }}>
-                    NexoraAI
-                    {curModel && <ModelBadge model={curModel} />}
+                    {new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   <div style={{ maxWidth: "80%", padding: "10px 14px", borderRadius: "20px 20px 20px 5px",
                     background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",

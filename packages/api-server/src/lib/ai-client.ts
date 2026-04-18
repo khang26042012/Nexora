@@ -208,21 +208,10 @@ export async function routeIntent(
 }
 
 export async function generateImage(prompt: string): Promise<string> {
-  const apiKey = process.env.ZUKI_API_KEY ?? "";
-  if (!apiKey) throw new Error("ZUKI_API_KEY not configured — cannot generate image");
-
-  const res = await fetch(`${ZUKI_BASE}/images/generations`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-    body:    JSON.stringify({ model: "dall-e-3", prompt, n: 1, size: "1024x1024" }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `Image gen HTTP ${res.status}`);
-  }
-  const data = await res.json() as { data?: { url?: string }[] };
-  const url  = data?.data?.[0]?.url;
-  if (!url) throw new Error("Không nhận được URL ảnh từ dall-e-3");
+  const encoded = encodeURIComponent(prompt);
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&model=flux`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) throw new Error(`Pollinations image gen failed: HTTP ${res.status}`);
   return url;
 }
 
