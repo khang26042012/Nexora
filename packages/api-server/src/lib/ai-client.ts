@@ -17,7 +17,7 @@ export interface StreamOptions {
   model?:       string;
 }
 
-export type Intent = "direct" | "thinking" | "bigcontext" | "imagegen";
+export type Intent = "direct" | "thinking" | "bigcontext" | "imagegen" | "download";
 
 function toGeminiParts(content: MessageContent): object[] {
   if (typeof content === "string") return [{ text: content }];
@@ -161,12 +161,25 @@ function ruleBasedIntent(userText: string, hasFile: boolean): Intent {
   return "direct";
 }
 
+const VIDEO_URL_RE = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|tiktok\.com\/.+|instagram\.com\/(?:reel|p)\/|vimeo\.com\/)\S*/i;
+const DOWNLOAD_KW  = /\b(tải|download|tải về|tải video|lấy video|lưu video|tải xuống)\b/i;
+
+export function extractVideoUrl(text: string): string | null {
+  const m = text.match(VIDEO_URL_RE);
+  return m ? m[0].replace(/[)\]>.,;!?'"]+$/, "") : null;
+}
+
+export function isDownloadRequest(text: string): boolean {
+  return DOWNLOAD_KW.test(text) && VIDEO_URL_RE.test(text);
+}
+
 export async function routeIntent(
   userText: string,
   hasFile:  boolean,
   hasImage: boolean,
 ): Promise<Intent> {
   if (hasImage) return "bigcontext";
+  if (isDownloadRequest(userText)) return "download";
   if (isImagegenRequest(userText)) return "imagegen";
 
   const apiKey = process.env.ZUKI_API_KEY ?? "";

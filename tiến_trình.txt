@@ -1,8 +1,41 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 50b] FIX — xóa NexoraAI+ModelBadge, đổi image gen sang Pollinations.ai
+    Cập nhật: [session 51] UI chat 5 thay đổi + AI video tool calling
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 51] Chat UI overhaul + AI tool calling video download
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  5 thay đổi đã implement:
+    1. POPUP MENU "+": Gộp 4 nút (Ghi âm, Tạo ảnh, Đọc to, Đính kèm) vào nút "+" duy nhất.
+       Bấm "+" → popup slide up với 4 menu item. Click outside đóng menu.
+       toolsRef+useEffect click-outside handler.
+
+    2. XÓA HINT TEXT: Xóa dòng "Enter để gửi · Shift+Enter xuống dòng · Giữ 🎤 để ghi âm"
+
+    3. XÓA BORDER TOP: Xóa borderTop divider line giữa messages và input area
+
+    4. RAINBOW BORDER: Thêm animated rainbow chạy vòng quanh input box.
+       CSS keyframe `rainbow-spin`, gradient 300% width, animation 3s linear infinite.
+       Opacity 0.55 bình thường, 1.0 khi focused.
+
+    5. VIDEO TOOL CALLING:
+       - Msg type: thêm videoUrl/videoTitle/videoThumb fields
+       - Chat.tsx: parse SSE event type:"video", populate botMsg với video fields
+       - Render video card trong bubble (thumbnail + tiêu đề + nút Tải xuống)
+       - ai-client.ts: thêm "download" Intent type, isDownloadRequest(), extractVideoUrl()
+         regex VIDEO_URL_RE khớp YouTube/TikTok/Instagram/Vimeo
+       - chat.ts: import extractVideoUrl, handle intent="download" → gọi /api/yt/info
+         → SSE { type:"video", url, title, thumb } → user nhận video card inline
+
+  Files thay đổi:
+    - apps/portfolio/src/pages/Chat.tsx (UI + SSE parsing + video render)
+    - packages/api-server/src/lib/ai-client.ts (download intent detection)
+    - packages/api-server/src/routes/chat.ts (download handler with yt/info call)
+
+  Commit: [pending push]
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 50b] FIX — xóa NexoraAI+ModelBadge streaming, đổi image gen sang Pollinations.ai

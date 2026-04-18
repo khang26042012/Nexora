@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowUp, Paperclip, X, FileVideo, FileImage, File, AlertCircle,
-  Mic, MicOff, Volume2, VolumeX, StopCircle, ImageIcon,
+  Mic, MicOff, Volume2, VolumeX, StopCircle, ImageIcon, Plus, Download,
 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { NEXORA_SYSTEM_DATA } from "@/lib/nexoraData";
@@ -53,14 +53,17 @@ type AttachedFile = {
 };
 
 type Msg = {
-  id:        number;
-  role:      "user" | "bot";
-  text:      string;
-  time:      string;
-  model?:    string;
-  imageUrl?: string;
-  file?:     { name: string; type: string; size: number; previewUrl?: string };
-  error?:    boolean;
+  id:          number;
+  role:        "user" | "bot";
+  text:        string;
+  time:        string;
+  model?:      string;
+  imageUrl?:   string;
+  videoUrl?:   string;
+  videoTitle?: string;
+  videoThumb?: string;
+  file?:       { name: string; type: string; size: number; previewUrl?: string };
+  error?:      boolean;
 };
 
 const MODEL_LABELS: Record<string, string> = {
@@ -193,11 +196,13 @@ export function Chat() {
   const [ttsEnabled,      setTtsEnabled]      = useState(false);
   const [isPlaying,       setIsPlaying]       = useState(false);
   const [imageGenEnabled, setImageGenEnabled] = useState(false);
+  const [toolsOpen,       setToolsOpen]       = useState(false);
 
   const fileRef        = useRef<HTMLInputElement>(null);
   const bottomRef      = useRef<HTMLDivElement>(null);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
   const mediaRecRef    = useRef<MediaRecorder | null>(null);
+  const toolsRef       = useRef<HTMLDivElement>(null);
   const audioChunks    = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const micBtnRef      = useRef<HTMLButtonElement>(null);
@@ -216,6 +221,14 @@ export function Chat() {
   }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, isLoading, streamText]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -339,6 +352,7 @@ export function Chat() {
     let fullText  = "";
     let detectedModel = "";
     let detectedImg: string | undefined;
+    let detectedVideo: { url: string; title: string; thumb: string } | undefined;
     let buffer    = "";
 
     while (true) {
@@ -362,12 +376,15 @@ export function Chat() {
             name?:  string;
             text?:  string;
             url?:   string;
+            title?: string;
+            thumb?: string;
           };
           if (parsed?.error) throw new Error(parsed.error);
           if (parsed?.type === "pipeline") { setPipeStage(STAGE_LABELS[parsed.stage ?? ""] ?? ""); continue; }
           if (parsed?.type === "model")    { detectedModel = parsed.name ?? ""; setCurModel(parsed.name ?? ""); continue; }
           if (parsed?.type === "thinking") { setIsThinking(parsed.active ?? false); continue; }
           if (parsed?.type === "image")    { detectedImg = parsed.url; setStreamImg(parsed.url ?? null); continue; }
+          if (parsed?.type === "video")    { detectedVideo = { url: parsed.url ?? "", title: parsed.title ?? "", thumb: parsed.thumb ?? "" }; continue; }
           const chunk = parsed?.text ?? "";
           if (chunk) { fullText += chunk; setStreamText(fullText); }
         } catch (e) {
@@ -376,7 +393,7 @@ export function Chat() {
       }
     }
 
-    return { text: fullText, model: detectedModel || undefined, imageUrl: detectedImg };
+    return { text: fullText, model: detectedModel || undefined, imageUrl: detectedImg, video: detectedVideo };
   };
 
   const sendMsg = async () => {
@@ -405,14 +422,17 @@ export function Chat() {
     if (fileSnapshot && !text) userContent = `[File: ${fileSnapshot.name}]`;
 
     try {
-      const { text: botText, model, imageUrl } = await callChatStream(text, fileSnapshot, history);
+      const { text: botText, model, imageUrl, video } = await callChatStream(text, fileSnapshot, history);
 
       const botMsg: Msg = {
         id: Date.now() + 1, role: "bot",
-        text:     botText || (!imageUrl ? "(Không có phản hồi)" : ""),
-        time:     now(),
+        text:       botText || (!imageUrl && !video ? "(Không có phản hồi)" : ""),
+        time:       now(),
         model,
         imageUrl,
+        videoUrl:   video?.url,
+        videoTitle: video?.title,
+        videoThumb: video?.thumb,
       };
 
       setMsgs(prev => [...prev, botMsg]);
@@ -539,6 +559,26 @@ export function Chat() {
                       <img src={msg.imageUrl} alt="Generated"
                         style={{ maxWidth: "100%", borderRadius: 12, marginBottom: msg.text ? 10 : 0, display: "block" }} />
                     )}
+                    {msg.videoUrl && (
+                      <div style={{ marginBottom: msg.text ? 10 : 0, borderRadius: 12, overflow: "hidden",
+                        background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                        {msg.videoThumb && (
+                          <img src={msg.videoThumb} alt={msg.videoTitle}
+                            style={{ width: "100%", display: "block", maxHeight: 160, objectFit: "cover" }} />
+                        )}
+                        <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {msg.videoTitle || "Video"}
+                          </span>
+                          <a href={msg.videoUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgba(160,130,255,0.9)",
+                              background: "rgba(120,80,220,0.15)", border: "1px solid rgba(120,80,220,0.3)",
+                              borderRadius: 8, padding: "4px 10px", textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" }}>
+                            <Download style={{ width: 11, height: 11 }} /> Tải xuống
+                          </a>
+                        </div>
+                      </div>
+                    )}
                     {msg.file?.previewUrl && (
                       <img src={msg.file.previewUrl} alt={msg.file.name}
                         style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 10, marginBottom: 8, objectFit: "cover" }} />
@@ -606,8 +646,20 @@ export function Chat() {
         </div>
 
         {/* Input area */}
-        <div style={{ padding: "12px 16px 24px", background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(28px)", borderTop: msgs.length > 0 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+        <div style={{ padding: "12px 16px 24px", background: "rgba(0,0,0,0.55)", backdropFilter: "blur(28px)" }}>
+          <style>{`
+            @keyframes rainbow-spin {
+              0%   { background-position: 0% 50%; }
+              100% { background-position: 300% 50%; }
+            }
+            .rainbow-wrap {
+              position: relative; border-radius: 21px; padding: 1.5px;
+              background: linear-gradient(90deg,#ff0040,#ff6600,#ffcc00,#00ff88,#00cfff,#7c4dff,#ff0040,#ff6600,#ffcc00,#00ff88,#00cfff,#7c4dff);
+              background-size: 300% 100%;
+              animation: rainbow-spin 3s linear infinite;
+            }
+            .rainbow-focused { opacity: 1 !important; }
+          `}</style>
           <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
             {/* Error banner */}
@@ -650,144 +702,167 @@ export function Chat() {
               )}
             </AnimatePresence>
 
-            {/* DeepSeek-style card */}
-            <motion.div
-              animate={{ borderColor: focused ? "rgba(160,130,255,0.45)" : "rgba(255,255,255,0.1)" }}
-              transition={{ duration: 0.2 }}
-              style={{ background: "#111111", borderRadius: 20, border: "1px solid rgba(255,255,255,0.1)", padding: "14px 16px 12px" }}>
+            {/* Rainbow border wrap */}
+            <div className="rainbow-wrap" style={{ opacity: focused ? 1 : 0.55, transition: "opacity 0.25s" }}>
+              <div style={{ background: "#111111", borderRadius: 20, padding: "14px 16px 12px" }}>
 
-              {/* Hidden file input */}
-              <input ref={fileRef} type="file"
-                accept="image/*,video/*,audio/*,.pdf,.txt,.json,.csv,.doc,.docx"
-                style={{ display: "none" }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }} />
+                {/* Hidden file input */}
+                <input ref={fileRef} type="file"
+                  accept="image/*,video/*,audio/*,.pdf,.txt,.json,.csv,.doc,.docx"
+                  style={{ display: "none" }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }} />
 
-              {/* Textarea */}
-              <textarea ref={textareaRef} value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKey}
-                onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-                placeholder={isRecording ? "Đang ghi âm… thả để dừng" : isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"}
-                disabled={isLoading} rows={1} className="chat-textarea"
-                style={{ width: "100%", background: "none", border: "none", outline: "none", resize: "none",
-                  color: "rgba(255,255,255,0.85)", fontSize: 15, fontFamily: FONT, lineHeight: 1.6,
-                  padding: 0, marginBottom: 12, maxHeight: 160, overflowY: "auto",
-                  opacity: isLoading ? 0.5 : 1, display: "block" }} />
+                {/* Textarea */}
+                <textarea ref={textareaRef} value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+                  placeholder={isRecording ? "Đang ghi âm… thả để dừng" : isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"}
+                  disabled={isLoading} rows={1} className="chat-textarea"
+                  style={{ width: "100%", background: "none", border: "none", outline: "none", resize: "none",
+                    color: "rgba(255,255,255,0.85)", fontSize: 15, fontFamily: FONT, lineHeight: 1.6,
+                    padding: 0, marginBottom: 12, maxHeight: 160, overflowY: "auto",
+                    opacity: isLoading ? 0.5 : 1, display: "block" }} />
 
-              {/* Bottom action row */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {/* Bottom action row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 
-                {/* Mic pill button */}
-                <motion.button
-                  ref={micBtnRef}
-                  onMouseDown={startRecording} onMouseUp={stopRecording}
-                  onTouchStart={startRecording} onTouchEnd={stopRecording}
-                  onPointerCancel={stopRecording}
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
-                  disabled={isLoading}
-                  animate={isRecording
-                    ? { background: "rgba(239,68,68,0.15)", borderColor: "rgba(239,68,68,0.35)" }
-                    : { background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.12)" }}
-                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20,
-                    border: "1px solid rgba(255,255,255,0.12)", cursor: isLoading ? "not-allowed" : "pointer",
-                    color: isRecording ? "rgba(239,100,100,0.9)" : "rgba(255,255,255,0.55)",
-                    fontSize: 13, fontFamily: FONT, fontWeight: 500, opacity: isLoading ? 0.4 : 1, flexShrink: 0 }}>
-                  {isRecording
-                    ? <MicOff style={{ width: 14, height: 14 }} />
-                    : <Mic style={{ width: 14, height: 14 }} />}
-                  {isRecording ? "Dừng" : "Ghi âm"}
-                </motion.button>
-
-                {/* Image gen toggle pill */}
-                <motion.button
-                  onClick={() => setImageGenEnabled(v => !v)}
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
-                  disabled={isLoading}
-                  title={imageGenEnabled ? "Tắt tạo ảnh" : "Bật tạo ảnh"}
-                  animate={imageGenEnabled
-                    ? { background: "rgba(168,85,247,0.18)", borderColor: "rgba(168,85,247,0.45)" }
-                    : { background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.12)" }}
-                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20,
-                    border: "1px solid rgba(255,255,255,0.12)", cursor: isLoading ? "not-allowed" : "pointer",
-                    color: imageGenEnabled ? "rgba(200,160,255,0.9)" : "rgba(255,255,255,0.55)",
-                    fontSize: 13, fontFamily: FONT, fontWeight: 500, opacity: isLoading ? 0.4 : 1, flexShrink: 0 }}>
-                  <ImageIcon style={{ width: 14, height: 14 }} />
-                  {imageGenEnabled ? "Tạo ảnh" : "Tạo ảnh"}
-                </motion.button>
-
-                {/* Spacer */}
-                <div style={{ flex: 1 }} />
-
-                {/* Stop playback */}
-                <AnimatePresence>
-                  {isPlaying && (
-                    <motion.button key="stop-btn"
-                      initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
-                      transition={{ duration: 0.15 }}
-                      onClick={stopPlayback}
-                      whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
-                      title="Dừng phát"
+                  {/* "+" popup trigger */}
+                  <div ref={toolsRef} style={{ position: "relative", flexShrink: 0 }}>
+                    <motion.button
+                      onClick={() => setToolsOpen(v => !v)}
+                      whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.9 }}
+                      animate={toolsOpen
+                        ? { background: "rgba(120,80,220,0.25)", borderColor: "rgba(120,80,220,0.5)" }
+                        : { background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.12)" }}
                       style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center",
-                        justifyContent: "center", cursor: "pointer", flexShrink: 0,
-                        background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}>
-                      <StopCircle style={{ width: 15, height: 15, color: "rgba(239,100,100,0.9)" }} />
+                        justifyContent: "center", border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer" }}>
+                      <motion.div animate={{ rotate: toolsOpen ? 45 : 0 }} transition={{ duration: 0.2 }}>
+                        <Plus style={{ width: 16, height: 16, color: toolsOpen ? "rgba(200,160,255,0.9)" : "rgba(255,255,255,0.55)" }} />
+                      </motion.div>
                     </motion.button>
-                  )}
-                </AnimatePresence>
 
-                {/* TTS toggle */}
-                <motion.button
-                  onClick={() => { if (ttsEnabled) stopPlayback(); setTtsEnabled(v => !v); }}
-                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
-                  title={ttsEnabled ? "Tắt đọc to" : "Bật đọc to"}
-                  animate={ttsEnabled
-                    ? { background: "rgba(99,102,241,0.15)", borderColor: "rgba(99,102,241,0.35)" }
-                    : { background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)" }}
-                  style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center",
-                    justifyContent: "center", cursor: "pointer", flexShrink: 0,
-                    border: "1px solid rgba(255,255,255,0.1)" }}>
-                  {ttsEnabled
-                    ? <Volume2 style={{ width: 15, height: 15, color: "rgba(139,148,255,0.9)" }} />
-                    : <VolumeX style={{ width: 15, height: 15, color: "rgba(255,255,255,0.35)" }} />}
-                </motion.button>
+                    {/* Popup menu */}
+                    <AnimatePresence>
+                      {toolsOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9, y: 8 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, y: 8 }}
+                          transition={{ duration: 0.15, ease: "easeOut" }}
+                          style={{ position: "absolute", bottom: "calc(100% + 10px)", left: 0,
+                            background: "rgba(16,16,16,0.97)", border: "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: 16, padding: "6px 0", minWidth: 190,
+                            boxShadow: "0 8px 32px rgba(0,0,0,0.6)", backdropFilter: "blur(20px)", zIndex: 100 }}>
 
-                {/* Attach */}
-                <motion.button
-                  onClick={() => fileRef.current?.click()}
-                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
-                  disabled={isLoading}
-                  style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center",
-                    justifyContent: "center", cursor: isLoading ? "not-allowed" : "pointer", flexShrink: 0,
-                    background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                    opacity: isLoading ? 0.4 : 1 }}>
-                  <Paperclip style={{ width: 15, height: 15, color: "rgba(255,255,255,0.45)" }} />
-                </motion.button>
+                          {/* Ghi âm */}
+                          <button
+                            onMouseDown={e => { e.preventDefault(); setToolsOpen(false); startRecording(); }}
+                            onMouseUp={stopRecording}
+                            onTouchStart={e => { e.preventDefault(); setToolsOpen(false); startRecording(); }}
+                            onTouchEnd={stopRecording}
+                            disabled={isLoading}
+                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "11px 16px",
+                              background: isRecording ? "rgba(239,68,68,0.08)" : "none", border: "none", cursor: "pointer",
+                              color: isRecording ? "rgba(239,120,120,0.9)" : "rgba(255,255,255,0.75)", textAlign: "left" }}>
+                            <div style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                              background: isRecording ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.08)" }}>
+                              {isRecording ? <MicOff style={{ width: 15, height: 15 }} /> : <Mic style={{ width: 15, height: 15 }} />}
+                            </div>
+                            <span style={{ fontSize: 14, fontFamily: FONT, fontWeight: 500 }}>{isRecording ? "Dừng ghi âm" : "Ghi âm"}</span>
+                          </button>
 
-                {/* Send circle button */}
-                <motion.button onClick={sendMsg}
-                  whileHover={(input.trim() || attached) && !isLoading ? { scale: 1.08 } : {}}
-                  whileTap={(input.trim() || attached) && !isLoading ? { scale: 0.92 } : {}}
-                  disabled={isLoading || (!input.trim() && !attached)}
-                  animate={(input.trim() || attached) && !isLoading
-                    ? { background: "#7c5cbf" }
-                    : { background: "rgba(255,255,255,0.08)" }}
-                  transition={{ duration: 0.18 }}
-                  style={{ width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center",
-                    justifyContent: "center", flexShrink: 0, border: "none",
-                    cursor: isLoading || (!input.trim() && !attached) ? "not-allowed" : "pointer" }}>
-                  {isLoading
-                    ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        style={{ width: 15, height: 15, borderRadius: "50%",
-                          border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "rgba(255,255,255,0.8)" }} />
-                    : <ArrowUp style={{ width: 17, height: 17, color: (input.trim() || attached) ? "#fff" : "rgba(255,255,255,0.3)" }} />}
-                </motion.button>
+                          {/* Tạo ảnh */}
+                          <button
+                            onClick={() => { setImageGenEnabled(v => !v); setToolsOpen(false); }}
+                            disabled={isLoading}
+                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "11px 16px",
+                              background: imageGenEnabled ? "rgba(168,85,247,0.08)" : "none", border: "none", cursor: "pointer",
+                              color: imageGenEnabled ? "rgba(200,160,255,0.9)" : "rgba(255,255,255,0.75)", textAlign: "left" }}>
+                            <div style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                              background: imageGenEnabled ? "rgba(168,85,247,0.2)" : "rgba(255,255,255,0.08)" }}>
+                              <ImageIcon style={{ width: 15, height: 15 }} />
+                            </div>
+                            <span style={{ fontSize: 14, fontFamily: FONT, fontWeight: 500 }}>
+                              Tạo ảnh {imageGenEnabled ? "✓" : ""}
+                            </span>
+                          </button>
+
+                          {/* Đọc to */}
+                          <button
+                            onClick={() => { if (ttsEnabled) stopPlayback(); setTtsEnabled(v => !v); setToolsOpen(false); }}
+                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "11px 16px",
+                              background: ttsEnabled ? "rgba(99,102,241,0.08)" : "none", border: "none", cursor: "pointer",
+                              color: ttsEnabled ? "rgba(139,148,255,0.9)" : "rgba(255,255,255,0.75)", textAlign: "left" }}>
+                            <div style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                              background: ttsEnabled ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.08)" }}>
+                              {ttsEnabled ? <Volume2 style={{ width: 15, height: 15 }} /> : <VolumeX style={{ width: 15, height: 15 }} />}
+                            </div>
+                            <span style={{ fontSize: 14, fontFamily: FONT, fontWeight: 500 }}>
+                              Đọc to {ttsEnabled ? "✓" : ""}
+                            </span>
+                          </button>
+
+                          {/* Đính kèm */}
+                          <button
+                            onClick={() => { fileRef.current?.click(); setToolsOpen(false); }}
+                            disabled={isLoading}
+                            style={{ width: "100%", display: "flex", alignItems: "center", gap: 13, padding: "11px 16px",
+                              background: "none", border: "none", cursor: isLoading ? "not-allowed" : "pointer",
+                              color: "rgba(255,255,255,0.75)", textAlign: "left", opacity: isLoading ? 0.4 : 1 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                              background: "rgba(255,255,255,0.08)" }}>
+                              <Paperclip style={{ width: 15, height: 15 }} />
+                            </div>
+                            <span style={{ fontSize: 14, fontFamily: FONT, fontWeight: 500 }}>Đính kèm</span>
+                          </button>
+
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Spacer */}
+                  <div style={{ flex: 1 }} />
+
+                  {/* Stop playback */}
+                  <AnimatePresence>
+                    {isPlaying && (
+                      <motion.button key="stop-btn"
+                        initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
+                        transition={{ duration: 0.15 }}
+                        onClick={stopPlayback}
+                        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
+                        title="Dừng phát"
+                        style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center",
+                          justifyContent: "center", cursor: "pointer", flexShrink: 0,
+                          background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                        <StopCircle style={{ width: 15, height: 15, color: "rgba(239,100,100,0.9)" }} />
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Send circle button */}
+                  <motion.button onClick={sendMsg}
+                    whileHover={(input.trim() || attached) && !isLoading ? { scale: 1.08 } : {}}
+                    whileTap={(input.trim() || attached) && !isLoading ? { scale: 0.92 } : {}}
+                    disabled={isLoading || (!input.trim() && !attached)}
+                    animate={(input.trim() || attached) && !isLoading
+                      ? { background: "#7c5cbf" }
+                      : { background: "rgba(255,255,255,0.08)" }}
+                    transition={{ duration: 0.18 }}
+                    style={{ width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center",
+                      justifyContent: "center", flexShrink: 0, border: "none",
+                      cursor: isLoading || (!input.trim() && !attached) ? "not-allowed" : "pointer" }}>
+                    {isLoading
+                      ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          style={{ width: 15, height: 15, borderRadius: "50%",
+                            border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "rgba(255,255,255,0.8)" }} />
+                      : <ArrowUp style={{ width: 17, height: 17, color: (input.trim() || attached) ? "#fff" : "rgba(255,255,255,0.3)" }} />}
+                  </motion.button>
+                </div>
               </div>
-            </motion.div>
-
-            <p style={{ textAlign: "center", fontSize: 10, color: "rgba(255,255,255,0.12)", marginTop: 8,
-              fontFamily: FONT, letterSpacing: "0.01em" }}>
-              Enter để gửi · Shift+Enter xuống dòng · Giữ 🎤 để ghi âm
-            </p>
+            </div>
           </div>
         </div>
       </div>

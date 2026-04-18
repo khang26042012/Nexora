@@ -5,6 +5,7 @@ import {
   streamAI,
   routeIntent,
   generateImage,
+  extractVideoUrl,
   transcribeAudio,
   synthesizeSpeech,
   type AIMessage,
@@ -110,6 +111,35 @@ router.post("/chat", async (req: Request, res: Response) => {
 
     const rawIntent = await routeIntent(lastUserText, hasFile, hasImage);
     const intent = (rawIntent === "imagegen" && !imageGenEnabled) ? "direct" : rawIntent;
+
+    if (intent === "download") {
+      const videoUrl = extractVideoUrl(lastUserText);
+      if (!videoUrl) {
+        sseWrite(res, { text: "Mình không tìm thấy URL video trong tin nhắn của bạn. Hãy gửi link YouTube/TikTok/Vimeo kèm từ khóa \"tải\"." });
+        res.end();
+        return;
+      }
+      sseWrite(res, { type: "model", name: "yt-dlp" });
+      sseWrite(res, { type: "pipeline", stage: "generating" });
+      try {
+        const infoRes = await fetch(`http://localhost:${process.env.PORT ?? 8080}/api/yt/info`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: videoUrl }),
+        });
+        if (!infoRes.ok) throw new Error("Không lấy được thông tin video");
+        const info = await infoRes.json() as { title?: string; thumbnail?: string; formats?: { quality?: string; ext?: string }[] };
+        const quality = "720p";
+        const dlUrl = `/api/yt/download?url=${encodeURIComponent(videoUrl)}&quality=${quality}`;
+        sseWrite(res, { type: "video", url: dlUrl, title: info.title ?? "Video", thumb: info.thumbnail ?? "" });
+        sseWrite(res, { text: `✅ Đã lấy được video **${info.title ?? videoUrl}**.\nBấm nút **Tải xuống** bên trên để lưu file.` });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Lỗi tải video";
+        sseWrite(res, { text: `❌ ${msg}` });
+      }
+      res.end();
+      return;
+    }
 
     if (intent === "imagegen") {
       sseWrite(res, { type: "model", name: "dall-e-3" });
