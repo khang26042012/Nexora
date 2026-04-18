@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Send, Paperclip, X, FileVideo, FileImage, File, AlertCircle,
+  ArrowUp, Paperclip, X, FileVideo, FileImage, File, AlertCircle,
   Mic, MicOff, Volume2, VolumeX, StopCircle,
 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
@@ -595,10 +595,11 @@ export function Chat() {
         </div>
 
         {/* Input area */}
-        <div style={{ padding: "12px 16px 24px", background: "rgba(0,0,0,0.5)",
-          backdropFilter: "blur(28px)", borderTop: msgs.length > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+        <div style={{ padding: "12px 16px 24px", background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(28px)", borderTop: msgs.length > 0 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
           <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
+            {/* Error banner */}
             <AnimatePresence>
               {error && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
@@ -615,10 +616,11 @@ export function Chat() {
               )}
             </AnimatePresence>
 
+            {/* Attached file preview */}
             <AnimatePresence>
               {attached && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                  style={{ overflow: "hidden", marginBottom: 10 }}>
+                  style={{ overflow: "hidden", marginBottom: 8 }}>
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 12px", borderRadius: 12,
                     background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
                     {attached.previewUrl
@@ -637,119 +639,126 @@ export function Chat() {
               )}
             </AnimatePresence>
 
-            <div className="running-border" style={{
-              "--rb-speed":  focused ? "3.5s" : "8s",
-              "--rb-color":  focused ? "rgba(200,170,255,0.7)" : "rgba(255,255,255,0.22)",
-              "--rb-radius": "26px",
-            } as React.CSSProperties}>
-              <div style={{ display: "flex", alignItems: "flex-end",
-                background: focused ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)",
-                borderRadius: 25, padding: "10px 10px 10px 16px", gap: 8, minHeight: 56, transition: "background 0.25s" }}>
+            {/* DeepSeek-style card */}
+            <motion.div
+              animate={{ borderColor: focused ? "rgba(160,130,255,0.45)" : "rgba(255,255,255,0.1)" }}
+              transition={{ duration: 0.2 }}
+              style={{ background: "#111111", borderRadius: 20, border: "1px solid rgba(255,255,255,0.1)", padding: "14px 16px 12px" }}>
 
-                {/* File attach */}
-                <input ref={fileRef} type="file"
-                  accept="image/*,video/*,audio/*,.pdf,.txt,.json,.csv,.doc,.docx"
-                  style={{ display: "none" }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }} />
-                <motion.button onClick={() => fileRef.current?.click()}
-                  whileHover={{ scale: 1.1, background: "rgba(255,255,255,0.09)" }} whileTap={{ scale: 0.88 }}
-                  disabled={isLoading}
-                  style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 13, display: "flex",
-                    alignItems: "center", justifyContent: "center", cursor: isLoading ? "not-allowed" : "pointer",
-                    background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
-                    marginBottom: 1, opacity: isLoading ? 0.4 : 1, transition: "background 0.2s" }}>
-                  <Paperclip className="w-4 h-4 text-white/45" />
-                </motion.button>
+              {/* Hidden file input */}
+              <input ref={fileRef} type="file"
+                accept="image/*,video/*,audio/*,.pdf,.txt,.json,.csv,.doc,.docx"
+                style={{ display: "none" }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }} />
 
-                {/* Micro button */}
+              {/* Textarea */}
+              <textarea ref={textareaRef} value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+                placeholder={isRecording ? "Đang ghi âm… thả để dừng" : isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"}
+                disabled={isLoading} rows={1} className="chat-textarea"
+                style={{ width: "100%", background: "none", border: "none", outline: "none", resize: "none",
+                  color: "rgba(255,255,255,0.85)", fontSize: 15, fontFamily: FONT, lineHeight: 1.6,
+                  padding: 0, marginBottom: 12, maxHeight: 160, overflowY: "auto",
+                  opacity: isLoading ? 0.5 : 1, display: "block" }} />
+
+              {/* Bottom action row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+                {/* Mic pill button */}
                 <motion.button
                   ref={micBtnRef}
                   onMouseDown={startRecording} onMouseUp={stopRecording}
                   onTouchStart={startRecording} onTouchEnd={stopRecording}
                   onPointerCancel={stopRecording}
-                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
                   disabled={isLoading}
-                  animate={isRecording ? { background: "rgba(239,68,68,0.25)" } : { background: "rgba(255,255,255,0.05)" }}
-                  style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 13, display: "flex",
-                    alignItems: "center", justifyContent: "center", cursor: isLoading ? "not-allowed" : "pointer",
-                    border: isRecording ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(255,255,255,0.09)",
-                    marginBottom: 1, opacity: isLoading ? 0.4 : 1, transition: "all 0.2s" }}>
+                  animate={isRecording
+                    ? { background: "rgba(239,68,68,0.15)", borderColor: "rgba(239,68,68,0.35)" }
+                    : { background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.12)" }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20,
+                    border: "1px solid rgba(255,255,255,0.12)", cursor: isLoading ? "not-allowed" : "pointer",
+                    color: isRecording ? "rgba(239,100,100,0.9)" : "rgba(255,255,255,0.55)",
+                    fontSize: 13, fontFamily: FONT, fontWeight: 500, opacity: isLoading ? 0.4 : 1, flexShrink: 0 }}>
                   {isRecording
-                    ? <MicOff className="w-4 h-4 text-red-400" />
-                    : <Mic className="w-4 h-4 text-white/45" />}
+                    ? <MicOff style={{ width: 14, height: 14 }} />
+                    : <Mic style={{ width: 14, height: 14 }} />}
+                  {isRecording ? "Dừng" : "Ghi âm"}
                 </motion.button>
 
-                {/* Textarea */}
-                <textarea ref={textareaRef} value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={handleKey}
-                  onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-                  placeholder={isRecording ? "Đang ghi âm… thả để dừng" : isLoading ? "Đang xử lý…" : "Nhắn tin với NexoraAI…"}
-                  disabled={isLoading} rows={1} className="chat-textarea"
-                  style={{ flex: 1, background: "none", border: "none", outline: "none", resize: "none",
-                    color: "rgba(255,255,255,0.85)", fontSize: 14, fontFamily: FONT, lineHeight: 1.6,
-                    padding: "8px 0", maxHeight: 120, overflowY: "auto", opacity: isLoading ? 0.5 : 1 }} />
+                {/* Spacer */}
+                <div style={{ flex: 1 }} />
 
-                {/* Stop playback button — chỉ hiện khi đang phát */}
+                {/* Stop playback */}
                 <AnimatePresence>
                   {isPlaying && (
-                    <motion.button
-                      key="stop-btn"
+                    <motion.button key="stop-btn"
                       initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
                       transition={{ duration: 0.15 }}
                       onClick={stopPlayback}
                       whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
-                      style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 13, display: "flex",
-                        alignItems: "center", justifyContent: "center", cursor: "pointer",
-                        background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)",
-                        marginBottom: 1, transition: "all 0.2s" }}
-                      title="Dừng phát">
-                      <StopCircle className="w-4 h-4 text-red-400" />
+                      title="Dừng phát"
+                      style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center",
+                        justifyContent: "center", cursor: "pointer", flexShrink: 0,
+                        background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                      <StopCircle style={{ width: 15, height: 15, color: "rgba(239,100,100,0.9)" }} />
                     </motion.button>
                   )}
                 </AnimatePresence>
 
                 {/* TTS toggle */}
-                <motion.button onClick={() => {
-                    if (ttsEnabled) stopPlayback();
-                    setTtsEnabled(v => !v);
-                  }}
+                <motion.button
+                  onClick={() => { if (ttsEnabled) stopPlayback(); setTtsEnabled(v => !v); }}
                   whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
-                  animate={ttsEnabled ? { background: "rgba(99,102,241,0.2)" } : { background: "rgba(255,255,255,0.05)" }}
-                  style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 13, display: "flex",
-                    alignItems: "center", justifyContent: "center", cursor: "pointer",
-                    border: ttsEnabled ? "1px solid rgba(99,102,241,0.4)" : "1px solid rgba(255,255,255,0.09)",
-                    marginBottom: 1, transition: "all 0.2s" }}
-                  title={ttsEnabled ? "Tắt đọc to" : "Bật đọc to"}>
+                  title={ttsEnabled ? "Tắt đọc to" : "Bật đọc to"}
+                  animate={ttsEnabled
+                    ? { background: "rgba(99,102,241,0.15)", borderColor: "rgba(99,102,241,0.35)" }
+                    : { background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)" }}
+                  style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center",
+                    justifyContent: "center", cursor: "pointer", flexShrink: 0,
+                    border: "1px solid rgba(255,255,255,0.1)" }}>
                   {ttsEnabled
-                    ? <Volume2 className="w-4 h-4 text-indigo-400" />
-                    : <VolumeX className="w-4 h-4 text-white/35" />}
+                    ? <Volume2 style={{ width: 15, height: 15, color: "rgba(139,148,255,0.9)" }} />
+                    : <VolumeX style={{ width: 15, height: 15, color: "rgba(255,255,255,0.35)" }} />}
                 </motion.button>
 
-                {/* Send */}
-                <motion.button onClick={sendMsg}
+                {/* Attach */}
+                <motion.button
+                  onClick={() => fileRef.current?.click()}
                   whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
+                  disabled={isLoading}
+                  style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center",
+                    justifyContent: "center", cursor: isLoading ? "not-allowed" : "pointer", flexShrink: 0,
+                    background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                    opacity: isLoading ? 0.4 : 1 }}>
+                  <Paperclip style={{ width: 15, height: 15, color: "rgba(255,255,255,0.45)" }} />
+                </motion.button>
+
+                {/* Send circle button */}
+                <motion.button onClick={sendMsg}
+                  whileHover={(input.trim() || attached) && !isLoading ? { scale: 1.08 } : {}}
+                  whileTap={(input.trim() || attached) && !isLoading ? { scale: 0.92 } : {}}
                   disabled={isLoading || (!input.trim() && !attached)}
                   animate={(input.trim() || attached) && !isLoading
-                    ? { opacity: 1, background: "rgba(180,150,255,0.18)" }
-                    : { opacity: 0.3, background: "rgba(255,255,255,0.04)" }}
-                  transition={{ duration: 0.2 }}
-                  style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 13, display: "flex",
-                    alignItems: "center", justifyContent: "center",
-                    cursor: isLoading || (!input.trim() && !attached) ? "not-allowed" : "pointer",
-                    marginBottom: 1, border: "1px solid rgba(255,255,255,0.12)" }}>
+                    ? { background: "#7c5cbf" }
+                    : { background: "rgba(255,255,255,0.08)" }}
+                  transition={{ duration: 0.18 }}
+                  style={{ width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center",
+                    justifyContent: "center", flexShrink: 0, border: "none",
+                    cursor: isLoading || (!input.trim() && !attached) ? "not-allowed" : "pointer" }}>
                   {isLoading
                     ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                         style={{ width: 15, height: 15, borderRadius: "50%",
-                          border: "1.5px solid rgba(255,255,255,0.15)", borderTopColor: "rgba(200,170,255,0.8)" }} />
-                    : <Send className="w-4 h-4 text-white/70" style={{ transform: "translateX(1px)" }} />}
+                          border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "rgba(255,255,255,0.8)" }} />
+                    : <ArrowUp style={{ width: 17, height: 17, color: (input.trim() || attached) ? "#fff" : "rgba(255,255,255,0.3)" }} />}
                 </motion.button>
               </div>
-            </div>
+            </motion.div>
 
-            <p style={{ textAlign: "center", fontSize: 10, color: "rgba(255,255,255,0.13)", marginTop: 8,
+            <p style={{ textAlign: "center", fontSize: 10, color: "rgba(255,255,255,0.12)", marginTop: 8,
               fontFamily: FONT, letterSpacing: "0.01em" }}>
-              Enter để gửi · Shift+Enter xuống dòng · Giữ 🎤 để ghi âm · 🔊 để bật đọc to
+              Enter để gửi · Shift+Enter xuống dòng · Giữ 🎤 để ghi âm
             </p>
           </div>
         </div>
