@@ -130,6 +130,7 @@ export async function* streamAI(
       const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        signal:  AbortSignal.timeout(30000),
         body:    JSON.stringify({ model, stream: true, temperature, max_tokens: maxTokens, messages }),
       });
       if (res.ok && res.body) {
@@ -139,7 +140,7 @@ export async function* streamAI(
       const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
       throw new Error(errBody?.error?.message ?? `Zuki HTTP ${res.status}`);
     } catch {
-      // Zuki failed (IP-lock, quota, etc.) → fall through to Gemini native
+      // Zuki failed (IP-lock, quota, timeout, etc.) → fall through to Gemini native
     }
   }
 
@@ -189,6 +190,7 @@ export async function routeIntent(
     const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      signal:  AbortSignal.timeout(6000),
       body: JSON.stringify({
         model:       "gpt-4.1",
         stream:      false,
@@ -215,7 +217,7 @@ export async function routeIntent(
       if (reply.startsWith("bigcontext")) return "bigcontext";
       if (reply.startsWith("direct"))    return "direct";
     }
-  } catch { /* Zuki unavailable */ }
+  } catch { /* Zuki unavailable or timed out */ }
 
   return ruleBasedIntent(userText, hasFile);
 }

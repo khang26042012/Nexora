@@ -618,8 +618,6 @@ export function Chat() {
                     {streamingLabel && !streamText && !streamImg ? (
                       <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
                         style={{ display: "flex", alignItems: "center", gap: 7, padding: "2px 0" }}>
-                        <motion.span animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                          style={{ fontSize: 14, display: "inline-block" }}>⚙️</motion.span>
                         <span style={{ fontSize: 13, color: "rgba(255,255,255,0.55)" }}>{streamingLabel}</span>
                       </motion.div>
                     ) : streamText ? (
