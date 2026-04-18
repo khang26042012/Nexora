@@ -671,7 +671,9 @@ export function Chat() {
                           <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {msg.videoTitle || "Video"}
                           </span>
-                          <a href={msg.videoUrl} target="_blank" rel="noopener noreferrer"
+                          <a href={msg.videoUrl}
+                            download={msg.videoTitle || "video"}
+                            {...(!msg.videoUrl?.startsWith("blob:") && { target: "_blank", rel: "noopener noreferrer" })}
                             style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgba(160,130,255,0.9)",
                               background: "rgba(120,80,220,0.15)", border: "1px solid rgba(120,80,220,0.3)",
                               borderRadius: 8, padding: "4px 10px", textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" }}>
