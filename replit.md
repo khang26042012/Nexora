@@ -17,6 +17,22 @@ GitHub: `khang26042012/Nexora` | Deploy: **Railway** (Docker auto-deploy từ Gi
 - **Telegram Bot**: `node-telegram-bot-api`
 - **Firmware**: ESP32 Arduino C++ — `firmware/NexoraGarden/NexoraGarden.ino`
 
+## Chatbot Pipeline (6 lớp)
+
+| Lớp | Model | Nhiệm vụ | Endpoint Zuki |
+|---|---|---|---|
+| 0 | omni-moderation-latest | Safety firewall — chặn nội dung vi phạm | /v1/moderations |
+| 1 | gpt-4o | Router — phân loại intent | /v1/chat/completions |
+| 2 | deepseek-reasoner | Deep thinking — code, C/C++, debug, toán | /v1/chat/completions |
+| 3 | gemini-2.5-flash | Big context — file dài, ảnh, log | /v1/chat/completions |
+| 4 | dall-e-3 | Image gen — sơ đồ, ảnh sáng tạo | /v1/images/generations |
+| 5 | whisper-1 + gpt-4o-mini-tts | STT + TTS — giọng nói 2 chiều | /v1/audio/* |
+
+Endpoints mới:
+- `POST /api/chat` — pipeline đầy đủ (SSE với events: pipeline/model/thinking/image)
+- `POST /api/chat/stt` — audio → text (whisper-1)
+- `POST /api/chat/tts` — text → mp3 (gpt-4o-mini-tts)
+
 ## Cấu trúc thư mục
 
 ```

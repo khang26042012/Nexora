@@ -1,10 +1,5 @@
-const ZUKI_BASE     = "https://api.zukijourney.com/v1";
-const GEMINI_MODEL  = "gemini-2.5-flash";
-const GEMINI_BASE   = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
-
-function getZukiKey(): string {
-  return process.env.ZUKI_API_KEY ?? "zu-4f8d8ea27c4e2bd7d7bfefe780f5a846";
-}
+const ZUKI_BASE    = "https://api.zukijourney.com/v1";
+const GEMINI_BASE  = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse";
 
 type TextPart  = { type: "text"; text?: string };
 type ImagePart = { type: "image_url"; image_url: { url: string } };
@@ -93,22 +88,23 @@ async function* streamGeminiNative(
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
-  const systemMsg  = messages.find(m => m.role === "system");
-  const otherMsgs  = messages.filter(m => m.role !== "system");
+  const systemMsg = messages.find(m => m.role === "system");
+  const otherMsgs = messages.filter(m => m.role !== "system");
   const payload: Record<string, unknown> = {
     contents: otherMsgs.map(m => ({
-      role: m.role === "assistant" ? "model" : "user",
+      role:  m.role === "assistant" ? "model" : "user",
       parts: toGeminiParts(m.content),
     })),
     generationConfig: {
-      temperature:      opts.temperature ?? 0.7,
-      maxOutputTokens:  opts.maxTokens   ?? 4096,
+      temperature:     opts.temperature ?? 0.7,
+      maxOutputTokens: opts.maxTokens   ?? 4096,
     },
   };
   if (systemMsg) {
     const sysText = typeof systemMsg.content === "string" ? systemMsg.content : "";
     payload.system_instruction = { parts: [{ text: sysText }] };
   }
+
   const res = await fetch(`${GEMINI_BASE}&key=${GEMINI_API_KEY}`, {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
@@ -126,32 +122,47 @@ export async function* streamAI(
   opts: StreamOptions = {},
 ): AsyncGenerator<string> {
   const { temperature = 0.7, maxTokens = 4096, model = "gemini-2.5-flash" } = opts;
-  const apiKey = getZukiKey();
+  const apiKey       = process.env.ZUKI_API_KEY ?? "";
+  const isGeminiModel = model.startsWith("gemini");
 
-  try {
-    const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, stream: true, temperature, max_tokens: maxTokens, messages }),
-    });
-    if (res.ok && res.body) {
-      yield* parseOpenAIStream(res.body);
-      return;
+  if (apiKey) {
+    try {
+      const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body:    JSON.stringify({ model, stream: true, temperature, max_tokens: maxTokens, messages }),
+      });
+      if (res.ok && res.body) {
+        yield* parseOpenAIStream(res.body);
+        return;
+      }
+      const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
+      throw new Error(errBody?.error?.message ?? `Zuki HTTP ${res.status}`);
+    } catch (err) {
+      if (!isGeminiModel) throw err;
     }
-  } catch { /* fallthrough */ }
+  }
 
+  if (!isGeminiModel) {
+    throw new Error(`ZUKI_API_KEY not configured — cannot use model ${model}`);
+  }
   yield* streamGeminiNative(messages, opts);
 }
 
 export async function moderateContent(text: string): Promise<{ flagged: boolean; reason?: string }> {
-  const apiKey = getZukiKey();
+  const apiKey = process.env.ZUKI_API_KEY ?? "";
+  if (!apiKey) {
+    return { flagged: false };
+  }
   try {
     const res = await fetch(`${ZUKI_BASE}/moderations`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body:    JSON.stringify({ model: "omni-moderation-latest", input: text }),
     });
-    if (!res.ok) return { flagged: false };
+    if (!res.ok) {
+      return { flagged: true, reason: "Dịch vụ kiểm duyệt tạm thời không khả dụng, vui lòng thử lại sau" };
+    }
     const data   = await res.json() as { results?: { flagged?: boolean }[] };
     const result = data?.results?.[0];
     return {
@@ -159,7 +170,7 @@ export async function moderateContent(text: string): Promise<{ flagged: boolean;
       reason:  result?.flagged ? "Nội dung vi phạm chính sách an toàn" : undefined,
     };
   } catch {
-    return { flagged: false };
+    return { flagged: true, reason: "Dịch vụ kiểm duyệt tạm thời không khả dụng, vui lòng thử lại sau" };
   }
 }
 
@@ -173,19 +184,21 @@ export async function routeIntent(
     return "imagegen";
   }
 
-  const apiKey = getZukiKey();
+  const apiKey = process.env.ZUKI_API_KEY ?? "";
+  if (!apiKey) return "direct";
+
   try {
     const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model:      "gpt-4o",
-        stream:     false,
-        max_tokens: 10,
+        model:       "gpt-4o",
+        stream:      false,
+        max_tokens:  10,
         temperature: 0,
         messages: [
           {
-            role:    "system",
+            role: "system",
             content: `Classify the user message. Reply with ONLY one word:
 "imagegen" — user wants to generate/draw/render an image, diagram, or illustration
 "thinking"  — code, C/C++/firmware/ESP32, algorithm, math, debug, logic, step-by-step reasoning
@@ -209,7 +222,9 @@ export async function routeIntent(
 }
 
 export async function generateImage(prompt: string): Promise<string> {
-  const apiKey = getZukiKey();
+  const apiKey = process.env.ZUKI_API_KEY ?? "";
+  if (!apiKey) throw new Error("ZUKI_API_KEY not configured — cannot generate image");
+
   const res = await fetch(`${ZUKI_BASE}/images/generations`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
@@ -226,11 +241,13 @@ export async function generateImage(prompt: string): Promise<string> {
 }
 
 export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Promise<string> {
-  const apiKey = getZukiKey();
-  const ext    = mimeType.includes("webm") ? "webm"
-               : mimeType.includes("ogg")  ? "ogg"
-               : mimeType.includes("mp4")  ? "mp4"
-               : "wav";
+  const apiKey = process.env.ZUKI_API_KEY ?? "";
+  if (!apiKey) throw new Error("ZUKI_API_KEY not configured — cannot transcribe audio");
+
+  const ext  = mimeType.includes("webm") ? "webm"
+             : mimeType.includes("ogg")  ? "ogg"
+             : mimeType.includes("mp4")  ? "mp4"
+             : "wav";
   const form = new FormData();
   form.append("model", "whisper-1");
   form.append("file", new Blob([audioBuffer], { type: mimeType }), `audio.${ext}`);
@@ -249,7 +266,9 @@ export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Pr
 }
 
 export async function synthesizeSpeech(text: string, voice = "nova"): Promise<Buffer> {
-  const apiKey = getZukiKey();
+  const apiKey = process.env.ZUKI_API_KEY ?? "";
+  if (!apiKey) throw new Error("ZUKI_API_KEY not configured — cannot synthesize speech");
+
   const res = await fetch(`${ZUKI_BASE}/audio/speech`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },

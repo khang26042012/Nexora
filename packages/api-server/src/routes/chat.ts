@@ -168,6 +168,23 @@ router.post("/chat", async (req: Request, res: Response) => {
   res.end();
 });
 
+router.post("/chat/image", async (req: Request, res: Response) => {
+  const { prompt } = req.body as { prompt?: string };
+  if (!prompt || !prompt.trim()) {
+    res.status(400).json({ error: "prompt required" });
+    return;
+  }
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+  insertToolLog({ ip, tool: "chat-image", action: "generate", detail: prompt.slice(0, 200) });
+  try {
+    const imageUrl = await generateImage(prompt.trim());
+    res.json({ url: imageUrl });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Image gen error";
+    res.status(500).json({ error: msg });
+  }
+});
+
 router.post("/chat/stt", upload.single("audio"), async (req: Request, res: Response) => {
   const file = (req as Request & { file?: Express.Multer.File }).file;
   if (!file) {
