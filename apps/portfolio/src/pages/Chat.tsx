@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Paperclip, X, FileVideo, FileImage, File, AlertCircle,
-  Mic, MicOff, Volume2, VolumeX,
+  Mic, MicOff, Volume2, VolumeX, StopCircle,
 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { NEXORA_SYSTEM_DATA } from "@/lib/nexoraData";
@@ -179,15 +179,28 @@ export function Chat() {
 
   const [isRecording, setIsRecording] = useState(false);
   const [ttsEnabled,  setTtsEnabled]  = useState(false);
+  const [isPlaying,   setIsPlaying]   = useState(false);
 
-  const fileRef       = useRef<HTMLInputElement>(null);
-  const bottomRef     = useRef<HTMLDivElement>(null);
-  const textareaRef   = useRef<HTMLTextAreaElement>(null);
-  const mediaRecRef   = useRef<MediaRecorder | null>(null);
-  const audioChunks   = useRef<Blob[]>([]);
+  const fileRef        = useRef<HTMLInputElement>(null);
+  const bottomRef      = useRef<HTMLDivElement>(null);
+  const textareaRef    = useRef<HTMLTextAreaElement>(null);
+  const mediaRecRef    = useRef<MediaRecorder | null>(null);
+  const audioChunks    = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const micBtnRef      = useRef<HTMLButtonElement>(null);
 
   const { displayed: typedName, done: typingDone } = useTypingText(TYPING_FULL, 90, 500);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden" && mediaRecRef.current?.state === "recording") {
+        mediaRecRef.current.stop();
+        setIsRecording(false);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, isLoading, streamText]);
   useEffect(() => {
@@ -218,6 +231,14 @@ export function Chat() {
     } catch { setError("Không đọc được file."); }
   }, []);
 
+  const stopPlayback = useCallback(() => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    setIsPlaying(false);
+  }, []);
+
   const playTTS = useCallback(async (text: string) => {
     if (!ttsEnabled || !text.trim()) return;
     try {
@@ -229,13 +250,15 @@ export function Chat() {
       if (!res.ok) return;
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
-      if (audioPlayerRef.current) { audioPlayerRef.current.pause(); }
+      stopPlayback();
       const audio = new Audio(url);
       audioPlayerRef.current = audio;
+      audio.onplay  = () => setIsPlaying(true);
+      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
+      audio.onpause = () => setIsPlaying(false);
       audio.play().catch(() => {});
-      audio.onended = () => URL.revokeObjectURL(url);
     } catch { /* silent */ }
-  }, [ttsEnabled]);
+  }, [ttsEnabled, stopPlayback]);
 
   const startRecording = useCallback(async () => {
     if (isLoading || isRecording) return;
@@ -641,8 +664,10 @@ export function Chat() {
 
                 {/* Micro button */}
                 <motion.button
+                  ref={micBtnRef}
                   onMouseDown={startRecording} onMouseUp={stopRecording}
                   onTouchStart={startRecording} onTouchEnd={stopRecording}
+                  onPointerCancel={stopRecording}
                   whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
                   disabled={isLoading}
                   animate={isRecording ? { background: "rgba(239,68,68,0.25)" } : { background: "rgba(255,255,255,0.05)" }}
@@ -666,9 +691,28 @@ export function Chat() {
                     color: "rgba(255,255,255,0.85)", fontSize: 14, fontFamily: FONT, lineHeight: 1.6,
                     padding: "8px 0", maxHeight: 120, overflowY: "auto", opacity: isLoading ? 0.5 : 1 }} />
 
+                {/* Stop playback button — chỉ hiện khi đang phát */}
+                <AnimatePresence>
+                  {isPlaying && (
+                    <motion.button
+                      key="stop-btn"
+                      initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
+                      transition={{ duration: 0.15 }}
+                      onClick={stopPlayback}
+                      whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
+                      style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 13, display: "flex",
+                        alignItems: "center", justifyContent: "center", cursor: "pointer",
+                        background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.35)",
+                        marginBottom: 1, transition: "all 0.2s" }}
+                      title="Dừng phát">
+                      <StopCircle className="w-4 h-4 text-red-400" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+
                 {/* TTS toggle */}
                 <motion.button onClick={() => {
-                    if (ttsEnabled && audioPlayerRef.current) audioPlayerRef.current.pause();
+                    if (ttsEnabled) stopPlayback();
                     setTtsEnabled(v => !v);
                   }}
                   whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
