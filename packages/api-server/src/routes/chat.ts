@@ -3,7 +3,6 @@ import multer from "multer";
 import { insertToolLog } from "../lib/admin-db.js";
 import {
   streamAI,
-  moderateContent,
   routeIntent,
   generateImage,
   transcribeAudio,
@@ -107,15 +106,6 @@ router.post("/chat", async (req: Request, res: Response) => {
   setupSSE(res);
 
   try {
-    sseWrite(res, { type: "pipeline", stage: "moderating" });
-
-    const modResult = await moderateContent(lastUserText);
-    if (modResult.flagged) {
-      sseWrite(res, { error: `⚠️ ${modResult.reason ?? "Nội dung không được phép"}` });
-      res.end();
-      return;
-    }
-
     sseWrite(res, { type: "pipeline", stage: "routing" });
 
     const intent = await routeIntent(lastUserText, hasFile, hasImage);

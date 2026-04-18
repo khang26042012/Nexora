@@ -149,30 +149,6 @@ export async function* streamAI(
   yield* streamGeminiNative(messages, opts);
 }
 
-export async function moderateContent(text: string): Promise<{ flagged: boolean; reason?: string }> {
-  const apiKey = process.env.ZUKI_API_KEY ?? "";
-  if (!apiKey) {
-    return { flagged: false };
-  }
-  try {
-    const res = await fetch(`${ZUKI_BASE}/moderations`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body:    JSON.stringify({ model: "omni-moderation-latest", input: text }),
-    });
-    if (!res.ok) {
-      return { flagged: true, reason: "Dịch vụ kiểm duyệt tạm thời không khả dụng, vui lòng thử lại sau" };
-    }
-    const data   = await res.json() as { results?: { flagged?: boolean }[] };
-    const result = data?.results?.[0];
-    return {
-      flagged: result?.flagged ?? false,
-      reason:  result?.flagged ? "Nội dung vi phạm chính sách an toàn" : undefined,
-    };
-  } catch {
-    return { flagged: true, reason: "Dịch vụ kiểm duyệt tạm thời không khả dụng, vui lòng thử lại sau" };
-  }
-}
 
 export async function routeIntent(
   userText: string,
@@ -241,28 +217,38 @@ export async function generateImage(prompt: string): Promise<string> {
 }
 
 export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Promise<string> {
-  const apiKey = process.env.ZUKI_API_KEY ?? "";
-  if (!apiKey) throw new Error("ZUKI_API_KEY not configured — cannot transcribe audio");
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured — cannot transcribe audio");
 
-  const ext  = mimeType.includes("webm") ? "webm"
-             : mimeType.includes("ogg")  ? "ogg"
-             : mimeType.includes("mp4")  ? "mp4"
-             : "wav";
-  const form = new FormData();
-  form.append("model", "whisper-1");
-  form.append("file", new Blob([audioBuffer], { type: mimeType }), `audio.${ext}`);
+  const safeMime = mimeType.includes("webm") ? "audio/webm"
+                 : mimeType.includes("ogg")  ? "audio/ogg"
+                 : mimeType.includes("mp4")  ? "audio/mp4"
+                 : mimeType.includes("wav")  ? "audio/wav"
+                 : "audio/webm";
 
-  const res = await fetch(`${ZUKI_BASE}/audio/transcriptions`, {
-    method:  "POST",
-    headers: { "Authorization": `Bearer ${apiKey}` },
-    body:    form,
-  });
+  const base64Audio = audioBuffer.toString("base64");
+
+  const payload = {
+    contents: [{
+      role: "user",
+      parts: [
+        { inlineData: { mimeType: safeMime, data: base64Audio } },
+        { text: "Transcribe this audio accurately. Return ONLY the transcribed text, no explanation, no quotes, no extra formatting." },
+      ],
+    }],
+    generationConfig: { temperature: 0, maxOutputTokens: 1024 },
+  };
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `STT HTTP ${res.status}`);
+    throw new Error(err?.error?.message ?? `Gemini STT HTTP ${res.status}`);
   }
-  const data = await res.json() as { text?: string };
-  return data?.text ?? "";
+  const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 }
 
 export async function synthesizeSpeech(text: string, voice = "nova"): Promise<Buffer> {

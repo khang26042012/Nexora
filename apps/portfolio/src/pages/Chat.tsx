@@ -65,7 +65,6 @@ const MODEL_COLORS: Record<string, string> = {
 };
 
 const STAGE_LABELS: Record<string, string> = {
-  moderating: "Đang kiểm duyệt...",
   routing:    "Đang phân tích...",
   generating: "Đang tạo ảnh...",
 };

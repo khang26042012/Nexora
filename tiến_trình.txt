@@ -1,8 +1,46 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 46] MIGRATION — Replit environment mới (lần 14)
+    Cập nhật: [session 48] FIX — Xóa moderation layer + fix mic STT dùng Gemini
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 48] FIX — Xóa moderation layer + fix mic STT dùng Gemini
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vấn đề:
+    1. Layer kiểm duyệt (omni-moderation-latest qua Zuki) lỗi → trả về flagged=true
+       → chatbot từ chối MỌI tin nhắn người dùng
+    2. Mic (STT) dùng whisper-1 qua Zuki bị IP-lock trên Replit dev → không hoạt động
+
+  Đã fix:
+  Backend (packages/api-server/src/lib/ai-client.ts):
+    - Xóa toàn bộ hàm moderateContent() (omni-moderation-latest)
+    - Rewrite transcribeAudio(): đổi từ whisper-1/Zuki → Gemini 2.5 Flash native API
+      + Nhận audio buffer → convert base64 → gửi inlineData tới Gemini
+      + Dùng GEMINI_API_KEY (đã có sẵn) → không cần ZUKI_API_KEY
+      + Hỗ trợ: audio/webm, audio/ogg, audio/mp4, audio/wav
+
+  Backend (packages/api-server/src/routes/chat.ts):
+    - Xóa import moderateContent
+    - Xóa block "moderating" stage (sseWrite stage + await moderateContent + if flagged)
+    - Pipeline giờ bắt đầu thẳng từ "routing"
+
+  Frontend (apps/portfolio/src/pages/Chat.tsx):
+    - Xóa "moderating" khỏi STAGE_LABELS (không còn stage đó nữa)
+
+  Kết quả:
+    - Chatbot hoạt động ngay, không bị block bởi moderation
+    - Mic ghi âm → transcribe bằng Gemini 2.5 Flash → điền vào input
+    - API Server: RUNNING ✅ | Portfolio: RUNNING ✅
+
+  Files thay đổi:
+    - packages/api-server/src/lib/ai-client.ts
+    - packages/api-server/src/routes/chat.ts
+    - apps/portfolio/src/pages/Chat.tsx
+
+  Build: OK ✅ | Push GitHub: commit (Tree API) ✅
+  ESP32 cần nạp firmware: KHÔNG
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 47] FEAT — Multi-layer AI Chatbot + Voice (6-layer pipeline)
