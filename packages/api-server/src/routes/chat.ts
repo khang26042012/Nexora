@@ -3,12 +3,9 @@ import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
-// GitHub Models — GPT-5 (free via GitHub token)
-// Endpoint: https://models.inference.ai.azure.com
-// Rate limit (GitHub Free): 1 RPM, 8 req/day, 4000 in/4000 out tokens
-const GITHUB_TOKEN   = process.env.GITHUB_TOKEN ?? "";
-const GITHUB_MODEL   = "gpt-5";
-const GITHUB_URL     = "https://models.inference.ai.azure.com/chat/completions";
+const ZUKI_API_KEY = process.env.ZUKI_API_KEY ?? "";
+const ZUKI_MODEL   = "claude-3.7-sonnet";
+const ZUKI_URL     = "https://api.zukijourney.com/v1/chat/completions";
 
 type OpenAIMessage = {
   role: "system" | "user" | "assistant";
@@ -52,11 +49,6 @@ router.post("/chat", async (req: Request, res: Response) => {
     return;
   }
 
-  if (!GITHUB_TOKEN) {
-    res.status(500).json({ error: "GITHUB_TOKEN chưa được cấu hình" });
-    return;
-  }
-
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
   const lastUser = [...messages].reverse().find(m => m.role === "user");
   const lastUserText = typeof lastUser?.content === "string"
@@ -70,7 +62,6 @@ router.post("/chat", async (req: Request, res: Response) => {
     ? (thinking ? system + THINKING_SUFFIX : system)
     : undefined;
 
-  // GitHub Models GPT-5: 4000 input tokens max (~16000 chars)
   function trimMessages(msgs: OpenAIMessage[], maxChars = 14000): OpenAIMessage[] {
     let total = 0;
     const result: OpenAIMessage[] = [];
@@ -103,14 +94,14 @@ router.post("/chat", async (req: Request, res: Response) => {
   }
 
   try {
-    const upstream = await fetch(GITHUB_URL, {
+    const upstream = await fetch(ZUKI_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GITHUB_TOKEN}`,
+        "Authorization": `Bearer ${ZUKI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: GITHUB_MODEL,
+        model: ZUKI_MODEL,
         stream: true,
         temperature: 0.7,
         max_tokens: 4000,

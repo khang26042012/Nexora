@@ -2,9 +2,10 @@ import { Router, type Request, type Response } from "express";
 import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-const GEMINI_MODEL   = "gemini-1.5-flash";
-const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+
+const ZUKI_API_KEY = process.env.ZUKI_API_KEY ?? "";
+const ZUKI_MODEL   = "claude-3.7-sonnet";
+const ZUKI_URL     = "https://api.zukijourney.com/v1/chat/completions";
 
 const SYSTEM = `Bạn là gia sư toán học chuyên nghiệp. Giải bài toán người dùng cung cấp theo từng bước rõ ràng.
 
@@ -30,51 +31,66 @@ router.post("/math-solve", async (req: Request, res: Response) => {
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
   insertToolLog({ ip, tool: "math-solver", action: image ? "image" : "text", detail: text.slice(0, 300) });
 
-  if (!GEMINI_API_KEY) { res.status(500).json({ error: "GEMINI_API_KEY chưa được set" }); return; }
-
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  const parts: object[] = [];
-  if (text.trim()) parts.push({ text: `Đề bài: ${text}` });
+  type UserContent = { type: string; text?: string; image_url?: { url: string } }[];
+  const userContent: UserContent = [];
+
   if (image) {
-    const [meta, data] = image.split(",");
-    const mimeType = meta.match(/:(.*?);/)?.[1] ?? "image/jpeg";
-    parts.push({ inlineData: { mimeType, data } });
-    if (!text.trim()) parts.push({ text: "Giải bài toán trong ảnh." });
+    userContent.push({ type: "image_url", image_url: { url: image } });
   }
+  userContent.push({ type: "text", text: text.trim() ? `Đề bài: ${text}` : "Giải bài toán trong ảnh." });
 
-  const payload = {
-    system_instruction: { parts: [{ text: SYSTEM }] },
-    contents: [{ role: "user", parts }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: 4096 },
-  };
+  try {
+    const upstream = await fetch(ZUKI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ZUKI_API_KEY}` },
+      body: JSON.stringify({
+        model: ZUKI_MODEL,
+        stream: true,
+        temperature: 0.3,
+        max_tokens: 4096,
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: userContent },
+        ],
+      }),
+    });
 
-  const gemRes = await fetch(GEMINI_URL, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-  });
-  if (!gemRes.ok || !gemRes.body) {
-    res.write(`data: ${JSON.stringify({ error: `Gemini ${gemRes.status}` })}\n\n`); res.end(); return;
-  }
-
-  const reader = gemRes.body.getReader();
-  const decoder = new TextDecoder();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    for (const line of chunk.split("\n")) {
-      if (!line.startsWith("data:")) continue;
-      const raw = line.slice(5).trim();
-      if (raw === "[DONE]") continue;
-      try {
-        const t: string = JSON.parse(raw)?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        if (t) res.write(`data: ${JSON.stringify({ text: t })}\n\n`);
-      } catch { /* skip */ }
+    if (!upstream.ok || !upstream.body) {
+      const err = await upstream.json().catch(() => ({})) as { error?: { message?: string } };
+      res.write(`data: ${JSON.stringify({ error: err?.error?.message ?? `HTTP ${upstream.status}` })}\n\n`);
+      res.end(); return;
     }
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const raw = line.slice(6).trim();
+        if (!raw || raw === "[DONE]") continue;
+        try {
+          const chunk = (JSON.parse(raw) as { choices?: { delta?: { content?: string } }[] })?.choices?.[0]?.delta?.content ?? "";
+          if (chunk) res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
+        } catch { /* skip */ }
+      }
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
   }
-  res.write("data: [DONE]\n\n"); res.end();
+
+  res.write("data: [DONE]\n\n");
+  res.end();
 });
 
 export default router;

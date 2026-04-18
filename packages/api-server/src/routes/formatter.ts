@@ -4,9 +4,9 @@ import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-const GEMINI_MODEL   = "gemini-1.5-flash";
-const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+const ZUKI_API_KEY = process.env.ZUKI_API_KEY ?? "";
+const ZUKI_MODEL   = "claude-3.7-sonnet";
+const ZUKI_URL     = "https://api.zukijourney.com/v1/chat/completions";
 
 const FORMAT_SYSTEM_PROMPT = `Bạn là chuyên gia định dạng văn bản chuyên nghiệp tiếng Việt.
 Nhận văn bản thô và trả về phiên bản đã được định dạng chuẩn.
@@ -106,30 +106,39 @@ NGHIÊM CẤM:
 - KHÔNG lặp lại thông tin context ở cuối output
 - CHỈ trả về nội dung hoàn chỉnh theo yêu cầu, không giải thích gì thêm`;
 
-async function callGeminiStream(
+type MessageContent =
+  | string
+  | { type: string; text?: string; image_url?: { url: string } }[];
+
+async function callZukiStream(
   res: Response,
   systemPrompt: string,
-  contents: unknown[],
+  userContent: MessageContent,
   temperature = 0.2,
 ) {
-  const upstream = await fetch(GEMINI_URL, {
+  const upstream = await fetch(ZUKI_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ZUKI_API_KEY}` },
     body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents,
-      generationConfig: { temperature, maxOutputTokens: 8192 },
+      model: ZUKI_MODEL,
+      stream: true,
+      temperature,
+      max_tokens: 8192,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
     }),
   });
 
-  if (!upstream.ok) {
+  if (!upstream.ok || !upstream.body) {
     const errData = await upstream.json().catch(() => ({})) as { error?: { message?: string } };
-    res.write(`data: ${JSON.stringify({ error: errData?.error?.message ?? `HTTP ${upstream.status}` })}\n\n`);
+    res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: `❌ Lỗi: ${errData?.error?.message ?? `HTTP ${upstream.status}`}` }] } }] })}\n\n`);
     res.end();
     return;
   }
 
-  const reader = upstream.body!.getReader();
+  const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
 
@@ -137,30 +146,18 @@ async function callGeminiStream(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
-
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
       const raw = line.slice(6).trim();
       if (!raw || raw === "[DONE]") continue;
       try {
-        const parsed = JSON.parse(raw) as {
-          candidates?: { content?: { parts?: { text?: string }[] } }[];
-          error?: { message?: string };
-        };
-        if (parsed.error) {
-          res.write(`data: ${JSON.stringify({ error: parsed.error.message })}\n\n`);
-          continue;
+        const chunk = (JSON.parse(raw) as { choices?: { delta?: { content?: string } }[] })?.choices?.[0]?.delta?.content ?? "";
+        if (chunk) {
+          res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: chunk }] } }] })}\n\n`);
         }
-        const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\n\n`);
-        }
-      } catch {
-        // ignore parse errors
-      }
+      } catch { /* skip */ }
     }
   }
 
@@ -199,10 +196,10 @@ router.post("/format", async (req: Request, res: Response) => {
 
   try {
     if (mode === "generate") {
-      await callGeminiStream(
+      await callZukiStream(
         res,
         GENERATE_SYSTEM_PROMPT,
-        [{ role: "user", parts: [{ text: `Yêu cầu tạo nội dung: ${prompt}` }] }],
+        `Yêu cầu tạo nội dung: ${prompt}`,
         0.7,
       );
 
@@ -216,42 +213,40 @@ router.post("/format", async (req: Request, res: Response) => {
       if (isDocx) {
         const buf = Buffer.from(content, "base64");
         const extracted = await mammoth.extractRawText({ buffer: buf });
-        await callGeminiStream(
+        await callZukiStream(
           res,
           FORMAT_SYSTEM_PROMPT,
-          [{ role: "user", parts: [{ text: `Định dạng văn bản sau:\n\n${extracted.value}` }] }],
+          `Định dạng văn bản sau:\n\n${extracted.value}`,
         );
       } else if (isImage) {
-        await callGeminiStream(
+        const imageUrl = `data:${mimeType};base64,${content}`;
+        await callZukiStream(
           res,
           FORMAT_SYSTEM_PROMPT,
-          [{
-            role: "user",
-            parts: [
-              { inlineData: { mimeType, data: content } },
-              { text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng." },
-            ],
-          }],
+          [
+            { type: "image_url", image_url: { url: imageUrl } },
+            { type: "text", text: "Đọc toàn bộ văn bản trong ảnh này, sau đó định dạng lại theo đúng quy tắc định dạng." },
+          ],
         );
       } else {
-        await callGeminiStream(
+        await callZukiStream(
           res,
           FORMAT_SYSTEM_PROMPT,
-          [{ role: "user", parts: [{ text: `Định dạng văn bản sau:\n\n${content}` }] }],
+          `Định dạng văn bản sau:\n\n${content}`,
         );
       }
 
     } else {
-      await callGeminiStream(
+      await callZukiStream(
         res,
         FORMAT_SYSTEM_PROMPT,
-        [{ role: "user", parts: [{ text: `Định dạng văn bản sau:\n\n${content}` }] }],
+        `Định dạng văn bản sau:\n\n${content}`,
       );
     }
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: `❌ Lỗi: ${msg}` }] } }] })}\n\n`);
     res.end();
   }
 });

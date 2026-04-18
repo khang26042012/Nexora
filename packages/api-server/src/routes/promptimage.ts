@@ -3,9 +3,9 @@ import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-const GEMINI_MODEL   = "gemini-2.5-flash";
-const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+const ZUKI_API_KEY = process.env.ZUKI_API_KEY ?? "";
+const ZUKI_MODEL   = "claude-3.7-sonnet";
+const ZUKI_URL     = "https://api.zukijourney.com/v1/chat/completions";
 
 const SYSTEM = `Bạn là chuyên gia phân tích ảnh và viết prompt cho các AI tạo ảnh (Midjourney, DALL-E 3, Stable Diffusion, Flux).
 
@@ -65,11 +65,6 @@ router.post("/prompt-image", async (req: Request, res: Response) => {
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
   insertToolLog({ ip, tool: "prompt-image", action: style, detail: mimeType });
 
-  if (!GEMINI_API_KEY) {
-    res.status(500).json({ error: "GEMINI_API_KEY chưa được set" });
-    return;
-  }
-
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -79,40 +74,40 @@ router.post("/prompt-image", async (req: Request, res: Response) => {
     ? `\nNgười dùng muốn tái tạo theo phong cách: **${style}**. Hãy điều chỉnh style keywords trong prompt cho phù hợp.`
     : "";
 
-  const payload = {
-    system_instruction: { parts: [{ text: SYSTEM }] },
-    contents: [{
-      role: "user",
-      parts: [
-        { inlineData: { mimeType, data: content } },
-        { text: `Phân tích ảnh này và tạo prompt chi tiết nhất có thể để tái tạo ảnh với độ giống 98-100%.${styleNote}` },
-      ],
-    }],
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 8192,
-      thinkingConfig: { thinkingBudget: 8192 },
-    },
-  };
+  const imageUrl = `data:${mimeType};base64,${content}`;
 
   try {
-    const upstream = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!upstream.ok) {
-      const errData = await upstream.json().catch(() => ({})) as { error?: { message?: string } };
-      res.write(`data: ${JSON.stringify({ error: errData?.error?.message ?? `Gemini ${upstream.status}` })}\n\n`);
-      res.end();
-      return;
-    }
-
-    // Signal thinking started
     res.write(`data: ${JSON.stringify({ type: "thinking", active: true })}\n\n`);
 
-    const reader = upstream.body!.getReader();
+    const upstream = await fetch(ZUKI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ZUKI_API_KEY}` },
+      body: JSON.stringify({
+        model: ZUKI_MODEL,
+        stream: true,
+        temperature: 0.2,
+        max_tokens: 8192,
+        messages: [
+          { role: "system", content: SYSTEM },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: imageUrl } },
+              { type: "text", text: `Phân tích ảnh này và tạo prompt chi tiết nhất có thể để tái tạo ảnh với độ giống 98-100%.${styleNote}` },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!upstream.ok || !upstream.body) {
+      const err = await upstream.json().catch(() => ({})) as { error?: { message?: string } };
+      res.write(`data: ${JSON.stringify({ type: "thinking", active: false })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: err?.error?.message ?? `HTTP ${upstream.status}` })}\n\n`);
+      res.end(); return;
+    }
+
+    const reader = upstream.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
     let thinkingDone = false;
@@ -121,56 +116,36 @@ router.post("/prompt-image", async (req: Request, res: Response) => {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
-
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const raw = line.slice(6).trim();
         if (!raw || raw === "[DONE]") continue;
-
         try {
-          const parsed = JSON.parse(raw) as {
-            candidates?: {
-              content?: {
-                parts?: { text?: string; thought?: boolean }[];
-              };
-            }[];
-            error?: { message?: string };
-          };
-
-          if (parsed.error) {
-            res.write(`data: ${JSON.stringify({ error: parsed.error.message })}\n\n`);
-            continue;
-          }
-
-          const parts = parsed.candidates?.[0]?.content?.parts ?? [];
-          for (const part of parts) {
-            if (part.thought === true) {
-              // Thinking token — skip content, keep thinking signal active
-              continue;
+          const chunk = (JSON.parse(raw) as { choices?: { delta?: { content?: string } }[] })?.choices?.[0]?.delta?.content ?? "";
+          if (chunk) {
+            if (!thinkingDone) {
+              thinkingDone = true;
+              res.write(`data: ${JSON.stringify({ type: "thinking", active: false })}\n\n`);
             }
-            if (part.text) {
-              // First real text chunk — signal thinking done
-              if (!thinkingDone) {
-                thinkingDone = true;
-                res.write(`data: ${JSON.stringify({ type: "thinking", active: false })}\n\n`);
-              }
-              res.write(`data: ${JSON.stringify({ text: part.text })}\n\n`);
-            }
+            res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
           }
         } catch { /* skip */ }
       }
     }
 
-    res.write("data: [DONE]\n\n");
-    res.end();
+    if (!thinkingDone) {
+      res.write(`data: ${JSON.stringify({ type: "thinking", active: false })}\n\n`);
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    res.write(`data: ${JSON.stringify({ type: "thinking", active: false })}\n\n`);
     res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
-    res.end();
   }
+
+  res.write("data: [DONE]\n\n");
+  res.end();
 });
 
 export default router;

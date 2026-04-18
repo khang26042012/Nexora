@@ -3,9 +3,9 @@ import { insertToolLog } from "../lib/admin-db.js";
 
 const router = Router();
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-const GEMINI_MODEL   = "gemini-1.5-flash";
-const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
+const ZUKI_API_KEY = process.env.ZUKI_API_KEY ?? "";
+const ZUKI_MODEL   = "claude-3.7-sonnet";
+const ZUKI_URL     = "https://api.zukijourney.com/v1/chat/completions";
 
 function buildSystemPrompt(mode: string, lang: string): string {
   const langLabel = lang === "en" ? "English" : "Tiếng Việt";
@@ -64,51 +64,54 @@ router.post("/prompt-gen", async (req: Request, res: Response) => {
   const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
   insertToolLog({ ip, tool: "prompt-gen", action: mode, detail: userMsg.slice(0, 500) });
 
-  if (!GEMINI_API_KEY) {
-    res.status(500).json({ error: "GEMINI_API_KEY chưa được set" });
-    return;
-  }
-
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  const payload = {
-    system_instruction: { parts: [{ text: buildSystemPrompt(mode, lang) }] },
-    contents: [{ role: "user", parts: [{ text: userMsg }] }],
-    generationConfig: { temperature: 0.85, maxOutputTokens: 2048 },
-  };
+  try {
+    const upstream = await fetch(ZUKI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ZUKI_API_KEY}` },
+      body: JSON.stringify({
+        model: ZUKI_MODEL,
+        stream: true,
+        temperature: 0.85,
+        max_tokens: 2048,
+        messages: [
+          { role: "system", content: buildSystemPrompt(mode, lang) },
+          { role: "user", content: userMsg },
+        ],
+      }),
+    });
 
-  const gemRes = await fetch(GEMINI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!gemRes.ok || !gemRes.body) {
-    const errText = await gemRes.text().catch(() => "");
-    res.write(`data: ${JSON.stringify({ error: `Gemini ${gemRes.status}: ${errText.slice(0, 200)}` })}\n\n`);
-    res.end();
-    return;
-  }
-
-  const reader = gemRes.body.getReader();
-  const decoder = new TextDecoder();
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    for (const line of chunk.split("\n")) {
-      if (!line.startsWith("data:")) continue;
-      const raw = line.slice(5).trim();
-      if (raw === "[DONE]") continue;
-      try {
-        const json = JSON.parse(raw);
-        const text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
-      } catch { /* skip */ }
+    if (!upstream.ok || !upstream.body) {
+      const errText = await upstream.text().catch(() => "");
+      res.write(`data: ${JSON.stringify({ error: `HTTP ${upstream.status}: ${errText.slice(0, 200)}` })}\n\n`);
+      res.end(); return;
     }
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const raw = line.slice(6).trim();
+        if (!raw || raw === "[DONE]") continue;
+        try {
+          const chunk = (JSON.parse(raw) as { choices?: { delta?: { content?: string } }[] })?.choices?.[0]?.delta?.content ?? "";
+          if (chunk) res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
+        } catch { /* skip */ }
+      }
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
   }
 
   res.write("data: [DONE]\n\n");
