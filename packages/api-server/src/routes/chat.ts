@@ -122,14 +122,13 @@ router.post("/chat", async (req: Request, res: Response) => {
       sseWrite(res, { type: "model", name: "yt-dlp" });
       sseWrite(res, { type: "pipeline", stage: "generating" });
       try {
-        const infoRes = await fetch(`http://localhost:${process.env.PORT ?? 8080}/api/yt/info`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: videoUrl }),
-        });
+        const infoRes = await fetch(
+          `http://localhost:${process.env.PORT ?? 8080}/api/yt/info?url=${encodeURIComponent(videoUrl)}`,
+          { method: "GET" },
+        );
         if (!infoRes.ok) throw new Error("Không lấy được thông tin video");
-        const info = await infoRes.json() as { title?: string; thumbnail?: string; formats?: { quality?: string; ext?: string }[] };
-        const quality = "720p";
+        const info = await infoRes.json() as { title?: string; thumbnail?: string; maxQuality?: string; formats?: { quality?: string; ext?: string }[] };
+        const quality = info.maxQuality ?? "720p";
         const dlUrl = `/api/yt/download?url=${encodeURIComponent(videoUrl)}&quality=${quality}`;
         sseWrite(res, { type: "video", url: dlUrl, title: info.title ?? "Video", thumb: info.thumbnail ?? "" });
         sseWrite(res, { text: `✅ Đã lấy được video **${info.title ?? videoUrl}**.\nBấm nút **Tải xuống** bên trên để lưu file.` });

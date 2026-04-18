@@ -190,7 +190,7 @@ export async function routeIntent(
     const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      signal:  AbortSignal.timeout(6000),
+      signal:  AbortSignal.timeout(19000),
       body: JSON.stringify({
         model:       "gpt-4.1",
         stream:      false,
