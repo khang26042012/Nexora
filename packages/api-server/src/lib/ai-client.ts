@@ -171,7 +171,7 @@ export async function routeIntent(
       method:  "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model:       "gpt-4o",
+        model:       "gpt-4.1",
         stream:      false,
         max_tokens:  10,
         temperature: 0,

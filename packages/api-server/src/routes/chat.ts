@@ -129,15 +129,15 @@ router.post("/chat", async (req: Request, res: Response) => {
 
     let model: string;
     if (intent === "thinking") {
-      model = "deepseek-reasoner";
-      sseWrite(res, { type: "model", name: "deepseek-reasoner" });
+      model = "claude-3.7-sonnet";
+      sseWrite(res, { type: "model", name: "claude-3.7-sonnet" });
       sseWrite(res, { type: "thinking", active: true });
     } else if (intent === "bigcontext") {
       model = "gemini-2.5-flash";
       sseWrite(res, { type: "model", name: "gemini-2.5-flash" });
     } else {
-      model = "gpt-4o";
-      sseWrite(res, { type: "model", name: "gpt-4o" });
+      model = "gpt-4.1";
+      sseWrite(res, { type: "model", name: "gpt-4.1" });
     }
 
     const sysContent = system

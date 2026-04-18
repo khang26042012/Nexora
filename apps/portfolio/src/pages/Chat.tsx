@@ -51,15 +51,15 @@ type Msg = {
 };
 
 const MODEL_LABELS: Record<string, string> = {
-  "gpt-4o":            "GPT-4o",
-  "deepseek-reasoner": "DeepSeek Reasoner",
+  "gpt-4.1":           "GPT-4.1",
+  "claude-3.7-sonnet": "Claude 3.7 Sonnet",
   "gemini-2.5-flash":  "Gemini 2.5 Flash",
   "dall-e-3":          "DALL-E 3",
 };
 
 const MODEL_COLORS: Record<string, string> = {
-  "gpt-4o":            "rgba(16,163,127,0.25)",
-  "deepseek-reasoner": "rgba(99,102,241,0.25)",
+  "gpt-4.1":           "rgba(16,163,127,0.25)",
+  "claude-3.7-sonnet": "rgba(99,102,241,0.25)",
   "gemini-2.5-flash":  "rgba(234,179,8,0.2)",
   "dall-e-3":          "rgba(239,68,68,0.2)",
 };
