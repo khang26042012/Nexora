@@ -158,13 +158,13 @@ router.post("/chat", async (req: Request, res: Response) => {
     }
 
     let model: string;
-    if (intent === "thinking") {
-      model = "claude-3.7-sonnet";
-      sseWrite(res, { type: "model", name: "claude-3.7-sonnet" });
-      sseWrite(res, { type: "thinking", active: true });
-    } else if (intent === "bigcontext") {
+    if (hasImage || hasFile) {
       model = "gemini-2.5-flash";
       sseWrite(res, { type: "model", name: "gemini-2.5-flash" });
+    } else if (intent === "thinking" || intent === "bigcontext") {
+      model = "gpt-4.1";
+      sseWrite(res, { type: "model", name: "gpt-4.1" });
+      if (intent === "thinking") sseWrite(res, { type: "thinking", active: true });
     } else {
       model = "gpt-4.1";
       sseWrite(res, { type: "model", name: "gpt-4.1" });

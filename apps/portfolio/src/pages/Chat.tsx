@@ -77,7 +77,8 @@ Dưới đây là toàn bộ tài liệu kỹ thuật hệ thống NexoraGarden 
 ${NEXORA_SYSTEM_DATA}`;
 }
 
-type OpenAIMessage = { role: "user" | "assistant"; content: string };
+type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+type OpenAIMessage = { role: "user" | "assistant"; content: string | ContentPart[] };
 
 type AttachedFile = {
   name: string; type: string; size: number; base64: string; previewUrl?: string;
@@ -98,15 +99,13 @@ type Msg = {
 };
 
 const MODEL_LABELS: Record<string, string> = {
-  "gpt-4.1":           "GPT-4.1",
-  "claude-3.7-sonnet": "Claude 3.7 Sonnet",
-  "gemini-2.5-flash":  "Gemini 2.5 Flash",
-  "dall-e-3":          "DALL-E 3",
+  "gpt-4.1":          "GPT-4.1",
+  "gemini-2.5-flash": "Gemini 2.5 Flash",
+  "dall-e-3":         "DALL-E 3",
 };
 
 const MODEL_COLORS: Record<string, string> = {
-  "gpt-4.1":           "rgba(16,163,127,0.25)",
-  "claude-3.7-sonnet": "rgba(99,102,241,0.25)",
+  "gpt-4.1":          "rgba(16,163,127,0.25)",
   "gemini-2.5-flash":  "rgba(234,179,8,0.2)",
   "dall-e-3":          "rgba(239,68,68,0.2)",
 };
@@ -304,20 +303,26 @@ export function Chat() {
     fileData:       AttachedFile | null,
     currentHistory: OpenAIMessage[],
   ): Promise<{ text: string; model?: string; imageUrl?: string }> => {
-    let userContent = userText.trim();
+    let lastMsg: OpenAIMessage;
+
     if (fileData?.type.startsWith("image/")) {
-      userContent = userContent
-        ? `[Đính kèm ảnh: ${fileData.name}]\n${userContent}`
-        : `[Đính kèm ảnh: ${fileData.name}]`;
-    } else if (fileData) {
-      userContent = userContent
-        ? `[Đính kèm file: ${fileData.name}]\n${userContent}`
-        : `[Đính kèm file: ${fileData.name}]`;
+      const parts: ContentPart[] = [];
+      if (userText.trim()) parts.push({ type: "text", text: userText.trim() });
+      parts.push({ type: "image_url", image_url: { url: `data:${fileData.type};base64,${fileData.base64}` } });
+      lastMsg = { role: "user", content: parts };
+    } else {
+      let userContent = userText.trim();
+      if (fileData) {
+        userContent = userContent
+          ? `[Đính kèm file: ${fileData.name}]\n${userContent}`
+          : `[Đính kèm file: ${fileData.name}]`;
+      }
+      lastMsg = { role: "user", content: userContent };
     }
 
     const messages: OpenAIMessage[] = [
       ...currentHistory,
-      { role: "user", content: userContent },
+      lastMsg,
     ];
 
     const res = await fetch(CHAT_API_URL, {
@@ -478,7 +483,11 @@ export function Chat() {
     setCurModel("");
 
     let userContent = text;
-    if (fileSnapshot && !text) userContent = `[File: ${fileSnapshot.name}]`;
+    if (fileSnapshot?.type.startsWith("image/")) {
+      userContent = text ? `[Đính kèm ảnh: ${fileSnapshot.name}]\n${text}` : `[Đính kèm ảnh: ${fileSnapshot.name}]`;
+    } else if (fileSnapshot && !text) {
+      userContent = `[Đính kèm file: ${fileSnapshot.name}]`;
+    }
 
     try {
       const { text: botText, model, imageUrl, video } = await callChatStream(text, fileSnapshot, history);
@@ -639,12 +648,12 @@ export function Chat() {
                         </div>
                       </div>
                     )}
-                    {msg.file?.previewUrl && (
+                    {msg.file?.type.startsWith("image/") && msg.file.previewUrl && (
                       <img src={msg.file.previewUrl} alt={msg.file.name}
-                        style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 10, marginBottom: 8, objectFit: "cover" }} />
+                        style={{ width: "100%", borderRadius: 12, marginBottom: msg.text ? 8 : 0, display: "block", objectFit: "contain" }} />
                     )}
-                    {msg.file && !msg.file.previewUrl && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7, padding: "6px 10px",
+                    {msg.file && !msg.file.type.startsWith("image/") && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: msg.text ? 7 : 0, padding: "6px 10px",
                         borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
                         <FileIcon type={msg.file.type} />
                         <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
