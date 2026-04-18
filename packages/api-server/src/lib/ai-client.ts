@@ -138,17 +138,22 @@ export async function* streamAI(
       }
       const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
       throw new Error(errBody?.error?.message ?? `Zuki HTTP ${res.status}`);
-    } catch (err) {
-      if (!isGeminiModel) throw err;
+    } catch {
+      // Zuki failed (IP-lock, quota, etc.) → fall through to Gemini native
     }
   }
 
-  if (!isGeminiModel) {
-    throw new Error(`ZUKI_API_KEY not configured — cannot use model ${model}`);
-  }
   yield* streamGeminiNative(messages, opts);
 }
 
+
+function ruleBasedIntent(userText: string, hasFile: boolean): Intent {
+  const t = userText.toLowerCase();
+  if (/^(vẽ |draw |generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình)/i.test(userText.trim())) return "imagegen";
+  if (hasFile || userText.length > 800) return "bigcontext";
+  if (/viết code|lập trình|thuật toán|algorithm|debug|c\+\+|esp32|firmware|arduino|javascript|python|typescript|sql|regex|toán học|math|tính toán|phân tích sâu|giải thích chi tiết/.test(t)) return "thinking";
+  return "direct";
+}
 
 export async function routeIntent(
   userText: string,
@@ -156,12 +161,10 @@ export async function routeIntent(
   hasImage: boolean,
 ): Promise<Intent> {
   if (hasImage) return "bigcontext";
-  if (/^(vẽ |draw |generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình)/i.test(userText.trim())) {
-    return "imagegen";
-  }
+  if (/^(vẽ |draw |generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình)/i.test(userText.trim())) return "imagegen";
 
   const apiKey = process.env.ZUKI_API_KEY ?? "";
-  if (!apiKey) return "direct";
+  if (!apiKey) return ruleBasedIntent(userText, hasFile);
 
   try {
     const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
@@ -188,13 +191,14 @@ export async function routeIntent(
     if (res.ok) {
       const data  = await res.json() as { choices?: { message?: { content?: string } }[] };
       const reply = (data?.choices?.[0]?.message?.content ?? "").trim().toLowerCase();
-      if (reply.startsWith("imagegen")) return "imagegen";
-      if (reply.startsWith("thinking")) return "thinking";
+      if (reply.startsWith("imagegen"))  return "imagegen";
+      if (reply.startsWith("thinking"))  return "thinking";
       if (reply.startsWith("bigcontext")) return "bigcontext";
+      if (reply.startsWith("direct"))    return "direct";
     }
-  } catch { /* fallback to direct */ }
+  } catch { /* Zuki unavailable */ }
 
-  return "direct";
+  return ruleBasedIntent(userText, hasFile);
 }
 
 export async function generateImage(prompt: string): Promise<string> {
