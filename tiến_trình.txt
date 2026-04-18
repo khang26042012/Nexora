@@ -1,8 +1,34 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 51] UI chat 5 thay đổi + AI video tool calling
+    Cập nhật: [session 52] MIGRATION — Replit environment mới (lần 16)
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 52] MIGRATION — Replit environment mới (lần 16)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    1. Đọc replit.md, tiến_trình.txt, quy_trinh_lam_viec.txt, NexoraData.txt ✅
+    2. pnpm install --ignore-scripts → 820 packages OK (54s) ✅
+    3. Tạo workflow "packages/api-server: API Server" (PORT=8080) ✅
+       Log: "[sqlite] ✅ Prebuilt binary copied & verified (instant!)"
+    4. Restart "Start application" (portfolio, port 21113) → RUNNING ✅
+    5. Push GitHub (Tree API) + gửi Telegram ✅
+
+  Kết quả:
+    - Portfolio (port 21113): RUNNING ✅
+    - API Server (port 8080): RUNNING ✅
+    - SQLite DB initialized ✅
+    - ffmpeg bundled vào dist/ffmpeg ✅
+    - yt-dlp: downloaded & ready ✅
+
+  WARN (không phải lỗi):
+    - TELEGRAM_TOKEN not set → Bot Telegram tắt (cần set trong Secrets)
+    - NexoraGarden dist not found → bình thường dev mode
+    - Portfolio dist not found → bình thường dev mode
+
+  ESP32 cần nạp firmware: KHÔNG
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 51] Chat UI overhaul + AI tool calling video download
