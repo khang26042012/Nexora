@@ -139,6 +139,32 @@ function renderText(text: string) {
   ));
 }
 
+/* ── Trim helpers ─────────────────────────────────────────────── */
+function parseTrimTimes(text: string): { start: number; end: number } | null {
+  const patterns = [
+    /từ\s+(\d+(?:\.\d+)?)\s*s?\s+đến\s+(\d+(?:\.\d+)?)\s*s/i,
+    /from\s+(\d+(?:\.\d+)?)\s*s?\s+to\s+(\d+(?:\.\d+)?)\s*s/i,
+    /cắt.*?(\d+(?:\.\d+)?)\s*s.*?đến.*?(\d+(?:\.\d+)?)\s*s/i,
+    /(\d+(?:\.\d+)?)\s*s\s*[-–]\s*(\d+(?:\.\d+)?)\s*s/i,
+    /(\d+)\s+đến\s+(\d+)\s*(giây|s)/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const start = parseFloat(m[1]!);
+      const end   = parseFloat(m[2]!);
+      if (!isNaN(start) && !isNaN(end) && end > start) return { start, end };
+    }
+  }
+  return null;
+}
+
+function isTrimRequest(text: string, fileType: string): boolean {
+  if (!fileType.startsWith("video/") && !fileType.startsWith("audio/")) return false;
+  const t = text.toLowerCase();
+  return /cắt|trim|cut|clip/.test(t) && parseTrimTimes(text) !== null;
+}
+
 const TYPING_FULL = "NexoraAI";
 
 function useTypingText(full: string, delay = 80, startDelay = 400) {
@@ -396,6 +422,73 @@ export function Chat() {
     return { text: fullText, model: detectedModel || undefined, imageUrl: detectedImg, video: detectedVideo };
   };
 
+  const handleTrimRequest = useCallback(async (
+    userText: string,
+    file: AttachedFile,
+    start: number,
+    end: number,
+  ) => {
+    const userMsg: Msg = {
+      id: Date.now(), role: "user",
+      text: userText || `[File: ${file.name}]`,
+      time: now(),
+      file: { name: file.name, type: file.type, size: file.size, previewUrl: file.previewUrl },
+    };
+    setMsgs(prev => [...prev, userMsg]);
+    setInput("");
+    setAttached(null);
+    setError(null);
+    setIsLoading(true);
+    setStreamText("");
+    setPipeStage("Đang cắt...");
+
+    try {
+      const byteStr = atob(file.base64);
+      const bytes   = new Uint8Array(byteStr.length);
+      for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+      const blob = new Blob([bytes], { type: file.type });
+
+      const form = new FormData();
+      form.append("video", blob, file.name);
+      form.append("start", String(start));
+      form.append("end",   String(end));
+
+      const res = await fetch("/api/trim", { method: "POST", body: form });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string };
+        throw new Error(errData.error ?? `HTTP ${res.status}`);
+      }
+
+      const resultBlob = await res.blob();
+      const dlUrl  = URL.createObjectURL(resultBlob);
+      const baseName = file.name.replace(/\.[^.]+$/, "");
+      const dlName = `${baseName}_cut_${start}s-${end}s.mp4`;
+      const duration = end - start;
+
+      const botMsg: Msg = {
+        id: Date.now() + 1, role: "bot", time: now(),
+        text: `✅ Đã cắt từ **${start}s** đến **${end}s** (${duration}s). Bấm **Tải xuống** để lưu file.`,
+        videoUrl: dlUrl, videoTitle: dlName, videoThumb: "",
+      };
+      setMsgs(prev => [...prev, botMsg]);
+      setHistory(prev => [
+        ...prev,
+        { role: "user",      content: userText || `[File: ${file.name}]` },
+        { role: "assistant", content: botMsg.text },
+      ]);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Lỗi không xác định";
+      setError(`Lỗi cắt: ${errMsg}`);
+      setMsgs(prev => [...prev, {
+        id: Date.now() + 1, role: "bot", time: now(), error: true,
+        text: `⚠️ Không thể cắt: ${errMsg}`,
+      }]);
+    } finally {
+      setIsLoading(false);
+      setPipeStage("");
+    }
+  }, [history]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const sendMsg = async () => {
     const text = input.trim();
     if ((!text && !attached) || isLoading) return;
@@ -408,6 +501,14 @@ export function Chat() {
     };
 
     const fileSnapshot = attached;
+
+    /* ── Trim shortcut: video/audio + cắt/trim keywords + time range ── */
+    if (fileSnapshot && isTrimRequest(text, fileSnapshot.type)) {
+      const times = parseTrimTimes(text)!;
+      await handleTrimRequest(text, fileSnapshot, times.start, times.end);
+      return;
+    }
+
     setMsgs(prev => [...prev, userMsg]);
     setInput("");
     setAttached(null);

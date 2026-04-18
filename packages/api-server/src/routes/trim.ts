@@ -135,8 +135,8 @@ const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: 500 * 1024 * 1024 },
   fileFilter(_req, file, cb) {
-    if (file.mimetype.startsWith("video/")) cb(null, true);
-    else cb(new Error("File phải là video"));
+    if (file.mimetype.startsWith("video/") || file.mimetype.startsWith("audio/")) cb(null, true);
+    else cb(new Error("File phải là video hoặc audio"));
   },
 });
 
@@ -162,7 +162,10 @@ router.post("/trim", upload.single("video"), async (req: Request, res: Response)
   }
 
   const ext = path.extname(file.originalname || "video.mp4") || ".mp4";
-  const safeExt = [".mp4", ".mov", ".avi", ".mkv", ".webm"].includes(ext) ? ext : ".mp4";
+  const isAudio = file.mimetype?.startsWith("audio/");
+  const safeExt = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".mp3", ".m4a", ".ogg", ".wav", ".aac"].includes(ext)
+    ? ext
+    : (isAudio ? ".mp3" : ".mp4");
   const outPath  = file.path + "_trimmed" + safeExt;
   const duration = endSec - startSec;
 
