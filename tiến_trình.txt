@@ -1,8 +1,36 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 50] MIGRATION — Replit environment mới (lần 15)
+    Cập nhật: [session 50b] FIX — xóa NexoraAI+ModelBadge, đổi image gen sang Pollinations.ai
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 50b] FIX — xóa NexoraAI+ModelBadge streaming, đổi image gen sang Pollinations.ai
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vấn đề:
+    1. Streaming bubble hiện "NexoraAI" + badge tên model (GPT-4.1, v.v.) → cần xóa
+    2. Tạo ảnh lỗi "IP address mismatch detected" do Zuki API bị IP lock trên Replit
+
+  Đã fix:
+    1. apps/portfolio/src/pages/Chat.tsx:
+       - Xóa "NexoraAI" text khỏi streaming bubble header
+       - Xóa {curModel && <ModelBadge model={curModel} />} khỏi streaming bubble header
+       - Thay bằng giờ hiện tại (HH:MM) như các message thường
+
+    2. packages/api-server/src/lib/ai-client.ts:
+       - Xóa generateImage() dùng Zuki dall-e-3 (bị IP lock)
+       - Thay bằng Pollinations.ai (free, không cần API key, không bị IP lock)
+       - URL format: https://image.pollinations.ai/prompt/{prompt}?width=1024&height=1024&nologo=true&model=flux
+       - Trả URL trực tiếp, frontend hiển thị ảnh ngay
+
+  Files thay đổi:
+    - apps/portfolio/src/pages/Chat.tsx
+    - packages/api-server/src/lib/ai-client.ts
+
+  Build: OK ✅ | API Server: RUNNING ✅ | Portfolio: RUNNING ✅
+  Push GitHub: commit c811372 (Tree API, 1 commit) ✅
+  ESP32 cần nạp firmware: KHÔNG
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 50] MIGRATION — Replit environment mới (lần 15)
