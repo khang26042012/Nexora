@@ -90,9 +90,10 @@ export function TempMail() {
   const { copied: copiedEmail, copy: copyEmail } = useCopy();
   const { copied: copiedOtp, copy: copyOtp } = useCopy();
 
+  const CUSTOM_DOMAIN = "nexorax.cloud";
   const [domains, setDomains] = useState<string[]>([]);
   const [login, setLogin] = useState("");
-  const [domain, setDomain] = useState("1secmail.com");
+  const [domain, setDomain] = useState(CUSTOM_DOMAIN);
   const [activeEmail, setActiveEmail] = useState("");
 
   const [inbox, setInbox] = useState<MailMeta[]>([]);
@@ -251,11 +252,17 @@ export function TempMail() {
                 <select
                   value={domain}
                   onChange={e => setDomain(e.target.value)}
-                  className="px-3 py-2.5 rounded-xl text-sm outline-none text-white/80"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  className="px-3 py-2.5 rounded-xl text-sm outline-none font-medium"
+                  style={{
+                    background: domain === CUSTOM_DOMAIN ? "rgba(147,197,253,0.08)" : "rgba(255,255,255,0.05)",
+                    border: `1px solid ${domain === CUSTOM_DOMAIN ? "rgba(147,197,253,0.25)" : "rgba(255,255,255,0.1)"}`,
+                    color: domain === CUSTOM_DOMAIN ? "rgba(147,197,253,0.95)" : "rgba(255,255,255,0.8)",
+                  }}
                 >
-                  {(domains.length ? domains : ["1secmail.com", "1secmail.net", "1secmail.org"]).map(d => (
-                    <option key={d} value={d} style={{ background: "#111" }}>{d}</option>
+                  {(domains.length ? domains : [CUSTOM_DOMAIN, "1secmail.com", "1secmail.net"]).map(d => (
+                    <option key={d} value={d} style={{ background: "#111", color: "#fff" }}>
+                      {d === CUSTOM_DOMAIN ? `★ ${d}` : d}
+                    </option>
                   ))}
                 </select>
               </div>
