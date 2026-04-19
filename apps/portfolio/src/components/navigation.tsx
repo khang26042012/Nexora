@@ -100,16 +100,18 @@ export function Navigation() {
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.9 }}
           className="pointer-events-auto relative p-2.5 rounded-2xl"
+          animate={{ opacity: isOpen ? 0 : 1, scale: isOpen ? 0.8 : 1 }}
+          transition={{ duration: 0.18 }}
           style={{
-            background: isOpen ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.07)",
-            border: isOpen ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.14)",
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.14)",
             backdropFilter: "blur(16px)",
             boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
-            transition: "background 0.25s ease, border-color 0.25s ease",
+            pointerEvents: isOpen ? "none" : "auto",
           }}
-          aria-label={isOpen ? "Đóng menu" : "Mở menu"}
+          aria-label="Mở menu"
         >
-          <SidebarToggleIcon isOpen={isOpen} />
+          <SidebarToggleIcon isOpen={false} />
         </motion.button>
       </motion.header>
 
