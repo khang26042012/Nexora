@@ -133,8 +133,8 @@ async function zukiStreamWithKey(
   keyLabel: string,
 ): Promise<AsyncGenerator<string> | null> {
   const candidates = model.startsWith("gemini")
-    ? [model]
-    : [model, "gpt-4o", "gpt-4-turbo", "gemini-2.5-flash"];
+    ? [model, "gemini-2.0-flash"]
+    : [model, "gpt-4o", "gpt-4o-mini", "gemini-2.5-flash"];
 
   for (const m of candidates) {
     try {
