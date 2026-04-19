@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Menu, X, Home, Wrench, MessageCircle, LucideIcon } from "lucide-react";
+import { Home, Wrench, MessageCircle, X, LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import avatarImg from "@/assets/avatar_new.jpg";
@@ -41,6 +41,23 @@ function SpinRing({ inset, duration, reverse = false, opacity = 0.5, dashed = fa
   );
 }
 
+function SidebarToggleIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="rgba(255,255,255,0.75)" strokeWidth="1.5" />
+      <motion.line
+        y1="2" y2="18"
+        stroke="rgba(255,255,255,0.75)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        animate={{ x1: isOpen ? 6 : 14, x2: isOpen ? 6 : 14 }}
+        initial={false}
+        transition={{ type: "spring", stiffness: 320, damping: 28 }}
+      />
+    </svg>
+  );
+}
+
 export function Navigation() {
   const [isOpen, setIsOpen]     = useState(false);
   const [location, navigate]    = useLocation();
@@ -75,23 +92,24 @@ export function Navigation() {
     <>
       {/* ── Hamburger button ── */}
       <motion.header
-        className="fixed top-0 left-0 right-0 z-40 px-5 h-16 flex items-center pointer-events-none"
+        className="fixed top-0 left-0 right-0 z-[60] px-5 h-16 flex items-center pointer-events-none"
         style={{ background: "transparent" }}
       >
         <motion.button
-          onClick={() => setIsOpen(true)}
+          onClick={() => setIsOpen(v => !v)}
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.9 }}
           className="pointer-events-auto relative p-2.5 rounded-2xl"
           style={{
-            background: "rgba(255,255,255,0.07)",
-            border: "1px solid rgba(255,255,255,0.14)",
+            background: isOpen ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.07)",
+            border: isOpen ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.14)",
             backdropFilter: "blur(16px)",
             boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
+            transition: "background 0.25s ease, border-color 0.25s ease",
           }}
-          aria-label="Mở menu"
+          aria-label={isOpen ? "Đóng menu" : "Mở menu"}
         >
-          <Menu className="w-5 h-5 text-white/75" />
+          <SidebarToggleIcon isOpen={isOpen} />
         </motion.button>
       </motion.header>
 
