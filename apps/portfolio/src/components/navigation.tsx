@@ -165,7 +165,7 @@ export function Navigation() {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.15 }}
                 className="relative px-5 py-5 flex items-center justify-between flex-shrink-0"
-                style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+                style={{ borderBottom: "none" }}
               >
                 {/* Avatar + name */}
                 <div className="flex items-center gap-3">
@@ -394,41 +394,6 @@ export function Navigation() {
                 })}
               </nav>
 
-              {/* ── Footer ── */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1, duration: 0.18 }}
-                className="px-5 py-5 flex-shrink-0"
-                style={{
-                  borderTop: "1px solid rgba(255,255,255,0.07)",
-                  background: "rgba(255,255,255,0.02)",
-                }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  {[
-                    { color: "#ff5f57", size: 9 },
-                    { color: "#febc2e", size: 9 },
-                    { color: "#28c840", size: 9 },
-                  ].map((dot, i) => (
-                    <motion.div
-                      key={i}
-                      whileHover={{ scale: 1.4 }}
-                      style={{
-                        width: dot.size, height: dot.size,
-                        borderRadius: "50%",
-                        background: dot.color,
-                        opacity: 0.6,
-                        cursor: "default",
-                        boxShadow: `0 0 6px ${dot.color}55`,
-                      }}
-                    />
-                  ))}
-                </div>
-                <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.18)", fontFamily: FONT }}>
-                  © 2026 Phan Trọng Khang
-                </p>
-              </motion.div>
             </motion.aside>
           </>
         )}
