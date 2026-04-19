@@ -157,18 +157,9 @@ router.post("/chat", async (req: Request, res: Response) => {
       return;
     }
 
-    let model: string;
-    if (hasImage || hasFile) {
-      model = "gemini-2.5-flash";
-      sseWrite(res, { type: "model", name: "gemini-2.5-flash" });
-    } else if (intent === "thinking" || intent === "bigcontext") {
-      model = "gpt-4.1";
-      sseWrite(res, { type: "model", name: "gpt-4.1" });
-      if (intent === "thinking") sseWrite(res, { type: "thinking", active: true });
-    } else {
-      model = "gpt-4.1";
-      sseWrite(res, { type: "model", name: "gpt-4.1" });
-    }
+    const model = "gemini-2.5-flash";
+    sseWrite(res, { type: "model", name: "gemini-2.5-flash" });
+    if (intent === "thinking") sseWrite(res, { type: "thinking", active: true });
 
     const sysContent = system
       ? (intent === "thinking" ? system + THINKING_SUFFIX : system)

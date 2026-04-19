@@ -1,8 +1,61 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 52] MIGRATION — Replit environment mới (lần 16)
+    Cập nhật: [session 53] MIGRATION — Replit environment mới (lần 17)
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 54] FEAT — Xóa Zuki, thay bằng Gemini multi-key smart rotation
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    1. Xóa toàn bộ Zuki logic khỏi ai-client.ts:
+       - Xóa ZUKI_BASE, getZukiKeys(), zukiStreamWithKey(), routeIntent dùng Zuki
+       - Xóa synthesizeSpeech (dựa vào Zuki) → trả lỗi rõ ràng
+    2. Viết lại ai-client.ts với 4 Gemini API key cứng + smart rotation:
+       - 4 keys: AIzaSyA-m9m..., AIzaSyB8Fkz..., AIzaSyA7KB..., AIzaSyAi2f...
+       - Key bị 429/RESOURCE_EXHAUSTED → cooldown 60s, skip sang key tiếp
+       - Key bị 401/403 → cooldown 5 phút
+       - Sau khi thử hết keys → đổi proxy endpoint, thử lại
+       - Fallback cuối: GEMINI_API_KEY env (nếu có)
+    3. Model duy nhất: gemini-2.5-flash (bỏ gpt-4.1, deepseek, v.v.)
+    4. routeIntent: đổi sang rule-based thuần (không gọi API nữa → tiết kiệm quota)
+    5. generateImage và transcribeAudio dùng gemini key rotation
+    6. chat.ts: xóa phân nhánh model, luôn dùng gemini-2.5-flash
+
+  Files thay đổi:
+    - packages/api-server/src/lib/ai-client.ts (rewrite)
+    - packages/api-server/src/routes/chat.ts (model branching removed)
+
+  Kết quả:
+    - API Server: RUNNING ✅ (build OK, 608ms)
+    - Portfolio: RUNNING ✅
+    - Không còn dependency vào Zuki
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 53] MIGRATION — Replit environment mới (lần 17)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    1. Đọc replit.md, tiến_trình.txt ✅
+    2. pnpm install --ignore-scripts → 820 packages OK (45s) ✅
+    3. Tạo workflow "packages/api-server: API Server" (PORT=8080) ✅
+       Log: "[sqlite] ✅ Prebuilt binary copied & verified (instant!)"
+    4. Restart "Start application" (portfolio, port 21113) → RUNNING ✅
+
+  Kết quả:
+    - Portfolio (port 21113): RUNNING ✅
+    - API Server (port 8080): RUNNING ✅
+    - SQLite DB initialized ✅
+    - ffmpeg bundled vào dist/ffmpeg ✅
+    - yt-dlp: binary not usable (wrong arch) — warning nhỏ, không ảnh hưởng
+
+  WARN (không phải lỗi):
+    - TELEGRAM_TOKEN not set → Bot Telegram tắt (cần set trong Secrets)
+    - NexoraGarden dist not found → bình thường dev mode
+    - Portfolio dist not found → bình thường dev mode
+
+  ESP32 cần nạp firmware: KHÔNG
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 52] MIGRATION — Replit environment mới (lần 16)

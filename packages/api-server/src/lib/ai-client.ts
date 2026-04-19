@@ -1,5 +1,46 @@
-const ZUKI_BASE    = "https://api.zukijourney.com/v1";
-const GEMINI_BASE  = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse";
+// ============================================================
+//  Gemini Multi-Key Smart Caller
+//  - 4 API keys xoay vòng
+//  - Key bị 429/quota → skip, thử key tiếp
+//  - Tất cả key hết → đổi proxy endpoint, thử lại
+//  - Model duy nhất: gemini-2.5-flash
+// ============================================================
+
+const MODEL = "gemini-2.5-flash";
+
+const GEMINI_KEYS: string[] = [
+  process.env.GEMINI_KEY_1 ?? "",
+  process.env.GEMINI_KEY_2 ?? "",
+  process.env.GEMINI_KEY_3 ?? "",
+  process.env.GEMINI_KEY_4 ?? "",
+].filter(k => k.length > 0);
+
+// Proxy endpoints — nếu endpoint 0 hết key hoặc bị block, thử endpoint 1+
+const GEMINI_PROXIES: string[] = [
+  "https://generativelanguage.googleapis.com/v1beta",
+  "https://generativelanguage.googleapis.com/v1beta", // placeholder — thêm proxy thật ở đây nếu cần
+];
+
+// Cooldown state: keyIndex → timestamp hết cooldown
+const keyCooldown = new Map<number, number>();
+const COOLDOWN_MS = 60_000; // 60s cooldown mỗi key khi bị 429
+
+function getAvailableKeys(): number[] {
+  const now = Date.now();
+  return GEMINI_KEYS.map((_, i) => i).filter(i => {
+    const until = keyCooldown.get(i) ?? 0;
+    return now >= until;
+  });
+}
+
+function markKeyExhausted(keyIdx: number): void {
+  keyCooldown.set(keyIdx, Date.now() + COOLDOWN_MS);
+  console.warn(`[gemini] key${keyIdx + 1} exhausted → cooldown 60s`);
+}
+
+// ============================================================
+//  Types
+// ============================================================
 
 type TextPart  = { type: "text"; text?: string };
 type ImagePart = { type: "image_url"; image_url: { url: string } };
@@ -14,10 +55,14 @@ export interface AIMessage {
 export interface StreamOptions {
   temperature?: number;
   maxTokens?:   number;
-  model?:       string;
+  model?:       string; // ignored — always gemini-2.5-flash
 }
 
 export type Intent = "direct" | "thinking" | "bigcontext" | "imagegen" | "download";
+
+// ============================================================
+//  Helpers
+// ============================================================
 
 function toGeminiParts(content: MessageContent): object[] {
   if (typeof content === "string") return [{ text: content }];
@@ -30,29 +75,6 @@ function toGeminiParts(content: MessageContent): object[] {
     }
     return { text: "" };
   });
-}
-
-async function* parseOpenAIStream(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const reader  = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer    = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const raw = line.slice(6).trim();
-      if (!raw || raw === "[DONE]") continue;
-      try {
-        const chunk = (JSON.parse(raw) as { choices?: { delta?: { content?: string } }[] })
-          ?.choices?.[0]?.delta?.content ?? "";
-        if (chunk) yield chunk;
-      } catch { /* skip */ }
-    }
-  }
 }
 
 async function* parseGeminiStream(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
@@ -81,13 +103,7 @@ async function* parseGeminiStream(body: ReadableStream<Uint8Array>): AsyncGenera
   }
 }
 
-async function* streamGeminiNative(
-  messages: AIMessage[],
-  opts: StreamOptions,
-): AsyncGenerator<string> {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
-
+function buildGeminiPayload(messages: AIMessage[], opts: StreamOptions): object {
   const systemMsg = messages.find(m => m.role === "system");
   const otherMsgs = messages.filter(m => m.role !== "system");
   const payload: Record<string, unknown> = {
@@ -104,99 +120,153 @@ async function* streamGeminiNative(
     const sysText = typeof systemMsg.content === "string" ? systemMsg.content : "";
     payload.system_instruction = { parts: [{ text: sysText }] };
   }
-
-  const res = await fetch(`${GEMINI_BASE}&key=${GEMINI_API_KEY}`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify(payload),
-  });
-  if (!res.ok || !res.body) {
-    const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `Gemini HTTP ${res.status}`);
-  }
-  yield* parseGeminiStream(res.body);
+  return payload;
 }
 
-function getZukiKeys(): string[] {
-  return [
-    process.env.ZUKI_API_KEY_1 ?? "",
-    process.env.ZUKI_API_KEY_2 ?? "",
-  ].filter(k => k.length > 0);
-}
+// ============================================================
+//  Core: Smart key rotation với proxy fallback
+// ============================================================
 
-async function zukiStreamWithKey(
-  model: string,
-  messages: AIMessage[],
-  temperature: number,
-  maxTokens: number,
-  apiKey: string,
-  keyLabel: string,
+async function tryStreamWithKey(
+  keyIdx: number,
+  proxyBase: string,
+  payload: object,
 ): Promise<AsyncGenerator<string> | null> {
-  const candidates = model.startsWith("gemini")
-    ? [model, "gemini-2.0-flash"]
-    : [model, "gpt-4o", "gpt-4o-mini", "gemini-2.5-flash"];
+  const key = GEMINI_KEYS[keyIdx];
+  const url = `${proxyBase}/models/${MODEL}:streamGenerateContent?alt=sse&key=${key}`;
+  try {
+    const res = await fetch(url, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      signal:  AbortSignal.timeout(30_000),
+      body:    JSON.stringify(payload),
+    });
 
-  for (const m of candidates) {
-    try {
-      const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        signal:  AbortSignal.timeout(25000),
-        body:    JSON.stringify({ model: m, stream: true, temperature, max_tokens: maxTokens, messages }),
-      });
-      if (res.ok && res.body) {
-        console.info(`[zuki] ${keyLabel} model=${m} OK`);
-        return parseOpenAIStream(res.body);
-      }
-      const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
-      const errMsg = errBody?.error?.message ?? "no message";
-      console.warn(`[zuki] ${keyLabel} model=${m} HTTP ${res.status}:`, errMsg);
-      // 429 rate-limit hoặc 401/403 auth fail → bỏ qua toàn bộ key này ngay
-      if (res.status === 429 || res.status === 401 || res.status === 403) {
-        console.warn(`[zuki] ${keyLabel} HTTP ${res.status} → skip remaining models for this key`);
-        break;
-      }
-    } catch (e) {
-      console.warn(`[zuki] ${keyLabel} model=${m} exception:`, (e as Error).message);
+    if (res.ok && res.body) {
+      console.info(`[gemini] key${keyIdx + 1} proxy=${proxyBase.includes("googleapis") ? "google" : "proxy"} OK`);
+      return parseGeminiStream(res.body);
     }
+
+    // Đọc error body
+    const errBody = await res.json().catch(() => ({})) as { error?: { message?: string; status?: string } };
+    const errMsg  = errBody?.error?.message ?? `HTTP ${res.status}`;
+    const status  = errBody?.error?.status  ?? "";
+
+    // Quota / rate limit → cooldown key này
+    if (res.status === 429 || status === "RESOURCE_EXHAUSTED" || errMsg.includes("quota")) {
+      markKeyExhausted(keyIdx);
+      return null;
+    }
+
+    // Auth fail → cooldown lâu hơn
+    if (res.status === 401 || res.status === 403) {
+      keyCooldown.set(keyIdx, Date.now() + 300_000); // 5 phút
+      console.warn(`[gemini] key${keyIdx + 1} auth error (${res.status}) → cooldown 5m`);
+      return null;
+    }
+
+    console.warn(`[gemini] key${keyIdx + 1} HTTP ${res.status}: ${errMsg}`);
+    return null;
+  } catch (e) {
+    console.warn(`[gemini] key${keyIdx + 1} exception:`, (e as Error).message);
+    return null;
   }
-  return null;
 }
 
+async function tryFetchWithKey(
+  keyIdx: number,
+  proxyBase: string,
+  endpoint: string,
+  payload: object,
+): Promise<Response | null> {
+  const key = GEMINI_KEYS[keyIdx];
+  const url = `${proxyBase}/models/${endpoint}?key=${key}`;
+  try {
+    const res = await fetch(url, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      signal:  AbortSignal.timeout(25_000),
+      body:    JSON.stringify(payload),
+    });
+
+    if (res.ok) return res;
+
+    const errBody = await res.json().catch(() => ({})) as { error?: { message?: string; status?: string } };
+    const errMsg  = errBody?.error?.message ?? `HTTP ${res.status}`;
+    const status  = errBody?.error?.status  ?? "";
+
+    if (res.status === 429 || status === "RESOURCE_EXHAUSTED" || errMsg.includes("quota")) {
+      markKeyExhausted(keyIdx);
+      return null;
+    }
+    if (res.status === 401 || res.status === 403) {
+      keyCooldown.set(keyIdx, Date.now() + 300_000);
+      return null;
+    }
+    console.warn(`[gemini] key${keyIdx + 1} fetch HTTP ${res.status}: ${errMsg}`);
+    return null;
+  } catch (e) {
+    console.warn(`[gemini] key${keyIdx + 1} fetch exception:`, (e as Error).message);
+    return null;
+  }
+}
+
+// Xoay vòng keys + proxy để stream
 export async function* streamAI(
   messages: AIMessage[],
   opts: StreamOptions = {},
 ): AsyncGenerator<string> {
-  const { temperature = 0.7, maxTokens = 4096, model = "gpt-4.1" } = opts;
-  const keys = getZukiKeys();
+  const payload = buildGeminiPayload(messages, opts);
 
-  // --- Thử lần lượt từng Zuki key (key1 → key2) với model fallback ---
-  for (let i = 0; i < keys.length; i++) {
-    const stream = await zukiStreamWithKey(model, messages, temperature, maxTokens, keys[i], `key${i + 1}`);
-    if (stream) { yield* stream; return; }
+  for (const proxyBase of GEMINI_PROXIES) {
+    const available = getAvailableKeys();
+    for (const keyIdx of available) {
+      const stream = await tryStreamWithKey(keyIdx, proxyBase, payload);
+      if (stream) { yield* stream; return; }
+    }
   }
 
-  if (keys.length > 0) {
-    console.warn("[zuki] Tất cả keys đều fail → fallback Google AI Studio");
+  // Tất cả keys đều fail → thử lại với env key (nếu có) như safety net
+  const envKey = process.env.GEMINI_API_KEY;
+  if (envKey) {
+    console.warn("[gemini] All rotated keys failed → trying GEMINI_API_KEY env");
+    const url = `${GEMINI_PROXIES[0]}/models/${MODEL}:streamGenerateContent?alt=sse&key=${envKey}`;
+    const res = await fetch(url, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+    if (res.ok && res.body) { yield* parseGeminiStream(res.body); return; }
   }
 
-  // --- Fallback cuối: Google AI Studio ---
-  yield* streamGeminiNative(messages, opts);
+  throw new Error("Tất cả Gemini API keys đều hết quota hoặc gặp lỗi. Vui lòng thử lại sau.");
 }
 
+// Xoay vòng keys + proxy cho non-streaming request
+async function geminiGenerate(endpoint: string, payload: object): Promise<object> {
+  for (const proxyBase of GEMINI_PROXIES) {
+    const available = getAvailableKeys();
+    for (const keyIdx of available) {
+      const res = await tryFetchWithKey(keyIdx, proxyBase, endpoint, payload);
+      if (res) return await res.json() as object;
+    }
+  }
+  const envKey = process.env.GEMINI_API_KEY;
+  if (envKey) {
+    const url = `${GEMINI_PROXIES[0]}/models/${endpoint}?key=${envKey}`;
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (res.ok) return await res.json() as object;
+  }
+  throw new Error("Tất cả Gemini API keys đều hết quota.");
+}
+
+// ============================================================
+//  Intent routing (rule-based — không cần gọi API)
+// ============================================================
 
 const IMAGEGEN_START_RE = /^(vẽ|draw|generate image|tạo ảnh|sinh ảnh|hãy vẽ|vẽ cho|tạo hình|hãy tạo ảnh|hãy tạo hình)/i;
 const IMAGEGEN_ANY_RE   = /\btạo (một |cho tôi |cho mình )?(bức |tấm )?(ảnh|hình ảnh)\b|\b(generate|create|draw|render) (an? )?(image|picture|photo|illustration)\b/i;
+
 function isImagegenRequest(userText: string): boolean {
   return IMAGEGEN_START_RE.test(userText.trim()) || IMAGEGEN_ANY_RE.test(userText);
-}
-
-function ruleBasedIntent(userText: string, hasFile: boolean): Intent {
-  const t = userText.toLowerCase();
-  if (isImagegenRequest(userText)) return "imagegen";
-  if (hasFile || userText.length > 800) return "bigcontext";
-  if (/viết code|lập trình|thuật toán|algorithm|debug|c\+\+|esp32|firmware|arduino|javascript|python|typescript|sql|regex|toán học|math|tính toán|phân tích sâu|giải thích chi tiết/.test(t)) return "thinking";
-  return "direct";
 }
 
 const VIDEO_URL_RE = /https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|tiktok\.com\/.+|instagram\.com\/(?:reel|p)\/|vimeo\.com\/)\S*/i;
@@ -220,54 +290,21 @@ export async function routeIntent(
   if (isDownloadRequest(userText)) return "download";
   if (isImagegenRequest(userText)) return "imagegen";
 
-  const keys = getZukiKeys();
-  if (keys.length === 0) return ruleBasedIntent(userText, hasFile);
-
-  const body = JSON.stringify({
-    model:       "gpt-4.1",
-    stream:      false,
-    max_tokens:  10,
-    temperature: 0,
-    messages: [
-      {
-        role: "system",
-        content: `Classify the user message. Reply with ONLY one word:
-"imagegen" — user wants to generate/draw/render an image, diagram, or illustration
-"thinking"  — code, C/C++/firmware/ESP32, algorithm, math, debug, logic, step-by-step reasoning
-"bigcontext" — analyse file/log/document, translate long text, summarize large content${hasFile ? " (file attached)" : ""}
-"direct"    — everything else: greetings, general info, simple questions`,
-      },
-      { role: "user", content: userText.slice(0, 600) },
-    ],
-  });
-
-  for (const key of keys) {
-    try {
-      const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-        signal:  AbortSignal.timeout(19000),
-        body,
-      });
-      if (res.ok) {
-        const data  = await res.json() as { choices?: { message?: { content?: string } }[] };
-        const reply = (data?.choices?.[0]?.message?.content ?? "").trim().toLowerCase();
-        if (reply.startsWith("imagegen"))   return "imagegen";
-        if (reply.startsWith("thinking"))   return "thinking";
-        if (reply.startsWith("bigcontext")) return "bigcontext";
-        if (reply.startsWith("direct"))     return "direct";
-      }
-    } catch { /* thử key tiếp */ }
-  }
-
-  return ruleBasedIntent(userText, hasFile);
+  const t = userText.toLowerCase();
+  if (hasFile || userText.length > 800) return "bigcontext";
+  if (/viết code|lập trình|thuật toán|algorithm|debug|c\+\+|esp32|firmware|arduino|javascript|python|typescript|sql|regex|toán học|math|tính toán|phân tích sâu|giải thích chi tiết/.test(t)) return "thinking";
+  return "direct";
 }
 
-export async function generateImage(prompt: string): Promise<string> {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
+// ============================================================
+//  Image generation (Pollinations.ai — không cần key)
+// ============================================================
 
+export async function generateImage(prompt: string): Promise<string> {
   let enhancedPrompt = prompt;
-  if (GEMINI_API_KEY) {
+
+  // Dùng Gemini để enhance prompt trước
+  try {
     const payload = {
       contents: [{
         role: "user",
@@ -275,16 +312,10 @@ export async function generateImage(prompt: string): Promise<string> {
       }],
       generationConfig: { temperature: 0.4, maxOutputTokens: 300 },
     };
-    const gemRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
-    ).catch(() => null);
-    if (gemRes?.ok) {
-      const data = await gemRes.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (text) enhancedPrompt = text;
-    }
-  }
+    const data = await geminiGenerate(`${MODEL}:generateContent`, payload) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (text) enhancedPrompt = text;
+  } catch { /* dùng prompt gốc nếu fail */ }
 
   const encoded = encodeURIComponent(enhancedPrompt);
   const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&model=flux`;
@@ -293,10 +324,11 @@ export async function generateImage(prompt: string): Promise<string> {
   return url;
 }
 
-export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Promise<string> {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured — cannot transcribe audio");
+// ============================================================
+//  Audio transcription (Gemini native)
+// ============================================================
 
+export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Promise<string> {
   const safeMime = mimeType.includes("webm") ? "audio/webm"
                  : mimeType.includes("ogg")  ? "audio/ogg"
                  : mimeType.includes("mp4")  ? "audio/mp4"
@@ -304,7 +336,6 @@ export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Pr
                  : "audio/webm";
 
   const base64Audio = audioBuffer.toString("base64");
-
   const payload = {
     contents: [{
       role: "user",
@@ -316,31 +347,14 @@ export async function transcribeAudio(audioBuffer: Buffer, mimeType: string): Pr
     generationConfig: { temperature: 0, maxOutputTokens: 1024 },
   };
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `Gemini STT HTTP ${res.status}`);
-  }
-  const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const data = await geminiGenerate(`${MODEL}:generateContent`, payload) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 }
 
-export async function synthesizeSpeech(text: string, voice = "nova"): Promise<Buffer> {
-  const apiKey = process.env.ZUKI_API_KEY ?? "";
-  if (!apiKey) throw new Error("ZUKI_API_KEY not configured — cannot synthesize speech");
+// ============================================================
+//  TTS — không có Gemini TTS, trả lỗi rõ ràng
+// ============================================================
 
-  const res = await fetch(`${ZUKI_BASE}/audio/speech`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-    body:    JSON.stringify({ model: "gpt-4o-mini-tts", input: text.slice(0, 4096), voice }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `TTS HTTP ${res.status}`);
-  }
-  const arrayBuf = await res.arrayBuffer();
-  return Buffer.from(arrayBuf);
+export async function synthesizeSpeech(_text: string, _voice = "nova"): Promise<Buffer> {
+  throw new Error("TTS không khả dụng (đã xóa Zuki). Vui lòng tắt tính năng đọc to.");
 }
