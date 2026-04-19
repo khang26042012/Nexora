@@ -17,6 +17,7 @@ import bgremoverRouter from "./bgremover";
 import codereviewRouter from "./codereview";
 import emailwriterRouter from "./emailwriter";
 import promptimageRouter from "./promptimage";
+import tempmailRouter from "./tempmail";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(bgremoverRouter);
 router.use(codereviewRouter);
 router.use(emailwriterRouter);
 router.use(promptimageRouter);
+router.use(tempmailRouter);
 
 export default router;

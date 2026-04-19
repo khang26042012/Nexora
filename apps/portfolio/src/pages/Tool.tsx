@@ -1,10 +1,26 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon, Inbox, Pin } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const TOOLS = [
+  {
+    id: "temp-mail",
+    icon: Inbox,
+    iconColor: "rgba(147,197,253,0.85)",
+    iconBg: "rgba(147,197,253,0.08)",
+    iconBorder: "rgba(147,197,253,0.2)",
+    glowColor: "rgba(147,197,253,0.06)",
+    name: "Temp Mail",
+    desc: "Tạo hàng loạt email ảo theo domain — nhận OTP, link xác minh tức thì. Dùng để thử nền tảng, chặn spam, đăng ký không cần email thật.",
+    tag: "Email · News",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    pinned: true,
+    beta: true,
+    route: "/tool/temp-mail",
+  },
   {
     id: "prompt-image",
     icon: ImageIcon,
@@ -344,6 +360,15 @@ function ToolCard({ tool, index }: { tool: typeof TOOLS[0]; index: number }) {
             style={{ background: `radial-gradient(ellipse at 0% 0%, ${tool.glowColor} 0%, transparent 70%)` }}
           />
 
+          {/* Pin badge */}
+          {(tool as { pinned?: boolean }).pinned && (
+            <div className="absolute top-3 left-3 flex items-center gap-1 px-1.5 py-0.5 rounded"
+              style={{ background: "rgba(147,197,253,0.1)", border: "1px solid rgba(147,197,253,0.2)" }}>
+              <Pin className="w-2.5 h-2.5" style={{ color: "rgba(147,197,253,0.7)" }} />
+              <span className="text-[8px] font-bold tracking-widest uppercase" style={{ color: "rgba(147,197,253,0.7)" }}>Ghim</span>
+            </div>
+          )}
+
           {/* Corner arrow */}
           <motion.div
             className="absolute top-4 right-4"
@@ -380,7 +405,7 @@ function ToolCard({ tool, index }: { tool: typeof TOOLS[0]; index: number }) {
 
           {/* Text */}
           <div className="flex flex-col gap-1.5 relative">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base font-bold text-white/90">{tool.name}</h3>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md tracking-wide"
                 style={{
@@ -390,6 +415,12 @@ function ToolCard({ tool, index }: { tool: typeof TOOLS[0]; index: number }) {
                 }}>
                 {tool.tag}
               </span>
+              {(tool as { beta?: boolean }).beta && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase"
+                  style={{ background: "rgba(251,191,36,0.12)", color: "rgba(251,191,36,0.8)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                  Beta
+                </span>
+              )}
             </div>
             <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
               {tool.desc}

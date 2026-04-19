@@ -2397,3 +2397,41 @@ ESP32 cần nạp firmware: KHÔNG
 - ThreeScene.tsx v4: Stars 3 layer (8000+), NebulaClouds gaussian (5 clusters/màu), AuroraRibbons sine-wave, FloatingOrbs 3 orbs, CameraController parallax - FIX useMemo trong map
 - Home.tsx Hero: Ambient CSS glow orbs (4 orbs), Mountain silhouette SVG 2 lớp có glow line, Crystal formations SVG 3 cụm (cyan/blue/purple) với SVG filter glow, Floor gradient, Text glow shadows, Button shadow nổi bật
 - Page background: linear-gradient tím sâu thay solid
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[19/04/2026] FEAT — Tool mới: Temp Mail (email ảo nhận OTP)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Đã làm:
+  1. Backend proxy (packages/api-server/src/routes/tempmail.ts):
+     - GET /api/tempmail/domains → danh sách domain từ 1secmail
+     - GET /api/tempmail/inbox?login=&domain= → inbox messages
+     - GET /api/tempmail/message?login=&domain=&id= → đọc email
+     - Dùng 1secmail API (free, không cần API key)
+  2. Frontend (apps/portfolio/src/pages/tools/TempMail.tsx):
+     - Nhập username + chọn domain → tạo email ảo
+     - Nút "Ngẫu nhiên" → gen username random
+     - Inbox tự refresh mỗi 10 giây + countdown
+     - Click email → modal đọc nội dung
+     - Auto-extract và highlight OTP (4-8 chữ số)
+     - Highlight link xác minh (clickable)
+     - Copy email address / copy OTP buttons
+     - Warning banner: email công khai, không dùng cho data nhạy cảm
+  3. Đăng ký route backend: packages/api-server/src/routes/index.ts
+  4. Đăng ký route frontend: apps/portfolio/src/App.tsx (/tool/temp-mail)
+  5. Tool.tsx: ghim đầu danh sách, badge "Ghim" + badge "Beta", tag "Email · News"
+
+Files đã tạo/sửa:
+  packages/api-server/src/routes/tempmail.ts          (MỚI)
+  packages/api-server/src/routes/index.ts             (thêm tempmailRouter)
+  apps/portfolio/src/pages/tools/TempMail.tsx         (MỚI)
+  apps/portfolio/src/App.tsx                          (thêm /tool/temp-mail)
+  apps/portfolio/src/pages/Tool.tsx                   (tool đầu list, beta+pin badge)
+
+Kết quả:
+  - Tool hiển thị đầu Tool Box với badge "Ghim" + "Beta" ✅
+  - Tag: "Email · News" ✅
+  - API proxy chạy tại /api/tempmail/* ✅
+  - Auto-refresh inbox mỗi 10s ✅
+  - OTP detection + copy ✅
