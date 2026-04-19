@@ -144,18 +144,21 @@ export function Navigation() {
                 fontFamily: FONT,
               }}
             >
-              {/* ── Ambient glow top-left ── */}
-              <div
-                className="absolute top-0 left-0 w-64 h-64 pointer-events-none"
+              {/* ── Video background ── */}
+              <video
+                src="https://raw.githubusercontent.com/khang26042012/Nexora/main/public/sidebar-bg.mp4"
+                autoPlay muted loop playsInline
                 style={{
-                  background: "radial-gradient(ellipse at 0% 0%, rgba(120,180,255,0.07) 0%, transparent 65%)",
+                  position: "absolute", inset: 0, width: "100%", height: "100%",
+                  objectFit: "cover", objectPosition: "center",
+                  opacity: 0.18, pointerEvents: "none", zIndex: 0,
                 }}
               />
-              {/* ── Ambient glow bottom-right ── */}
+              {/* ── Overlay tối phủ lên video ── */}
               <div
-                className="absolute bottom-0 right-0 w-48 h-48 pointer-events-none"
                 style={{
-                  background: "radial-gradient(ellipse at 100% 100%, rgba(180,120,255,0.06) 0%, transparent 65%)",
+                  position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
+                  background: "rgba(14,14,16,0.72)",
                 }}
               />
 
@@ -165,7 +168,7 @@ export function Navigation() {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.15 }}
                 className="relative px-5 py-5 flex items-center justify-between flex-shrink-0"
-                style={{ borderBottom: "none" }}
+                style={{ borderBottom: "none", zIndex: 2 }}
               >
                 {/* Avatar + name */}
                 <div className="flex items-center gap-3">
@@ -238,13 +241,13 @@ export function Navigation() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.15 }}
                 className="px-5 pt-5 pb-2 text-[10px] font-semibold tracking-widest uppercase"
-                style={{ color: "rgba(255,255,255,0.2)", fontFamily: FONT }}
+                style={{ color: "rgba(255,255,255,0.2)", fontFamily: FONT, position: "relative", zIndex: 2 }}
               >
                 Điều hướng
               </motion.p>
 
               {/* ── Nav links ── */}
-              <nav className="flex-1 px-4 pt-3 pb-4 flex flex-col gap-2.5 overflow-y-auto">
+              <nav className="flex-1 px-4 pt-3 pb-4 flex flex-col gap-2.5 overflow-y-auto" style={{ position: "relative", zIndex: 2 }}>
                 {NAV_LINKS.map((link, i) => {
                   const Icon = link.icon;
                   const isAct = active === link.href;
