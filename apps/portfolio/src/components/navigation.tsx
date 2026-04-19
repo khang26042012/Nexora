@@ -244,152 +244,57 @@ export function Navigation() {
               </motion.p>
 
               {/* ── Nav links ── */}
-              <nav className="flex-1 px-3 pb-4 flex flex-col gap-1.5 overflow-y-auto">
+              <nav className="flex-1 px-4 pt-3 pb-4 flex flex-col gap-2.5 overflow-y-auto">
                 {NAV_LINKS.map((link, i) => {
-                  const Icon  = link.icon;
+                  const Icon = link.icon;
                   const isAct = active === link.href;
                   const isHov = hovered === link.href;
-
                   return (
-                    <motion.div
+                    <motion.a
                       key={link.href}
-                      initial={{ opacity: 0, x: -16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.05 + i * 0.04, type: "tween", duration: 0.18, ease: "easeOut" }}
+                      href={link.href}
+                      onClick={(e) => handleNavClick(e, link.href)}
+                      onMouseEnter={() => setHovered(link.href)}
+                      onMouseLeave={() => setHovered(null)}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.04 + i * 0.04, duration: 0.18, ease: "easeOut" }}
+                      whileTap={{ scale: 0.97 }}
+                      className="flex items-center justify-center gap-2.5 py-3.5 px-5 cursor-pointer select-none"
+                      style={{
+                        borderRadius: 9999,
+                        background: isAct
+                          ? "rgba(255,255,255,0.13)"
+                          : isHov
+                          ? "rgba(255,255,255,0.07)"
+                          : "rgba(255,255,255,0.04)",
+                        border: isAct
+                          ? "1px solid rgba(255,255,255,0.22)"
+                          : "1px solid rgba(255,255,255,0.09)",
+                        transition: "background 0.18s ease, border-color 0.18s ease",
+                      }}
                     >
-                      <motion.a
-                        href={link.href}
-                        onClick={(e) => handleNavClick(e, link.href)}
-                        onMouseEnter={() => setHovered(link.href)}
-                        onMouseLeave={() => setHovered(null)}
-                        whileTap={{ scale: 0.97 }}
-                        className="relative flex items-center gap-3 px-3 py-3 cursor-pointer select-none overflow-hidden"
+                      <Icon
+                        size={17}
                         style={{
-                          borderRadius: 16,
-                          background: isAct
-                            ? "rgba(255,255,255,0.1)"
-                            : isHov
-                            ? "rgba(255,255,255,0.055)"
-                            : "transparent",
-                          border: isAct
-                            ? "1px solid rgba(255,255,255,0.14)"
-                            : "1px solid transparent",
-                          transition: "background 0.22s ease, border-color 0.22s ease",
-                          boxShadow: isAct
-                            ? "0 2px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)"
-                            : "none",
+                          color: isAct ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)",
+                          transition: "color 0.18s ease",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 15,
+                          fontWeight: isAct ? 600 : 400,
+                          color: isAct ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.5)",
+                          fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+                          letterSpacing: "-0.01em",
+                          transition: "color 0.18s ease, font-weight 0.18s ease",
                         }}
                       >
-                        {/* Active accent glow */}
-                        <AnimatePresence>
-                          {isAct && (
-                            <motion.div
-                              key="glow"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.3 }}
-                              style={{
-                                position: "absolute", inset: 0, borderRadius: 16,
-                                background: `radial-gradient(ellipse at 20% 50%, ${link.accent.replace("0.7", "0.08")} 0%, transparent 70%)`,
-                                pointerEvents: "none",
-                              }}
-                            />
-                          )}
-                        </AnimatePresence>
-
-                        {/* Active indicator bar */}
-                        <AnimatePresence>
-                          {isAct && (
-                            <motion.div
-                              layoutId="activeBar"
-                              initial={{ scaleY: 0, opacity: 0 }}
-                              animate={{ scaleY: 1, opacity: 1 }}
-                              exit={{ scaleY: 0, opacity: 0 }}
-                              transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                              style={{
-                                position: "absolute", left: 0, top: "20%", bottom: "20%",
-                                width: 3, borderRadius: "0 3px 3px 0",
-                                background: link.accent,
-                                boxShadow: `0 0 12px ${link.accent}`,
-                              }}
-                            />
-                          )}
-                        </AnimatePresence>
-
-                        {/* Icon box */}
-                        <motion.div
-                          animate={isAct ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-                          transition={{ duration: 2.5, repeat: isAct ? Infinity : 0, ease: "easeInOut" }}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{
-                            background: isAct
-                              ? "rgba(255,255,255,0.13)"
-                              : "rgba(255,255,255,0.05)",
-                            border: isAct
-                              ? `1px solid rgba(255,255,255,0.18)`
-                              : "1px solid rgba(255,255,255,0.07)",
-                            boxShadow: isAct
-                              ? `0 0 16px ${link.accent.replace("0.7", "0.2")}, inset 0 1px 0 rgba(255,255,255,0.12)`
-                              : "none",
-                            transition: "all 0.25s ease",
-                          }}
-                        >
-                          <Icon
-                            className="w-4 h-4"
-                            style={{ color: isAct ? link.accent : "rgba(255,255,255,0.38)", transition: "color 0.22s ease" }}
-                          />
-                        </motion.div>
-
-                        {/* Label */}
-                        <span
-                          className="text-sm font-medium flex-1"
-                          style={{
-                            color: isAct ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.5)",
-                            fontFamily: FONT,
-                            letterSpacing: "-0.01em",
-                            transition: "color 0.22s ease",
-                          }}
-                        >
-                          {link.name}
-                        </span>
-
-                        {/* Active dot */}
-                        <AnimatePresence>
-                          {isAct && (
-                            <motion.div
-                              initial={{ scale: 0, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0, opacity: 0 }}
-                              transition={{ type: "spring", stiffness: 500, damping: 22 }}
-                              style={{
-                                width: 6, height: 6, borderRadius: "50%",
-                                background: link.accent,
-                                boxShadow: `0 0 8px ${link.accent}`,
-                                flexShrink: 0,
-                              }}
-                            />
-                          )}
-                        </AnimatePresence>
-
-                        {/* Hover shimmer */}
-                        <AnimatePresence>
-                          {isHov && !isAct && (
-                            <motion.div
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: 10 }}
-                              transition={{ duration: 0.18 }}
-                              style={{
-                                position: "absolute", inset: 0, borderRadius: 16,
-                                background: "linear-gradient(90deg, rgba(255,255,255,0.03) 0%, transparent 70%)",
-                                pointerEvents: "none",
-                              }}
-                            />
-                          )}
-                        </AnimatePresence>
-                      </motion.a>
-                    </motion.div>
+                        {link.name}
+                      </span>
+                    </motion.a>
                   );
                 })}
               </nav>
