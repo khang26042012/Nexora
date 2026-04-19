@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Home, Wrench, MessageCircle, X, LucideIcon } from "lucide-react";
+import { Home, Wrench, MessageCircle, LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import avatarImg from "@/assets/avatar_new.jpg";
@@ -121,18 +121,18 @@ export function Navigation() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.28 }}
+              transition={{ duration: 0.22 }}
               onClick={() => setIsOpen(false)}
               className="fixed inset-0 z-50"
-              style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(12px)" }}
+              style={{ background: "rgba(0,0,0,0.55)" }}
             />
 
             {/* ── Sidebar ── */}
             <motion.aside
-              initial={{ x: "-100%", opacity: 0, filter: "blur(8px)" }}
-              animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
-              exit={{ x: "-100%", opacity: 0, filter: "blur(6px)" }}
-              transition={{ type: "spring", damping: 30, stiffness: 260 }}
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "tween", duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="fixed top-0 left-0 bottom-0 w-72 max-w-[84vw] z-50 flex flex-col overflow-hidden"
               style={{
                 background: "rgba(14,14,16,0.82)",
@@ -159,9 +159,9 @@ export function Navigation() {
 
               {/* ── Header ── */}
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.08, duration: 0.4 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.15 }}
                 className="relative px-5 py-5 flex items-center justify-between flex-shrink-0"
                 style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
               >
@@ -215,19 +215,18 @@ export function Navigation() {
                   </div>
                 </div>
 
-                {/* Close button */}
+                {/* Close button — dùng SidebarToggleIcon */}
                 <motion.button
                   onClick={() => setIsOpen(false)}
-                  whileHover={{ scale: 1.1, rotate: 90 }}
-                  whileTap={{ scale: 0.88 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 16 }}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.9 }}
                   className="p-2 rounded-xl flex-shrink-0"
                   style={{
                     background: "rgba(255,255,255,0.06)",
                     border: "1px solid rgba(255,255,255,0.1)",
                   }}
                 >
-                  <X className="w-4 h-4 text-white/50" />
+                  <SidebarToggleIcon isOpen={true} />
                 </motion.button>
               </motion.div>
 
@@ -252,9 +251,9 @@ export function Navigation() {
                   return (
                     <motion.div
                       key={link.href}
-                      initial={{ opacity: 0, x: -24, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-                      transition={{ delay: 0.12 + i * 0.06, type: "spring", stiffness: 320, damping: 26 }}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.05 + i * 0.04, type: "tween", duration: 0.18, ease: "easeOut" }}
                     >
                       <motion.a
                         href={link.href}
@@ -395,9 +394,9 @@ export function Navigation() {
 
               {/* ── Footer ── */}
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.4 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1, duration: 0.18 }}
                 className="px-5 py-5 flex-shrink-0"
                 style={{
                   borderTop: "1px solid rgba(255,255,255,0.07)",
