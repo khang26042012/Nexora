@@ -13,7 +13,7 @@ export function ToolVideoBg() {
           height: "100%",
           objectFit: "cover",
           zIndex: 0,
-          opacity: 0.18,
+          opacity: 0.45,
           pointerEvents: "none",
         }}
         src="/tools-bg.mp4"
@@ -22,7 +22,7 @@ export function ToolVideoBg() {
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(5,5,5,0.72)",
+          background: "rgba(5,5,5,0.48)",
           zIndex: 0,
           pointerEvents: "none",
         }}
