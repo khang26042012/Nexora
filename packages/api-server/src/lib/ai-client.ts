@@ -148,8 +148,14 @@ async function zukiStreamWithKey(
         console.info(`[zuki] ${keyLabel} model=${m} OK`);
         return parseOpenAIStream(res.body);
       }
-      const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
-      console.warn(`[zuki] ${keyLabel} model=${m} HTTP ${res.status}:`, err?.error?.message ?? "no message");
+      const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
+      const errMsg = errBody?.error?.message ?? "no message";
+      console.warn(`[zuki] ${keyLabel} model=${m} HTTP ${res.status}:`, errMsg);
+      // 429 rate-limit hoặc 401/403 auth fail → bỏ qua toàn bộ key này ngay
+      if (res.status === 429 || res.status === 401 || res.status === 403) {
+        console.warn(`[zuki] ${keyLabel} HTTP ${res.status} → skip remaining models for this key`);
+        break;
+      }
     } catch (e) {
       console.warn(`[zuki] ${keyLabel} model=${m} exception:`, (e as Error).message);
     }
