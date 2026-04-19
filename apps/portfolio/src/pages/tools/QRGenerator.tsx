@@ -7,6 +7,7 @@ import {
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import QRCode from "qrcode";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -112,6 +113,7 @@ export function QRGenerator() {
 
   return (
     <div className="min-h-screen" style={{ background: "#050505", fontFamily: FONT }}>
+      <ToolVideoBg />
       <Navigation />
 
       {/* Background glow */}

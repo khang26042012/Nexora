@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Copy, CheckCircle2, AlertCircle, ImageIcon, Upload, X, Settings2 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -149,6 +150,7 @@ export function PromptImage() {
 
   return (
     <div className="min-h-screen" style={{ background: "#050505", fontFamily: FONT }}>
+      <ToolVideoBg />
       <Navigation />
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[60vw] h-[40vw] rounded-full"

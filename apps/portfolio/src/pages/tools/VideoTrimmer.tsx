@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Scissors, Upload, Clock, Play, X, Film, AlertCircle, Download, Loader2, CheckCircle2 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Inter', sans-serif";
 const MAX_MB = 500;
@@ -187,6 +188,7 @@ export function VideoTrimmer() {
 
   return (
     <div className="min-h-screen" style={{ background: "#0a0a0a", fontFamily: FONT }}>
+      <ToolVideoBg />
       <Navigation />
       <div className="max-w-xl mx-auto px-4 pt-24 pb-16">
         {/* Header */}

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 function formatDuration(sec: number) {
   const h = Math.floor(sec / 3600);
@@ -189,6 +190,7 @@ export function YtDownloader() {
 
   return (
     <div className="min-h-screen" style={{ background: "#050505" }}>
+      <ToolVideoBg />
       <Navigation />
       <Particles />
 

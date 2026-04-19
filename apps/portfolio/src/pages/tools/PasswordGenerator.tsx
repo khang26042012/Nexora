@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Copy, CheckCircle2, RefreshCw, Shield, ShieldAlert, ShieldCheck, ShieldX, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -94,6 +95,7 @@ export function PasswordGenerator() {
 
   return (
     <div className="min-h-screen" style={{ background: "#050505", fontFamily: FONT }}>
+      <ToolVideoBg />
       <Navigation />
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-15%] left-1/2 -translate-x-1/2 w-[60vw] h-[40vw] rounded-full"

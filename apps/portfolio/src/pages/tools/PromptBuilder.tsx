@@ -8,6 +8,7 @@ import {
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Document, Packer, Paragraph, TextRun } from "docx";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -229,6 +230,7 @@ export function PromptBuilder() {
 
   return (
     <div style={{ minHeight: "100dvh", background: "#050505", fontFamily: FONT }}>
+      <ToolVideoBg />
       <Navigation />
 
       {/* Background orbs */}

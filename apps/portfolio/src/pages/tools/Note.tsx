@@ -7,6 +7,7 @@ import {
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { Document, Packer, Paragraph, TextRun } from "docx";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -260,6 +261,7 @@ export function NoteEditor() {
 
   return (
     <div style={{ minHeight: "100dvh", background: "#050505", fontFamily: FONT }}>
+      <ToolVideoBg />
       <Navigation />
       <Orbs />
 

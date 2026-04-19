@@ -8,6 +8,7 @@ import {
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const MAX_CHARS = 2000;
@@ -426,6 +427,7 @@ export function TextFormatter() {
 
   return (
     <div style={{ minHeight: "100dvh", background: "#050505", fontFamily: FONT }}>
+      <ToolVideoBg />
       <Navigation />
 
       {/* Background orbs */}

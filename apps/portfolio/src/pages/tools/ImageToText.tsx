@@ -9,6 +9,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
 import { createWorker } from "tesseract.js";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const ACCEPTED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"];
@@ -316,6 +317,7 @@ export function ImageToText() {
 
   return (
     <div style={{ minHeight: "100dvh", background: "#050505", fontFamily: FONT }}>
+      <ToolVideoBg />
       <Navigation />
 
       <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
