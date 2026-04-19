@@ -1,50 +1,71 @@
 /**
- * Cloudflare Email Worker — NexoraxMail
- * Deploy tại: Cloudflare Dashboard → Email → Email Routing → Workers
+ * NexoraxMail — Cloudflare Email Worker
+ * Paste toàn bộ file này vào Cloudflare Worker editor, nhấn Deploy.
  *
- * Cách dùng:
- * 1. Vào Cloudflare Dashboard → nexorax.cloud → Email → Email Routing
- * 2. Bật Email Routing, set MX records (CF tự hướng dẫn)
- * 3. Tạo Catch-all Rule → Action: Send to Worker → chọn worker này
- * 4. Thêm Worker Secret: WEBHOOK_SECRET = <chuỗi bí mật tuỳ chọn>
- *    (phải khớp với env var TEMPMAIL_WEBHOOK_SECRET trên server)
- * 5. Thêm Worker env var: API_URL = https://nexorax.cloud/api/tempmail/receive
+ * Environment Variables cần thêm (Settings → Variables):
+ *   API_URL         = https://nexorax.cloud/api/tempmail/receive
+ *   WEBHOOK_SECRET  = <chuỗi bất kỳ, ví dụ: nexora_secret_2026>
  *
- * Dependencies: postal-mime (npm install postal-mime hoặc dùng CDN)
+ * KHÔNG cần cài npm, không cần Wrangler CLI.
  */
-
-import PostalMime from "postal-mime";
 
 export default {
   async email(message, env, _ctx) {
+    const subject = message.headers.get("subject") ?? "(Không có tiêu đề)";
+    const date = message.headers.get("date") ?? new Date().toISOString();
+
+    // Đọc raw email
+    const raw = await new Response(message.raw).text();
+
     let text = "";
     let html = "";
-    let subject = "";
 
-    try {
-      const rawBytes = await new Response(message.raw).arrayBuffer();
-      const parser = new PostalMime();
-      const parsed = await parser.parse(rawBytes);
-      text = parsed.text ?? "";
-      html = parsed.html ?? "";
-      subject = parsed.subject ?? message.headers?.get("subject") ?? "";
-    } catch {
-      text = "(Không thể parse nội dung email)";
+    if (raw.includes("Content-Type: multipart/")) {
+      // Email multipart — tách từng phần
+      const boundaryMatch = raw.match(/boundary="?([^"\r\n;]+)"?/i);
+      const boundary = boundaryMatch ? boundaryMatch[1] : null;
+      const parts = boundary ? raw.split(`--${boundary}`) : [raw];
+
+      for (const part of parts) {
+        const lower = part.toLowerCase();
+        const sep = part.indexOf("\r\n\r\n");
+        if (sep === -1) continue;
+        const headers = part.slice(0, sep);
+        let body = part.slice(sep + 4).replace(/\r\n--[\s\S]*$/, "").trim();
+
+        const isBase64 = /content-transfer-encoding:\s*base64/i.test(headers);
+        const isQP = /content-transfer-encoding:\s*quoted-printable/i.test(headers);
+
+        if (isBase64) {
+          try { body = decodeURIComponent(escape(atob(body.replace(/\s/g, "")))); } catch { /* keep raw */ }
+        } else if (isQP) {
+          body = body
+            .replace(/=\r\n/g, "")
+            .replace(/=([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+        }
+
+        if (lower.includes("content-type: text/plain") && !text) text = body;
+        if (lower.includes("content-type: text/html") && !html) html = body;
+      }
+    } else {
+      // Email đơn giản
+      const sep = raw.indexOf("\r\n\r\n");
+      if (sep !== -1) text = raw.slice(sep + 4).trim();
     }
 
     const payload = {
       to: message.to,
       from: message.from,
       subject,
-      text,
-      html,
-      date: new Date().toISOString(),
+      text: text.trim(),
+      html: html.trim(),
+      date,
     };
 
     const apiUrl = env.API_URL ?? "https://nexorax.cloud/api/tempmail/receive";
     const secret = env.WEBHOOK_SECRET ?? "";
 
-    await fetch(apiUrl, {
+    const resp = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -52,5 +73,10 @@ export default {
       },
       body: JSON.stringify(payload),
     });
+
+    if (!resp.ok) {
+      // Log lỗi nhưng không throw để email không bị bounce
+      console.error("NexoraxMail webhook error:", resp.status, await resp.text());
+    }
   },
 };
