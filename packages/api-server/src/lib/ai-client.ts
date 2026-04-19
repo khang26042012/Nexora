@@ -117,6 +117,25 @@ async function* streamGeminiNative(
   yield* parseGeminiStream(res.body);
 }
 
+async function zukiStream(
+  model: string,
+  messages: AIMessage[],
+  temperature: number,
+  maxTokens: number,
+  apiKey: string,
+): Promise<AsyncGenerator<string> | null> {
+  try {
+    const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      signal:  AbortSignal.timeout(30000),
+      body:    JSON.stringify({ model, stream: true, temperature, max_tokens: maxTokens, messages }),
+    });
+    if (res.ok && res.body) return parseOpenAIStream(res.body);
+  } catch { /* ignore */ }
+  return null;
+}
+
 export async function* streamAI(
   messages: AIMessage[],
   opts: StreamOptions = {},
@@ -125,36 +144,19 @@ export async function* streamAI(
   const apiKey        = process.env.ZUKI_API_KEY ?? "";
   const isGeminiModel = model.startsWith("gemini");
 
-  // --- Zuki (ưu tiên cho mọi model) ---
+  // --- Bước 1: Zuki với model được yêu cầu (GPT hoặc Gemini) ---
   if (apiKey) {
-    let zukiOk = false;
-    try {
-      const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        signal:  AbortSignal.timeout(30000),
-        body:    JSON.stringify({ model, stream: true, temperature, max_tokens: maxTokens, messages }),
-      });
-      if (res.ok && res.body) {
-        zukiOk = true;
-        yield* parseOpenAIStream(res.body);
-        return;
-      }
-      const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } };
-      throw new Error(errBody?.error?.message ?? `Zuki HTTP ${res.status}`);
-    } catch {
-      // Zuki failed → chỉ fallback Gemini native nếu là Gemini model
-      if (!zukiOk && !isGeminiModel) {
-        throw new Error("Không thể kết nối AI: Zuki unavailable và không có fallback cho GPT model.");
-      }
+    const stream = await zukiStream(model, messages, temperature, maxTokens, apiKey);
+    if (stream) { yield* stream; return; }
+
+    // --- Bước 2: Nếu Zuki fail với GPT → thử Zuki với Gemini ---
+    if (!isGeminiModel) {
+      const fallbackStream = await zukiStream("gemini-2.5-flash", messages, temperature, maxTokens, apiKey);
+      if (fallbackStream) { yield* fallbackStream; return; }
     }
   }
 
-  // --- Fallback: Google AI Studio (chỉ dùng khi là Gemini model) ---
-  if (!isGeminiModel) {
-    throw new Error("Không thể kết nối AI: ZUKI_API_KEY chưa được cấu hình.");
-  }
-
+  // --- Bước 3: Google AI Studio (Gemini native) — cuối cùng ---
   yield* streamGeminiNative(messages, opts);
 }
 
