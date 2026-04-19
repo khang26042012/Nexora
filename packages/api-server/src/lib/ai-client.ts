@@ -117,14 +117,21 @@ async function* streamGeminiNative(
   yield* parseGeminiStream(res.body);
 }
 
-async function zukiStream(
+function getZukiKeys(): string[] {
+  return [
+    process.env.ZUKI_API_KEY_1 ?? "",
+    process.env.ZUKI_API_KEY_2 ?? "",
+  ].filter(k => k.length > 0);
+}
+
+async function zukiStreamWithKey(
   model: string,
   messages: AIMessage[],
   temperature: number,
   maxTokens: number,
   apiKey: string,
-): Promise<{ stream: AsyncGenerator<string>; model: string } | null> {
-  // Danh sách model fallback: thử lần lượt
+  keyLabel: string,
+): Promise<AsyncGenerator<string> | null> {
   const candidates = model.startsWith("gemini")
     ? [model]
     : [model, "gpt-4o", "gpt-4-turbo", "gemini-2.5-flash"];
@@ -137,12 +144,14 @@ async function zukiStream(
         signal:  AbortSignal.timeout(25000),
         body:    JSON.stringify({ model: m, stream: true, temperature, max_tokens: maxTokens, messages }),
       });
-      if (res.ok && res.body) return { stream: parseOpenAIStream(res.body), model: m };
-      // Log lỗi Zuki để debug
+      if (res.ok && res.body) {
+        console.info(`[zuki] ${keyLabel} model=${m} OK`);
+        return parseOpenAIStream(res.body);
+      }
       const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
-      console.warn(`[zuki] model=${m} HTTP ${res.status}:`, err?.error?.message ?? "no message");
+      console.warn(`[zuki] ${keyLabel} model=${m} HTTP ${res.status}:`, err?.error?.message ?? "no message");
     } catch (e) {
-      console.warn(`[zuki] model=${m} exception:`, (e as Error).message);
+      console.warn(`[zuki] ${keyLabel} model=${m} exception:`, (e as Error).message);
     }
   }
   return null;
@@ -153,16 +162,19 @@ export async function* streamAI(
   opts: StreamOptions = {},
 ): AsyncGenerator<string> {
   const { temperature = 0.7, maxTokens = 4096, model = "gpt-4.1" } = opts;
-  const apiKey = process.env.ZUKI_API_KEY ?? "";
+  const keys = getZukiKeys();
 
-  // --- Bước 1 & 2: Thử Zuki (tự fallback qua nhiều model GPT → Gemini) ---
-  if (apiKey) {
-    const result = await zukiStream(model, messages, temperature, maxTokens, apiKey);
-    if (result) { yield* result.stream; return; }
-    console.warn("[zuki] Tất cả Zuki model đều fail → fallback Google AI Studio");
+  // --- Thử lần lượt từng Zuki key (key1 → key2) với model fallback ---
+  for (let i = 0; i < keys.length; i++) {
+    const stream = await zukiStreamWithKey(model, messages, temperature, maxTokens, keys[i], `key${i + 1}`);
+    if (stream) { yield* stream; return; }
   }
 
-  // --- Bước 3: Google AI Studio (Gemini native) — cuối cùng ---
+  if (keys.length > 0) {
+    console.warn("[zuki] Tất cả keys đều fail → fallback Google AI Studio");
+  }
+
+  // --- Fallback cuối: Google AI Studio ---
   yield* streamGeminiNative(messages, opts);
 }
 
@@ -202,41 +214,45 @@ export async function routeIntent(
   if (isDownloadRequest(userText)) return "download";
   if (isImagegenRequest(userText)) return "imagegen";
 
-  const apiKey = process.env.ZUKI_API_KEY ?? "";
-  if (!apiKey) return ruleBasedIntent(userText, hasFile);
+  const keys = getZukiKeys();
+  if (keys.length === 0) return ruleBasedIntent(userText, hasFile);
 
-  try {
-    const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      signal:  AbortSignal.timeout(19000),
-      body: JSON.stringify({
-        model:       "gpt-4.1",
-        stream:      false,
-        max_tokens:  10,
-        temperature: 0,
-        messages: [
-          {
-            role: "system",
-            content: `Classify the user message. Reply with ONLY one word:
+  const body = JSON.stringify({
+    model:       "gpt-4.1",
+    stream:      false,
+    max_tokens:  10,
+    temperature: 0,
+    messages: [
+      {
+        role: "system",
+        content: `Classify the user message. Reply with ONLY one word:
 "imagegen" — user wants to generate/draw/render an image, diagram, or illustration
 "thinking"  — code, C/C++/firmware/ESP32, algorithm, math, debug, logic, step-by-step reasoning
 "bigcontext" — analyse file/log/document, translate long text, summarize large content${hasFile ? " (file attached)" : ""}
 "direct"    — everything else: greetings, general info, simple questions`,
-          },
-          { role: "user", content: userText.slice(0, 600) },
-        ],
-      }),
-    });
-    if (res.ok) {
-      const data  = await res.json() as { choices?: { message?: { content?: string } }[] };
-      const reply = (data?.choices?.[0]?.message?.content ?? "").trim().toLowerCase();
-      if (reply.startsWith("imagegen"))  return "imagegen";
-      if (reply.startsWith("thinking"))  return "thinking";
-      if (reply.startsWith("bigcontext")) return "bigcontext";
-      if (reply.startsWith("direct"))    return "direct";
-    }
-  } catch { /* Zuki unavailable or timed out */ }
+      },
+      { role: "user", content: userText.slice(0, 600) },
+    ],
+  });
+
+  for (const key of keys) {
+    try {
+      const res = await fetch(`${ZUKI_BASE}/chat/completions`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+        signal:  AbortSignal.timeout(19000),
+        body,
+      });
+      if (res.ok) {
+        const data  = await res.json() as { choices?: { message?: { content?: string } }[] };
+        const reply = (data?.choices?.[0]?.message?.content ?? "").trim().toLowerCase();
+        if (reply.startsWith("imagegen"))   return "imagegen";
+        if (reply.startsWith("thinking"))   return "thinking";
+        if (reply.startsWith("bigcontext")) return "bigcontext";
+        if (reply.startsWith("direct"))     return "direct";
+      }
+    } catch { /* thử key tiếp */ }
+  }
 
   return ruleBasedIntent(userText, hasFile);
 }
