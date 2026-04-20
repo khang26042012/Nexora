@@ -1,8 +1,53 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 53] MIGRATION — Replit environment mới (lần 17)
+    Cập nhật: [session 55] MIGRATION — Replit environment mới (lần 18)
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 55] MIGRATION — Replit environment mới (lần 18)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    1. Đọc replit.md, tiến_trình.txt ✅
+    2. pnpm install --ignore-scripts → Already up to date (2.6s) ✅
+    3. Tạo workflow "packages/api-server: API Server" (PORT=8080) ✅
+       Log: "[sqlite] ✅ Prebuilt binary copied & verified (instant!)"
+       Log: "[yt-dlp] downloaded & ready"
+    4. Restart "Start application" (portfolio, port 21113) → RUNNING ✅
+
+  Kết quả:
+    - Portfolio (port 21113): RUNNING ✅
+    - API Server (port 8080): RUNNING ✅
+    - SQLite DB initialized ✅
+    - ffmpeg bundled vào dist/ffmpeg ✅
+    - yt-dlp: downloaded & ready ✅
+
+  WARN (không phải lỗi):
+    - TELEGRAM_TOKEN not set → Bot Telegram tắt (cần set trong Secrets)
+    - NexoraGarden dist not found → bình thường dev mode
+    - Portfolio dist not found → bình thường dev mode
+
+  ESP32 cần nạp firmware: KHÔNG
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 55b] UPDATE — Thêm 2 tool beta vào data chatbot NexoraAI
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    - Cập nhật apps/portfolio/src/lib/NexoraData.txt:
+      + Thêm TOOL 15 — TEMP MAIL [BETA · NEWS] (tag: Email · News)
+        → Email tạm thời, hộp thư auto-refresh 10s, phát hiện OTP, domain nexorax.cloud
+        → Ghi rõ: BETA, không chính thức, có thể bị xóa bất kỳ lúc nào
+      + Thêm TOOL 16 — FILE CONVERTER [BETA · NEWS] (tag: Utility · News)
+        → Chuyển file client-side (không upload server), ảnh→PDF/PNG/JPG, CSV↔JSON, ZIP...
+        → Ghi rõ: BETA, không chính thức, có thể bị xóa bất kỳ lúc nào
+      + Thêm Q&A mẫu cho cả 2 tool vào Phần 9
+
+  Files thay đổi:
+    - apps/portfolio/src/lib/NexoraData.txt
+
+  Kết quả: Chatbot NexoraAI đã biết về 2 tool mới + lưu ý beta ✅
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 54] FEAT — Xóa Zuki, thay bằng Gemini multi-key smart rotation

@@ -644,6 +644,83 @@ Giới hạn:
   - Kết quả tốt nhất với ảnh có chủ thể rõ ràng, tương phản cao với nền
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 15 — TEMP MAIL [BETA · NEWS]
+─────────────────────────────────────────────────────────────
+Tên hiển thị: Temp Mail
+Mô tả: Email tạm thời — nhận OTP, link xác minh, chặn spam. Không cần đăng ký.
+URL: /tool/temp-mail
+Tag: Email · News
+Trạng thái: BETA — đang thử nghiệm
+Backend: API /api/tempmail/inbox và /api/tempmail/message (proxy tới mail server)
+Domain email: nexorax.cloud
+
+⚠️ LƯU Ý QUAN TRỌNG:
+  Đây là tool BETA, KHÔNG CHÍNH THỨC. Có thể bị xóa hoặc ngừng hoạt động
+  bất kỳ lúc nào mà không báo trước. Không dùng để nhận thông tin nhạy cảm.
+
+Tính năng:
+  - Nhập username tùy chọn hoặc để trống → tạo địa chỉ ngẫu nhiên (vd: abc123xyz@nexorax.cloud)
+  - Hộp thư tự động làm mới mỗi 10 giây — không cần reload trang
+  - Tự động phát hiện và highlight mã OTP trong email
+  - Copy địa chỉ email hoặc mã OTP bằng 1 click
+  - Xem nội dung email đầy đủ (popup overlay)
+  - Khôi phục hộp thư cũ: nhập username đã dùng trước để mở lại
+  - Highlight các đường link trong email (click trực tiếp)
+
+Cách sử dụng:
+  1. Vào /tool/temp-mail
+  2. Nhập username (hoặc để trống = ngẫu nhiên) → nhấn "Tạo & Mở hộp thư"
+  3. Copy địa chỉ email → dùng để đăng ký/xác minh bất kỳ dịch vụ nào
+  4. Hộp thư tự refresh — email đến trong vài giây
+  5. Mở email → xem nội dung, copy OTP nếu có
+
+Lưu ý:
+  - Email công khai — bất kỳ ai biết địa chỉ đều đọc được
+  - Không dùng để nhận thông tin cá nhân, mật khẩu, thông tin nhạy cảm
+  - Đây là tool BETA, hoạt động phụ thuộc vào mail server bên thứ 3
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL 16 — FILE CONVERTER [BETA · NEWS]
+─────────────────────────────────────────────────────────────
+Tên hiển thị: File Converter
+Mô tả: Chuyển đổi file ngay trên trình duyệt — không upload lên server, hỗ trợ nhiều định dạng.
+URL: /tool/file-converter
+Tag: Utility · News
+Trạng thái: BETA — đang thử nghiệm
+Backend: Không cần — xử lý hoàn toàn client-side (trình duyệt)
+
+⚠️ LƯU Ý QUAN TRỌNG:
+  Đây là tool BETA, KHÔNG CHÍNH THỨC. Có thể bị xóa hoặc ngừng hoạt động
+  bất kỳ lúc nào mà không báo trước. File được xử lý tại chỗ, KHÔNG gửi lên server.
+
+Hỗ trợ chuyển đổi:
+  - Ảnh (PNG/JPG/WebP/GIF/BMP/SVG) → PDF, PNG, JPG, WebP
+  - PDF → TXT
+  - DOCX → TXT, PDF
+  - CSV ↔ JSON (chuyển đổi 2 chiều)
+  - File text/code (JS, TS, PY, HTML, XML, MD, v.v.) → TXT, PDF, DOCX
+  - ZIP → giải nén & tải từng file
+  - Nhiều file → đóng gói thành ZIP
+
+Cách sử dụng:
+  1. Vào /tool/file-converter
+  2. Kéo thả file vào vùng upload (hoặc click để chọn) — hỗ trợ nhiều file cùng lúc
+  3. Hệ thống tự phát hiện định dạng → hiển thị các nút chuyển đổi phù hợp
+  4. Nhấn nút định dạng muốn xuất → file tải về ngay
+
+Tính năng nổi bật:
+  - Xử lý hoàn toàn trên trình duyệt — file không rời khỏi máy tính
+  - Hỗ trợ nhiều file cùng lúc → xuất từng file hoặc đóng gói ZIP
+  - Thêm bớt file tự do trước khi chuyển đổi
+  - Nhận diện định dạng tự động → chỉ hiện các option phù hợp
+
+Giới hạn:
+  - Tool BETA — một số định dạng có thể chưa hoàn hảo
+  - PDF → text: chỉ lấy được text thuần, không giữ được hình ảnh/bảng phức tạp
+  - Ảnh → PDF: chỉ hỗ trợ 1 ảnh/1 trang (chưa hỗ trợ ghép nhiều ảnh vào 1 PDF)
+  - Không hỗ trợ video, audio, file nhị phân đặc thù
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHẦN 7 — KIẾN TRÚC MONOREPO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -808,6 +885,24 @@ A: Prompt Builder là công cụ AI tạo prompt chuyên nghiệp tại nexorax.
    2. "AI viết": nhập mô tả ngắn → AI tự viết thành prompt đầy đủ
    Hỗ trợ: language toggle VI/EN, streaming output, edit mode, copy, tải về 5 định dạng.
    Phù hợp để tạo prompt dùng với ChatGPT, Claude, Gemini.
+
+Q: Temp Mail là gì? Dùng như thế nào?
+A: Temp Mail là tool email tạm thời tại nexorax.cloud/tool/temp-mail.
+   ⚠️ Đây là tool BETA, không chính thức — có thể bị xóa bất kỳ lúc nào.
+   Cách dùng:
+   1. Nhập username tùy chọn (hoặc để trống = tạo ngẫu nhiên) → nhấn "Tạo & Mở hộp thư"
+   2. Copy địa chỉ email (dạng username@nexorax.cloud) để đăng ký dịch vụ
+   3. Hộp thư tự refresh mỗi 10 giây — email đến sẽ hiện tự động
+   4. Click email để đọc, mã OTP được tự động phát hiện và highlight
+   Lưu ý: email công khai, không dùng cho thông tin nhạy cảm.
+
+Q: File Converter là gì? Dùng như thế nào?
+A: File Converter là tool chuyển đổi file tại nexorax.cloud/tool/file-converter.
+   ⚠️ Đây là tool BETA, không chính thức — có thể bị xóa bất kỳ lúc nào.
+   Điểm đặc biệt: xử lý hoàn toàn trên trình duyệt, file KHÔNG gửi lên server.
+   Cách dùng:
+   1. Kéo thả file vào (hỗ trợ nhiều file) → chọn định dạng muốn xuất → tải về
+   Hỗ trợ: ảnh → PDF/PNG/JPG/WebP, PDF/DOCX → TXT, CSV ↔ JSON, ZIP giải nén, đóng gói ZIP...
 
 Q: NexoraTool có giới hạn gì không?
 A: YouTube Downloader: không tải được video DRM (Netflix, Disney+), giới hạn bởi
