@@ -1,4 +1,5 @@
 import { Navigation } from "@/components/navigation";
+import { ToolVideoBg } from "@/components/ToolVideoBg";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Copy, CheckCircle2, RefreshCw, Inbox, Mail,
@@ -185,6 +186,7 @@ export function TempMail() {
   return (
     <div className="min-h-screen" style={{ background: "#050505", fontFamily: FONT }}>
       <Navigation />
+      <ToolVideoBg />
 
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.35, 0.2] }} transition={{ duration: 18, repeat: Infinity }}
