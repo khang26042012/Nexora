@@ -1,6 +1,6 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon, Inbox, Pin } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon, Inbox, Pin, ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -20,6 +20,22 @@ const TOOLS = [
     pinned: true,
     beta: true,
     route: "/tool/temp-mail",
+  },
+  {
+    id: "file-converter",
+    icon: ArrowLeftRight,
+    iconColor: "rgba(167,243,208,0.85)",
+    iconBg: "rgba(167,243,208,0.08)",
+    iconBorder: "rgba(167,243,208,0.2)",
+    glowColor: "rgba(167,243,208,0.06)",
+    name: "File Converter",
+    desc: "Chuyển đổi file ngay trên trình duyệt — TXT↔PDF, Ảnh→PDF, CSV↔JSON, MD→TXT, TXT→DOCX và nhiều hơn. Không upload lên server.",
+    tag: "Utility · News",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    pinned: true,
+    beta: true,
+    route: "/tool/file-converter",
   },
   {
     id: "prompt-image",
