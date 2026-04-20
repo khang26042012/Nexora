@@ -142,25 +142,29 @@ function ModelBadge({ model }: { model: string }) {
   );
 }
 
-function renderLine(line: string, key: number) {
+function renderInline(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   const regex = /\*\*(.+?)\*\*|`(.+?)`|\*(.+?)\*|\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
   let last = 0, match: RegExpExecArray | null;
-  while ((match = regex.exec(line)) !== null) {
-    if (match.index > last) parts.push(line.slice(last, match.index));
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
     if (match[1] !== undefined)
-      parts.push(<strong key={match.index} style={{ color: "rgba(255,255,255,0.95)", fontWeight: 700 }}>{match[1]}</strong>);
+      parts.push(<strong key={match.index} style={{ color: "rgba(255,255,255,0.95)", fontWeight: 700 }}>{renderInline(match[1])}</strong>);
     else if (match[2] !== undefined)
       parts.push(<code key={match.index} style={{ background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: "1px 5px", fontSize: "0.88em", fontFamily: "monospace" }}>{match[2]}</code>);
     else if (match[3] !== undefined)
-      parts.push(<em key={match.index}>{match[3]}</em>);
+      parts.push(<em key={match.index}>{renderInline(match[3])}</em>);
     else if (match[4] !== undefined && match[5] !== undefined)
       parts.push(<a key={match.index} href={match[5]} target="_blank" rel="noopener noreferrer"
         style={{ color: "#60a5fa", textDecoration: "underline", textUnderlineOffset: 3 }}>{match[4]}</a>);
     last = match.index + match[0].length;
   }
-  if (last < line.length) parts.push(line.slice(last));
-  return <span key={key}>{parts}</span>;
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
+function renderLine(line: string, key: number) {
+  return <span key={key}>{renderInline(line)}</span>;
 }
 
 function renderText(text: string) {
