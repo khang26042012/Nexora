@@ -648,7 +648,7 @@ TOOL 15 — TEMP MAIL [BETA · NEWS]
 ─────────────────────────────────────────────────────────────
 Tên hiển thị: Temp Mail
 Mô tả: Email tạm thời — nhận OTP, link xác minh, chặn spam. Không cần đăng ký.
-URL: /tool/temp-mail
+URL: https://nexorax.cloud/tool/temp-mail
 Tag: Email · News
 Trạng thái: BETA — đang thử nghiệm
 Backend: API /api/tempmail/inbox và /api/tempmail/message (proxy tới mail server)
@@ -684,7 +684,7 @@ TOOL 16 — FILE CONVERTER [BETA · NEWS]
 ─────────────────────────────────────────────────────────────
 Tên hiển thị: File Converter
 Mô tả: Chuyển đổi file ngay trên trình duyệt — không upload lên server, hỗ trợ nhiều định dạng.
-URL: /tool/file-converter
+URL: https://nexorax.cloud/tool/file-converter
 Tag: Utility · News
 Trạng thái: BETA — đang thử nghiệm
 Backend: Không cần — xử lý hoàn toàn client-side (trình duyệt)
@@ -897,7 +897,7 @@ A: Temp Mail là tool email tạm thời tại nexorax.cloud/tool/temp-mail.
    Lưu ý: email công khai, không dùng cho thông tin nhạy cảm.
 
 Q: File Converter là gì? Dùng như thế nào?
-A: File Converter là tool chuyển đổi file tại nexorax.cloud/tool/file-converter.
+A: File Converter là tool chuyển đổi file tại https://nexorax.cloud/tool/file-converter
    ⚠️ Đây là tool BETA, không chính thức — có thể bị xóa bất kỳ lúc nào.
    Điểm đặc biệt: xử lý hoàn toàn trên trình duyệt, file KHÔNG gửi lên server.
    Cách dùng:
