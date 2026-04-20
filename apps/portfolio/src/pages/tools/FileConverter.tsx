@@ -2,8 +2,8 @@ import { Navigation } from "@/components/navigation";
 import { ToolVideoBg } from "@/components/ToolVideoBg";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, Upload, Download, ArrowLeftRight, X,
-  Loader2, AlertTriangle, CheckCircle2, FileText,
+  ArrowLeft, Upload, Download, ArrowLeftRight,
+  X, Loader2, AlertTriangle, FileText, CheckCircle2,
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
@@ -26,30 +26,13 @@ function fmtSize(b: number) {
   return `${(b / 1024 / 1024).toFixed(2)} MB`;
 }
 
-type ConversionId =
-  | "txt-pdf" | "img-pdf" | "pdf-txt"
-  | "csv-json" | "json-csv"
-  | "md-txt" | "txt-docx" | "json-txt";
-
-interface Conversion {
-  id: ConversionId;
-  label: string;
-  from: string;
-  to: string;
-  accept: string;
-  desc: string;
+function getExt(name: string) {
+  return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-const CONVERSIONS: Conversion[] = [
-  { id: "txt-pdf",  label: "TXT → PDF",  from: "TXT",  to: "PDF",  accept: ".txt,text/plain", desc: "Chuyển văn bản thuần sang file PDF" },
-  { id: "img-pdf",  label: "Ảnh → PDF",  from: "IMG",  to: "PDF",  accept: ".png,.jpg,.jpeg,.webp,image/*", desc: "Gộp ảnh (PNG/JPG/WebP) thành một file PDF" },
-  { id: "pdf-txt",  label: "PDF → TXT",  from: "PDF",  to: "TXT",  accept: ".pdf,application/pdf", desc: "Trích xuất toàn bộ văn bản từ PDF" },
-  { id: "csv-json", label: "CSV → JSON", from: "CSV",  to: "JSON", accept: ".csv,text/csv", desc: "Chuyển bảng CSV thành mảng JSON" },
-  { id: "json-csv", label: "JSON → CSV", from: "JSON", to: "CSV",  accept: ".json,application/json", desc: "Chuyển mảng JSON thành bảng CSV" },
-  { id: "json-txt", label: "JSON → TXT", from: "JSON", to: "TXT",  accept: ".json,application/json", desc: "Định dạng JSON thành văn bản dễ đọc" },
-  { id: "md-txt",   label: "MD → TXT",   from: "MD",   to: "TXT",  accept: ".md,.markdown,text/plain", desc: "Loại bỏ cú pháp Markdown, giữ lại văn bản" },
-  { id: "txt-docx", label: "TXT → DOCX", from: "TXT",  to: "DOCX", accept: ".txt,text/plain", desc: "Chuyển văn bản thuần sang định dạng Word" },
-];
+function baseName(name: string) {
+  return name.replace(/\.[^.]+$/, "");
+}
 
 function downloadBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
@@ -58,181 +41,230 @@ function downloadBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function convert(id: ConversionId, files: File[]): Promise<void> {
-  const file = files[0];
+/* ── Danh sách format output theo ext ── */
+type OutFmt = { label: string; ext: string };
 
-  if (id === "txt-pdf") {
-    const text = await file.text();
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const lines = doc.splitTextToSize(text, 180);
-    let y = 15;
-    for (const line of lines) {
-      if (y > 275) { doc.addPage(); y = 15; }
-      doc.setFontSize(11);
-      doc.text(line, 15, y);
-      y += 6;
-    }
-    doc.save(file.name.replace(/\.[^.]+$/, "") + ".pdf");
+function getOutputFormats(ext: string): OutFmt[] {
+  const text: OutFmt[] = [
+    { label: "PDF", ext: "pdf" },
+    { label: "DOCX", ext: "docx" },
+    { label: "TXT", ext: "txt" },
+  ];
+  const map: Record<string, OutFmt[]> = {
+    txt:      [{ label: "PDF", ext: "pdf" }, { label: "DOCX", ext: "docx" }],
+    md:       [{ label: "TXT", ext: "txt" }, { label: "PDF", ext: "pdf" }],
+    markdown: [{ label: "TXT", ext: "txt" }, { label: "PDF", ext: "pdf" }],
+    pdf:      [{ label: "TXT", ext: "txt" }],
+    csv:      [{ label: "JSON", ext: "json" }, { label: "TXT", ext: "txt" }],
+    json:     [{ label: "CSV", ext: "csv" }, { label: "TXT", ext: "txt" }],
+    xml:      [{ label: "TXT", ext: "txt" }, { label: "JSON", ext: "json" }],
+    html:     [{ label: "TXT", ext: "txt" }],
+    htm:      [{ label: "TXT", ext: "txt" }],
+    png:      [{ label: "PDF", ext: "pdf" }, { label: "JPG", ext: "jpg" }, { label: "WEBP", ext: "webp" }],
+    jpg:      [{ label: "PDF", ext: "pdf" }, { label: "PNG", ext: "png" }, { label: "WEBP", ext: "webp" }],
+    jpeg:     [{ label: "PDF", ext: "pdf" }, { label: "PNG", ext: "png" }, { label: "WEBP", ext: "webp" }],
+    webp:     [{ label: "PDF", ext: "pdf" }, { label: "PNG", ext: "png" }, { label: "JPG", ext: "jpg" }],
+    gif:      [{ label: "PDF", ext: "pdf" }, { label: "PNG", ext: "png" }],
+    bmp:      [{ label: "PDF", ext: "pdf" }, { label: "PNG", ext: "png" }, { label: "JPG", ext: "jpg" }],
+    svg:      [{ label: "PNG", ext: "png" }, { label: "PDF", ext: "pdf" }],
+    zip:      [{ label: "Giải nén & Tải", ext: "unzip" }],
+    js:       text, ts: text, py: text, java: text, cpp: text, c: text,
+    css: text, scss: text, yaml: text, yml: text, toml: text, ini: text,
+    log: text, rtf: text,
+  };
+  return map[ext] ?? [{ label: "TXT", ext: "txt" }];
+}
+
+/* ── Core converter ── */
+async function doConvert(file: File, outExt: string): Promise<void> {
+  const ext = getExt(file.name);
+  const name = baseName(file.name);
+
+  /* ── Ảnh → ảnh khác ── */
+  if (["png","jpg","jpeg","webp","gif","bmp"].includes(ext) && ["png","jpg","webp"].includes(outExt)) {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise<HTMLImageElement>(res => { const i = new Image(); i.onload = () => res(i); i.src = url; });
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext("2d")!.drawImage(img, 0, 0);
+    const mime = outExt === "jpg" ? "image/jpeg" : `image/${outExt}`;
+    const blob = await new Promise<Blob>(res => c.toBlob(b => res(b!), mime, 0.92));
+    URL.revokeObjectURL(url);
+    downloadBlob(blob, `${name}.${outExt}`);
     return;
   }
 
-  if (id === "img-pdf") {
+  /* ── Ảnh / SVG → PDF ── */
+  if ((["png","jpg","jpeg","webp","gif","bmp","svg"].includes(ext) || file.type.startsWith("image/")) && outExt === "pdf") {
     const { jsPDF } = await import("jspdf");
+    const dataUrl = await new Promise<string>(res => { const r = new FileReader(); r.onload = e => res(e.target!.result as string); r.readAsDataURL(file); });
+    const img = await new Promise<HTMLImageElement>(res => { const i = new Image(); i.onload = () => res(i); i.src = dataUrl; });
+    const pw = 210, ph = 297;
+    const scale = Math.min(pw / img.naturalWidth, ph / img.naturalHeight);
+    const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
     const doc = new jsPDF({ unit: "mm", format: "a4" });
-    let first = true;
-    for (const f of files) {
-      const url = await new Promise<string>(res => {
-        const r = new FileReader();
-        r.onload = e => res(e.target!.result as string);
-        r.readAsDataURL(f);
-      });
-      const img = await new Promise<HTMLImageElement>(res => {
-        const i = new Image();
-        i.onload = () => res(i);
-        i.src = url;
-      });
-      const pw = 210, ph = 297;
-      const ratio = Math.min(pw / img.naturalWidth * 25.4, ph / img.naturalHeight * 25.4, 1);
-      const w = (img.naturalWidth * ratio) / 25.4 * 25.4;
-      const h = (img.naturalHeight * ratio) / 25.4 * 25.4;
-      const ext = (f.type.split("/")[1] || "jpeg").toUpperCase().replace("JPEG", "JPEG");
-      if (!first) doc.addPage();
-      doc.addImage(url, ext === "WEBP" ? "WEBP" : ext, (pw - w) / 2, (ph - h) / 2, w, h);
-      first = false;
-    }
-    doc.save("images.pdf");
+    const imgFmt = ["jpg","jpeg"].includes(ext) ? "JPEG" : "PNG";
+    doc.addImage(dataUrl, imgFmt, (pw - w) / 2, (ph - h) / 2, w, h);
+    doc.save(`${name}.pdf`);
     return;
   }
 
-  if (id === "pdf-txt") {
+  /* ── PDF → TXT ── */
+  if (ext === "pdf" && outExt === "txt") {
     const pdfjsLib = await import("pdfjs-dist");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-      "pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url
-    ).href;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     let result = "";
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      result += content.items.map((item: { str?: string }) => item.str ?? "").join(" ") + "\n\n";
+      result += (content.items as Array<{ str?: string }>).map(it => it.str ?? "").join(" ") + "\n\n";
     }
-    downloadBlob(new Blob([result], { type: "text/plain" }), file.name.replace(/\.pdf$/i, "") + ".txt");
+    downloadBlob(new Blob([result], { type: "text/plain" }), `${name}.txt`);
     return;
   }
 
-  if (id === "csv-json") {
+  /* ── TXT / code / text → PDF ── */
+  if (outExt === "pdf") {
     const text = await file.text();
-    const lines = text.trim().split("\n");
-    const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-    const rows = lines.slice(1).map(line => {
-      const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
-      return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
-    });
-    const json = JSON.stringify(rows, null, 2);
-    downloadBlob(new Blob([json], { type: "application/json" }), file.name.replace(/\.csv$/i, "") + ".json");
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(text, 180);
+    let y = 15;
+    for (const line of lines) {
+      if (y > 280) { doc.addPage(); y = 15; }
+      doc.text(line, 15, y); y += 5.5;
+    }
+    doc.save(`${name}.pdf`);
     return;
   }
 
-  if (id === "json-csv") {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    const arr = Array.isArray(data) ? data : [data];
-    if (arr.length === 0) throw new Error("JSON rỗng");
-    const headers = Object.keys(arr[0]);
-    const rows = [headers.join(","), ...arr.map((row: Record<string, unknown>) =>
-      headers.map(h => `"${String(row[h] ?? "").replace(/"/g, '""')}"`).join(",")
-    )];
-    downloadBlob(new Blob([rows.join("\n")], { type: "text/csv" }), file.name.replace(/\.json$/i, "") + ".csv");
-    return;
-  }
-
-  if (id === "json-txt") {
-    const text = await file.text();
-    const pretty = JSON.stringify(JSON.parse(text), null, 2);
-    downloadBlob(new Blob([pretty], { type: "text/plain" }), file.name.replace(/\.json$/i, "") + ".txt");
-    return;
-  }
-
-  if (id === "md-txt") {
-    const text = await file.text();
-    const plain = text
-      .replace(/^#{1,6}\s+/gm, "")
-      .replace(/\*\*(.+?)\*\*/g, "$1")
-      .replace(/\*(.+?)\*/g, "$1")
-      .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
-      .replace(/\[(.+?)\]\(.*?\)/g, "$1")
-      .replace(/^[-*+]\s+/gm, "• ")
-      .replace(/^>\s+/gm, "")
-      .replace(/---/g, "")
-      .trim();
-    downloadBlob(new Blob([plain], { type: "text/plain" }), file.name.replace(/\.(md|markdown)$/i, "") + ".txt");
-    return;
-  }
-
-  if (id === "txt-docx") {
+  /* ── TXT / code → DOCX ── */
+  if (outExt === "docx") {
     const text = await file.text();
     const { Document, Packer, Paragraph, TextRun } = await import("docx");
-    const paragraphs = text.split("\n").map(line =>
-      new Paragraph({ children: [new TextRun(line)] })
-    );
-    const doc = new Document({ sections: [{ children: paragraphs }] });
-    const blob = await Packer.toBlob(doc);
-    downloadBlob(blob, file.name.replace(/\.txt$/i, "") + ".docx");
+    const doc = new Document({ sections: [{ children: text.split("\n").map(l => new Paragraph({ children: [new TextRun(l)] })) }] });
+    downloadBlob(await Packer.toBlob(doc), `${name}.docx`);
     return;
   }
+
+  /* ── CSV → JSON ── */
+  if (ext === "csv" && outExt === "json") {
+    const text = await file.text();
+    const rows = text.trim().split("\n");
+    const headers = rows[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+    const data = rows.slice(1).map(row => {
+      const vals = row.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+      return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
+    });
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `${name}.json`);
+    return;
+  }
+
+  /* ── JSON → CSV ── */
+  if (ext === "json" && outExt === "csv") {
+    const data = JSON.parse(await file.text());
+    const arr = Array.isArray(data) ? data : [data];
+    const headers = Object.keys(arr[0] ?? {});
+    const rows = [headers.join(","), ...arr.map((r: Record<string, unknown>) =>
+      headers.map(h => `"${String(r[h] ?? "").replace(/"/g, '""')}"`).join(","))];
+    downloadBlob(new Blob([rows.join("\n")], { type: "text/csv" }), `${name}.csv`);
+    return;
+  }
+
+  /* ── XML → JSON ── */
+  if (ext === "xml" && outExt === "json") {
+    const text = await file.text();
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(text, "text/xml");
+    function xmlToObj(node: Element): unknown {
+      if (node.children.length === 0) return node.textContent?.trim() ?? "";
+      const obj: Record<string, unknown> = {};
+      for (const child of Array.from(node.children)) {
+        const key = child.tagName;
+        const val = xmlToObj(child);
+        if (obj[key]) { obj[key] = Array.isArray(obj[key]) ? [...(obj[key] as unknown[]), val] : [obj[key], val]; }
+        else obj[key] = val;
+      }
+      return obj;
+    }
+    const json = JSON.stringify(xmlToObj(xmlDoc.documentElement), null, 2);
+    downloadBlob(new Blob([json], { type: "application/json" }), `${name}.json`);
+    return;
+  }
+
+  /* ── HTML/HTM → TXT ── */
+  if (["html","htm"].includes(ext) && outExt === "txt") {
+    const text = await file.text();
+    const doc2 = new DOMParser().parseFromString(text, "text/html");
+    downloadBlob(new Blob([doc2.body.innerText || doc2.body.textContent || ""], { type: "text/plain" }), `${name}.txt`);
+    return;
+  }
+
+  /* ── ZIP → giải nén ── */
+  if (ext === "zip" && outExt === "unzip") {
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(file);
+    const names = Object.keys(zip.files);
+    if (names.length === 1) {
+      const f = zip.files[names[0]];
+      const blob = await f.async("blob");
+      downloadBlob(blob, names[0].split("/").pop() ?? names[0]);
+    } else {
+      for (const fname of names) {
+        const f = zip.files[fname];
+        if (f.dir) continue;
+        const blob = await f.async("blob");
+        downloadBlob(blob, fname.split("/").pop() ?? fname);
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+    return;
+  }
+
+  /* ── Fallback: đọc file text ── */
+  const text = await file.text();
+  downloadBlob(new Blob([text], { type: "text/plain" }), `${name}.txt`);
 }
 
+/* ── Component ── */
 export function FileConverter() {
   const [, navigate] = useLocation();
-  const [convId, setConvId] = useState<ConversionId>("txt-pdf");
-  const [files, setFiles] = useState<File[]>([]);
+  const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [converting, setConverting] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const conv = CONVERSIONS.find(c => c.id === convId)!;
-  const multiFile = convId === "img-pdf";
-
-  const addFiles = useCallback((incoming: FileList | null) => {
-    if (!incoming) return;
-    const arr = Array.from(incoming);
-    setFiles(multiFile ? arr : [arr[0]]);
-    setDone(false);
-    setError("");
-  }, [multiFile]);
+  const addFile = useCallback((f: File | null | undefined) => {
+    if (!f) return;
+    setFile(f); setError(""); setDone(null);
+  }, []);
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    addFiles(e.dataTransfer.files);
+    e.preventDefault(); setDragging(false);
+    addFile(e.dataTransfer.files[0]);
   };
 
-  const handleConvert = async () => {
-    if (!files.length) return;
-    setLoading(true);
-    setError("");
-    setDone(false);
+  const handleConvert = async (fmt: OutFmt) => {
+    if (!file || converting) return;
+    setConverting(fmt.ext); setError(""); setDone(null);
     try {
-      await convert(convId, files);
-      setDone(true);
-      setTimeout(() => setDone(false), 3000);
+      await doConvert(file, fmt.ext);
+      setDone(fmt.label);
+      setTimeout(() => setDone(null), 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi chuyển đổi.");
     } finally {
-      setLoading(false);
+      setConverting(null);
     }
   };
 
-  const switchConv = (id: ConversionId) => {
-    setConvId(id);
-    setFiles([]);
-    setDone(false);
-    setError("");
-  };
+  const ext = file ? getExt(file.name) : "";
+  const formats = file ? getOutputFormats(ext) : [];
 
   return (
     <div className="min-h-screen" style={{ background: "#050505", fontFamily: FONT }}>
@@ -250,7 +282,7 @@ export function FileConverter() {
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }} className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-1">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
               <ArrowLeftRight className="w-5 h-5" style={{ color: "rgba(255,255,255,0.75)" }} />
             </div>
@@ -267,79 +299,96 @@ export function FileConverter() {
           </div>
         </motion.div>
 
-        {/* Conversion type grid */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.5 }} className="mb-5">
-          <p className="text-xs font-semibold mb-3 tracking-wide uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>Chọn kiểu chuyển đổi</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {CONVERSIONS.map(c => (
-              <button key={c.id} onClick={() => switchConv(c.id)}
-                className="px-3 py-2.5 rounded-xl text-xs font-semibold transition-all hover:opacity-90 active:scale-95 text-center"
-                style={{
-                  background: convId === c.id ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${convId === c.id ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.08)"}`,
-                  color: convId === c.id ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)",
-                }}>
-                {c.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.3)" }}>{conv.desc}</p>
-        </motion.div>
-
-        {/* Drop zone */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14, duration: 0.45 }} className="mb-5">
-          <AnimBorderCard speed={5} color={dragging ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)"} radius={16}>
+        {/* Bước 1: Upload */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.5 }} className="mb-4">
+          <AnimBorderCard speed={5} color={dragging ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.25)"} radius={20}>
             <div
-              className="p-6 flex flex-col items-center gap-3 cursor-pointer transition-all"
-              style={{ background: dragging ? "rgba(255,255,255,0.04)" : "transparent" }}
+              className="p-8 flex flex-col items-center gap-4 cursor-pointer transition-all"
+              style={{ background: dragging ? "rgba(255,255,255,0.03)" : "transparent" }}
               onDragOver={e => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
               onClick={() => inputRef.current?.click()}
             >
-              <input ref={inputRef} type="file" className="hidden" accept={conv.accept} multiple={multiFile} onChange={e => addFiles(e.target.files)} />
+              <input ref={inputRef} type="file" className="hidden" accept="*/*" onChange={e => addFile(e.target.files?.[0])} />
 
-              {files.length === 0 ? (
-                <>
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                    <Upload className="w-5 h-5" style={{ color: "rgba(255,255,255,0.4)" }} />
-                  </div>
-                  <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>
-                    {multiFile ? "Kéo thả nhiều ảnh hoặc nhấn để chọn" : "Kéo thả file hoặc nhấn để chọn"}
-                  </p>
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Hỗ trợ: {conv.accept.split(",").filter(a => a.startsWith(".")).join(", ")}</p>
-                </>
-              ) : (
-                <div className="w-full space-y-2">
-                  {files.map((f, i) => (
-                    <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                      <FileText className="w-4 h-4 flex-shrink-0" style={{ color: "rgba(255,255,255,0.4)" }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{f.name}</p>
-                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>{fmtSize(f.size)}</p>
-                      </div>
-                      <button onClick={e => { e.stopPropagation(); setFiles(files.filter((_, j) => j !== i)); }}
-                        className="flex-shrink-0 hover:opacity-80" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+              <AnimatePresence mode="wait">
+                {!file ? (
+                  <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      <Upload className="w-7 h-7" style={{ color: "rgba(255,255,255,0.35)" }} />
                     </div>
-                  ))}
-                  <button onClick={e => { e.stopPropagation(); inputRef.current?.click(); }}
-                    className="w-full py-2 rounded-xl text-xs transition-all hover:opacity-80"
-                    style={{ border: "1px dashed rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.3)" }}>
-                    + Thêm file
-                  </button>
-                </div>
-              )}
+                    <div className="text-center">
+                      <p className="text-sm font-semibold mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>Kéo thả file vào đây</p>
+                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>hoặc nhấn để chọn — hỗ trợ mọi loại file</p>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div key="file" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                    className="flex items-center gap-4 w-full" onClick={e => e.stopPropagation()}>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                      <FileText className="w-5 h-5" style={{ color: "rgba(255,255,255,0.6)" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{file.name}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        {fmtSize(file.size)} · .{ext.toUpperCase()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); setFile(null); setError(""); setDone(null); }}
+                      className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+                      style={{ color: "rgba(255,255,255,0.4)" }}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </AnimBorderCard>
         </motion.div>
+
+        {/* Bước 2: Chọn format → convert */}
+        <AnimatePresence>
+          {file && (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+              <p className="text-xs font-semibold mb-3 tracking-wide uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>
+                Chuyển đổi sang
+              </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {formats.map(fmt => {
+                  const isActive = converting === fmt.ext;
+                  const isDone = done === fmt.label;
+                  return (
+                    <motion.button
+                      key={fmt.ext}
+                      onClick={() => handleConvert(fmt)}
+                      disabled={!!converting}
+                      whileHover={{ scale: converting ? 1 : 1.02 }}
+                      whileTap={{ scale: 0.97 }}
+                      className="flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-sm font-bold transition-all disabled:opacity-50"
+                      style={{
+                        background: isDone ? "rgba(34,197,94,0.12)" : isActive ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.06)",
+                        border: `1px solid ${isDone ? "rgba(34,197,94,0.3)" : isActive ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`,
+                        color: isDone ? "rgba(34,197,94,0.9)" : "rgba(255,255,255,0.85)",
+                      }}>
+                      {isDone ? <CheckCircle2 className="w-4 h-4" /> : isActive ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                      {isDone ? `Đã tải ${fmt.label}` : fmt.ext === "unzip" ? "Giải nén & Tải về" : `Xuất ${fmt.label}`}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Error */}
         <AnimatePresence>
           {error && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="mb-4 px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+              className="mt-4 px-4 py-3 rounded-xl text-sm flex items-center gap-2"
               style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.8)" }}>
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               {error}
@@ -348,21 +397,15 @@ export function FileConverter() {
           )}
         </AnimatePresence>
 
-        {/* Convert button */}
-        <motion.button
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.4 }}
-          onClick={handleConvert}
-          disabled={!files.length || loading}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{
-            background: done ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.1)",
-            border: `1px solid ${done ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.15)"}`,
-            color: done ? "rgba(34,197,94,0.9)" : "rgba(255,255,255,0.9)",
-          }}>
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Đang chuyển đổi…</>
-            : done ? <><CheckCircle2 className="w-4 h-4" /> Tải về thành công!</>
-            : <><Download className="w-4 h-4" /> Chuyển đổi & Tải về</>}
-        </motion.button>
+        {/* Hint khi chưa upload */}
+        {!file && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.3 } }}
+            className="mt-6 text-center">
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
+              Hỗ trợ: TXT, PDF, DOCX, CSV, JSON, XML, HTML, MD, PNG, JPG, WebP, GIF, BMP, SVG, ZIP và nhiều loại khác
+            </p>
+          </motion.div>
+        )}
       </div>
     </div>
   );
