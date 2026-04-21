@@ -99,6 +99,7 @@ async function* parseGeminiStream(body: ReadableStream<Uint8Array>): AsyncGenera
   const reader  = body.getReader();
   const decoder = new TextDecoder();
   let buffer    = "";
+  let lastFinish = "";
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -111,13 +112,18 @@ async function* parseGeminiStream(body: ReadableStream<Uint8Array>): AsyncGenera
       if (!raw || raw === "[DONE]") continue;
       try {
         const parsed = JSON.parse(raw);
-        const parts  = parsed?.candidates?.[0]?.content?.parts ?? [];
+        const cand = parsed?.candidates?.[0];
+        const parts = cand?.content?.parts ?? [];
+        if (cand?.finishReason) lastFinish = cand.finishReason;
         for (const part of parts) {
           if (part.thought === true) continue;
           if (part.text) yield part.text as string;
         }
       } catch { /* skip */ }
     }
+  }
+  if (lastFinish && lastFinish !== "STOP") {
+    yield `\n\n⚠️ _(Phản hồi bị cắt — finishReason: ${lastFinish}${lastFinish === "MAX_TOKENS" ? " — đã chạm giới hạn token output" : ""}.)_`;
   }
 }
 

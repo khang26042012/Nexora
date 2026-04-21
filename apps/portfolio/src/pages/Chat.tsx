@@ -372,7 +372,12 @@ export function Chat() {
             title?: string;
             thumb?: string;
           };
-          if (parsed?.error) throw new Error(parsed.error);
+          if (parsed?.error) {
+            const errMsg = `Lỗi từ server: ${parsed.error}`;
+            if (fullText) { fullText += `\n\n❌ ${errMsg}`; setStreamText(fullText); }
+            else { throw new Error(parsed.error); }
+            continue;
+          }
           if (parsed?.type === "pipeline") { setPipeStage(STAGE_LABELS[parsed.stage ?? ""] ?? ""); continue; }
           if (parsed?.type === "model")    { detectedModel = parsed.name ?? ""; setCurModel(parsed.name ?? ""); continue; }
           if (parsed?.type === "thinking") { setIsThinking(parsed.active ?? false); continue; }
