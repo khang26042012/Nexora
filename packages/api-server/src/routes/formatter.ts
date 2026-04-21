@@ -88,7 +88,7 @@ NGHIÊM CẤM:
 - CHỈ trả về nội dung hoàn chỉnh theo yêu cầu, không giải thích gì thêm`;
 
 async function callAIStream(res: Response, messages: AIMessage[], temperature = 0.2) {
-  for await (const chunk of streamAI(messages, { temperature, maxTokens: 8192 })) {
+  for await (const chunk of streamAI(messages, { temperature, maxTokens: 65536 })) {
     res.write(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: chunk }] } }] })}\n\n`);
   }
 }
