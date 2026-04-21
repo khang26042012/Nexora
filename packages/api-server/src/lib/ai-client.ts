@@ -23,6 +23,7 @@ const GEMINI_PROXIES: string[] = [
 
 // Cooldown state: keyIndex → timestamp hết cooldown
 const keyCooldown = new Map<number, number>();
+const lastFailReason = new Map<number, string>();
 const COOLDOWN_MS = 60_000; // 60s cooldown mỗi key khi bị 429
 
 function getAvailableKeys(): number[] {
@@ -35,7 +36,24 @@ function getAvailableKeys(): number[] {
 
 function markKeyExhausted(keyIdx: number): void {
   keyCooldown.set(keyIdx, Date.now() + COOLDOWN_MS);
+  lastFailReason.set(keyIdx, "429 quota/rate-limit");
   console.warn(`[gemini] key${keyIdx + 1} exhausted → cooldown 60s`);
+}
+
+function buildFailSummary(): string {
+  const total = 4;
+  const parts: string[] = [];
+  for (let i = 0; i < total; i++) {
+    if (i >= GEMINI_KEYS.length) {
+      parts.push(`key${i + 1}: NOT_SET`);
+      continue;
+    }
+    const until = keyCooldown.get(i) ?? 0;
+    const remain = Math.max(0, Math.round((until - Date.now()) / 1000));
+    const reason = lastFailReason.get(i) ?? "unknown";
+    parts.push(`key${i + 1}: ${reason}${remain > 0 ? ` (cooldown ${remain}s)` : ""}`);
+  }
+  return parts.join(" | ");
 }
 
 // ============================================================
@@ -161,13 +179,16 @@ async function tryStreamWithKey(
     // Auth fail → cooldown lâu hơn
     if (res.status === 401 || res.status === 403) {
       keyCooldown.set(keyIdx, Date.now() + 300_000); // 5 phút
+      lastFailReason.set(keyIdx, `${res.status} auth invalid`);
       console.warn(`[gemini] key${keyIdx + 1} auth error (${res.status}) → cooldown 5m`);
       return null;
     }
 
+    lastFailReason.set(keyIdx, `HTTP ${res.status}: ${errMsg.slice(0, 80)}`);
     console.warn(`[gemini] key${keyIdx + 1} HTTP ${res.status}: ${errMsg}`);
     return null;
   } catch (e) {
+    lastFailReason.set(keyIdx, `exception: ${(e as Error).message.slice(0, 80)}`);
     console.warn(`[gemini] key${keyIdx + 1} exception:`, (e as Error).message);
     return null;
   }
@@ -201,11 +222,14 @@ async function tryFetchWithKey(
     }
     if (res.status === 401 || res.status === 403) {
       keyCooldown.set(keyIdx, Date.now() + 300_000);
+      lastFailReason.set(keyIdx, `${res.status} auth invalid`);
       return null;
     }
+    lastFailReason.set(keyIdx, `HTTP ${res.status}: ${errMsg.slice(0, 80)}`);
     console.warn(`[gemini] key${keyIdx + 1} fetch HTTP ${res.status}: ${errMsg}`);
     return null;
   } catch (e) {
+    lastFailReason.set(keyIdx, `exception: ${(e as Error).message.slice(0, 80)}`);
     console.warn(`[gemini] key${keyIdx + 1} fetch exception:`, (e as Error).message);
     return null;
   }
@@ -237,7 +261,7 @@ export async function* streamAI(
     if (res.ok && res.body) { yield* parseGeminiStream(res.body); return; }
   }
 
-  throw new Error("Tất cả Gemini API keys đều hết quota hoặc gặp lỗi. Vui lòng thử lại sau.");
+  throw new Error(`Tất cả Gemini API keys đều fail. Chi tiết: ${buildFailSummary()}`);
 }
 
 // Xoay vòng keys + proxy cho non-streaming request
@@ -255,7 +279,7 @@ async function geminiGenerate(endpoint: string, payload: object): Promise<object
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (res.ok) return await res.json() as object;
   }
-  throw new Error("Tất cả Gemini API keys đều hết quota.");
+  throw new Error(`Tất cả Gemini API keys đều fail. Chi tiết: ${buildFailSummary()}`);
 }
 
 // ============================================================
