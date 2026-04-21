@@ -170,7 +170,7 @@ router.post("/chat", async (req: Request, res: Response) => {
       ...trimMessages(messages),
     ];
 
-    await streamWithThinkFilter(res, allMessages, model, intent === "thinking" ? 8000 : 4000);
+    await streamWithThinkFilter(res, allMessages, model, 25000);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     sseWrite(res, { error: msg });
