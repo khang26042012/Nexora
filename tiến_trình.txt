@@ -1,7 +1,7 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 55] MIGRATION — Replit environment mới (lần 18)
+    Cập nhật: [session 56] DEPLOY — Cấu hình Leapcell.io (tách Dockerfile)
   ================================================================
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2480,3 +2480,41 @@ Kết quả:
   - API proxy chạy tại /api/tempmail/* ✅
   - Auto-refresh inbox mỗi 10s ✅
   - OTP detection + copy ✅
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[24/04/2026] DEPLOY — Cấu hình Leapcell.io (Khang báo deploy fail)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vấn đề:
+  - Khang gửi screenshot leapcell.io: "Build OK, Deploy FAIL" cho repo Nexora
+  - Dockerfile gốc build cả 3 package (nexora-garden + portfolio + api-server)
+    → image > 1.5 GB, build > 8 phút → quá nặng cho Leapcell free tier
+  - Leapcell không có file config sẵn trong repo
+
+Đã làm:
+  1. Tạo Dockerfile.portfolio (frontend static):
+     - pnpm install --filter @workspace/portfolio... (chỉ deps cần)
+     - Build → output dist/public
+     - Stage 2: node:22-slim + serve@14, lắng nghe $PORT (default 8080)
+  2. Tạo Dockerfile.api (backend Node + SQLite):
+     - Cài python3/make/g++/ffmpeg
+     - pnpm install --filter @workspace/api-server... (chỉ deps cần)
+     - node-gyp build better-sqlite3 (native binding)
+     - Build api-server → chạy node packages/api-server/dist/index.mjs
+  3. Tạo LEAPCELL.md hướng dẫn config 2 service trên dashboard:
+     - Service 1: Dockerfile.portfolio, port 8080, không cần env
+     - Service 2: Dockerfile.api, port 8080, env (TELEGRAM/GEMINI/WEATHER), volume /app/packages/api-server/data
+  4. KHÔNG động Dockerfile gốc (Railway vẫn dùng cho api-server)
+
+Files mới:
+  Dockerfile.portfolio    (MỚI)
+  Dockerfile.api          (MỚI)
+  LEAPCELL.md             (MỚI)
+
+ESP32 cần nạp firmware: KHÔNG
+
+Khang cần làm trên Leapcell dashboard:
+  - Project hiện tại: vào Settings → đổi Dockerfile path = Dockerfile.portfolio
+    (hoặc Dockerfile.api tùy service muốn deploy)
+  - Hoặc xoá project cũ, tạo 2 project mới theo LEAPCELL.md
