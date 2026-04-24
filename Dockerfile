@@ -36,5 +36,13 @@ RUN pnpm --filter @workspace/nexora-garden run build && \
     pnpm --filter @workspace/portfolio run build && \
     pnpm --filter @workspace/api-server run build
 
+# OpenShift compatibility: tạo data dir + cấp quyền group root (writeable cho UID động)
+RUN mkdir -p /app/packages/api-server/data && \
+    chgrp -R 0 /app && \
+    chmod -R g=u /app
+
+# Chạy non-root (UID 1001) — Railway/Leapcell/OpenShift đều OK
+USER 1001
+
 EXPOSE 8080
 CMD ["node", "packages/api-server/dist/index.mjs"]

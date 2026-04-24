@@ -1,7 +1,7 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 56b] DEPLOY — Leapcell dùng Dockerfile gốc (1 service)
+    Cập nhật: [session 57] DEPLOY — Setup OpenShift Developer Sandbox (free 7GB RAM)
   ================================================================
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2554,3 +2554,40 @@ Khang cần làm trên Leapcell:
   - Set env vars theo bảng trong LEAPCELL.md
   - Mount volume cho /app/packages/api-server/data
   - Redeploy
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[24/04/2026] DEPLOY — OpenShift Developer Sandbox (Red Hat) free
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Khang: Leapcell auto-detect chỉ build portfolio static (bỏ api-server),
+       muốn tìm host khác. Loại Railway/Render/Fly/Koyeb/Sevalla/Back4App/
+       Oracle/Hugging Face. Search → chốt OpenShift Developer Sandbox.
+
+OpenShift Developer Sandbox (Red Hat):
+  - 7GB RAM, 15GB storage, free, không cần thẻ
+  - Native Docker/Container support qua web console
+  - WebSocket OK (Route mặc định support WSS)
+  - Subdomain *.apps.rm3.7wse.p1.openshiftapps.com
+  - Nhược: phải renew thủ công mỗi 30 ngày (data PVC giữ nguyên)
+
+Đã làm:
+  1. Sửa Dockerfile gốc cho compat OpenShift restricted SCC:
+     - mkdir -p /app/packages/api-server/data
+     - chgrp -R 0 /app && chmod -R g=u /app (group root writable)
+     - USER 1001 (non-root)
+     → Vẫn chạy được trên Railway/Leapcell (non-root OK)
+  2. Tạo OPENSHIFT.md hướng dẫn step-by-step:
+     - Đăng ký developer account → activate sandbox
+     - Web console: +Add → Import from Git → Dockerfile path
+     - Tạo PVC 5GB mount /app/packages/api-server/data (SQLite)
+     - Set env vars: NODE_ENV, PORT, TELEGRAM_TOKEN, GEMINI_API_KEY, ...
+     - Lấy Route URL public
+     - Setup GitHub webhook auto-deploy
+     - Renew 30 ngày/lần
+
+Files thay đổi:
+  Dockerfile        (sửa: thêm USER 1001 + chgrp/chmod cho OpenShift)
+  OPENSHIFT.md      (MỚI)
+
+ESP32 cần nạp firmware: TÙY (nếu đổi domain), không nếu giữ nexorax.cloud
