@@ -1,7 +1,7 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 56] DEPLOY — Cấu hình Leapcell.io (tách Dockerfile)
+    Cập nhật: [session 56b] DEPLOY — Leapcell dùng Dockerfile gốc (1 service)
   ================================================================
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2518,3 +2518,39 @@ Khang cần làm trên Leapcell dashboard:
   - Project hiện tại: vào Settings → đổi Dockerfile path = Dockerfile.portfolio
     (hoặc Dockerfile.api tùy service muốn deploy)
   - Hoặc xoá project cũ, tạo 2 project mới theo LEAPCELL.md
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[24/04/2026] DEPLOY (b) — Rollback: Leapcell dùng Dockerfile gốc
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Khang: "Leapcell free rất mạnh, muốn build 3 thứ cùng lúc"
+→ Không cần tách Dockerfile.
+
+Phát hiện: api-server đã serve sẵn cả 2 frontend qua Express:
+  - /              → apps/portfolio/dist/public
+  - /NexoraGarden  → apps/nexora-garden/dist/public
+  - /api/*         → API
+  - /ws, /ws-browser → WebSocket
+→ Chỉ cần 1 service Leapcell, dùng Dockerfile gốc (build 3 package).
+
+Đã làm:
+  1. XOÁ Dockerfile.portfolio + Dockerfile.api (vừa tạo session 56)
+  2. Viết lại LEAPCELL.md → 1 service, Dockerfile path = "Dockerfile"
+     - Port 8080, $PORT auto-inject
+     - Volume /app/packages/api-server/data
+     - Env: NODE_ENV, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY,
+       WEATHER_API_KEY, TELEGRAM_WEBHOOK_URL, TELEGRAM_WEBHOOK_SECRET
+
+Files thay đổi:
+  Dockerfile.portfolio    (XOÁ)
+  Dockerfile.api          (XOÁ)
+  LEAPCELL.md             (viết lại)
+
+ESP32 cần nạp firmware: KHÔNG
+
+Khang cần làm trên Leapcell:
+  - Settings → Dockerfile Path = "Dockerfile" (đã đúng default)
+  - Set env vars theo bảng trong LEAPCELL.md
+  - Mount volume cho /app/packages/api-server/data
+  - Redeploy

@@ -1,31 +1,27 @@
 # Deploy lên Leapcell.io
 
-Repo này có **2 service riêng** — tạo 2 project Leapcell, mỗi project trỏ tới 1 Dockerfile riêng (Dockerfile gốc build cả 3 package nên quá nặng cho Leapcell free tier).
+Repo này là **monorepo 1 service**: `api-server` build sẵn cả 2 frontend (`portfolio` + `nexora-garden`) rồi serve qua Express:
+- `/` → portfolio (apps/portfolio/dist/public)
+- `/NexoraGarden` → nexora-garden (apps/nexora-garden/dist/public)
+- `/api/*` → API routes
+- `/ws`, `/ws-browser` → WebSocket
 
-## Service 1 — Portfolio (Static frontend)
+→ Chỉ cần **1 service** trên Leapcell, dùng `Dockerfile` gốc.
 
-| Field | Value |
-|---|---|
-| Source | `khang26042012/Nexora` (branch `main`) |
-| Build Type | **Dockerfile** |
-| Dockerfile Path | `Dockerfile.portfolio` |
-| Port | `8080` |
-| Service Type | Web Service |
-
-Env vars: **không cần** (frontend thuần).
-
-## Service 2 — API Server (Node.js + SQLite)
+## Cấu hình Leapcell
 
 | Field | Value |
 |---|---|
 | Source | `khang26042012/Nexora` (branch `main`) |
 | Build Type | **Dockerfile** |
-| Dockerfile Path | `Dockerfile.api` |
+| Dockerfile Path | `Dockerfile` |
 | Port | `8080` |
 | Service Type | Web Service |
 | Persistent Volume | mount `/app/packages/api-server/data` (SQLite DB) |
 
-Env vars cần set:
+> `PORT` không cần set — Leapcell inject tự động qua `$PORT`.
+
+## Environment variables
 
 | Key | Value |
 |---|---|
@@ -34,15 +30,17 @@ Env vars cần set:
 | `TELEGRAM_CHAT_ID` | *(chat ID)* |
 | `GEMINI_API_KEY` | *(Gemini API key)* |
 | `WEATHER_API_KEY` | *(WeatherAPI key)* |
+| `TELEGRAM_WEBHOOK_URL` | `https://<domain-leapcell>/NexoraGarden/telegram-webhook` |
+| `TELEGRAM_WEBHOOK_SECRET` | *(secret webhook)* |
 
-> `PORT` không cần set — Leapcell inject tự động qua `$PORT`.
+## Sau khi deploy
 
-## Vì sao tách Dockerfile?
+- Frontend portfolio: `https://<domain>/`
+- Dashboard NexoraGarden: `https://<domain>/NexoraGarden`
+- Health check: `https://<domain>/NexoraGarden/health`
 
-- `Dockerfile` (gốc) build cả `nexora-garden` + `portfolio` + `api-server` → image > 1.5 GB, build > 8 phút → fail trên Leapcell free tier.
-- `Dockerfile.portfolio`: chỉ install + build `@workspace/portfolio` (filter `...`) → output static, serve bằng `serve`.
-- `Dockerfile.api`: chỉ install + build `@workspace/api-server` (filter `...`) → vẫn cài `ffmpeg` + native build cho `better-sqlite3`.
+ESP32 trỏ `SERVER_HOST` → domain Leapcell, `WS_PATH` = `/NexoraGarden/ws`.
 
-## Sau khi push GitHub
+## Auto-deploy
 
-Cả 2 service trên Leapcell sẽ tự rebuild khi `main` có commit mới.
+Push `main` → Leapcell tự rebuild Dockerfile → deploy.
