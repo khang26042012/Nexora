@@ -30,6 +30,7 @@ const PasswordGenerator = lazy(() => import("@/pages/tools/PasswordGenerator").t
 const PromptImage = lazy(() => import("@/pages/tools/PromptImage").then(m => ({ default: m.PromptImage })));
 const TempMail = lazy(() => import("@/pages/tools/TempMail").then(m => ({ default: m.TempMail })));
 const FileConverter = lazy(() => import("@/pages/tools/FileConverter").then(m => ({ default: m.FileConverter })));
+const SpeedTest = lazy(() => import("@/pages/tools/SpeedTest").then(m => ({ default: m.SpeedTest })));
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ function Router() {
         <Route path="/tool/prompt-image" component={PromptImage} />
         <Route path="/tool/temp-mail" component={TempMail} />
         <Route path="/tool/file-converter" component={FileConverter} />
+        <Route path="/tool/speed-test" component={SpeedTest} />
         <Route path="/chat" component={Chat} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />

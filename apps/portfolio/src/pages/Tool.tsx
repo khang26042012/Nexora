@@ -1,6 +1,6 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon, Inbox, Pin, ArrowLeftRight } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon, Inbox, Pin, ArrowLeftRight, Gauge } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -14,11 +14,10 @@ const TOOLS = [
     glowColor: "rgba(147,197,253,0.06)",
     name: "Temp Mail",
     desc: "Tạo hàng loạt email ảo theo domain — nhận OTP, link xác minh tức thì. Dùng để thử nền tảng, chặn spam, đăng ký không cần email thật.",
-    tag: "Email · News",
+    tag: "Email",
     tagColor: "rgba(255,255,255,0.6)",
     available: true,
     pinned: true,
-    beta: true,
     route: "/tool/temp-mail",
   },
   {
@@ -30,12 +29,26 @@ const TOOLS = [
     glowColor: "rgba(167,243,208,0.06)",
     name: "File Converter",
     desc: "Chuyển đổi file ngay trên trình duyệt — TXT↔PDF, Ảnh→PDF, CSV↔JSON, MD→TXT, TXT→DOCX và nhiều hơn. Không upload lên server.",
-    tag: "Utility · News",
+    tag: "Utility",
     tagColor: "rgba(255,255,255,0.6)",
     available: true,
     pinned: true,
-    beta: true,
     route: "/tool/file-converter",
+  },
+  {
+    id: "speed-test",
+    icon: Gauge,
+    iconColor: "rgba(134,239,172,0.85)",
+    iconBg: "rgba(134,239,172,0.08)",
+    iconBorder: "rgba(134,239,172,0.2)",
+    glowColor: "rgba(134,239,172,0.06)",
+    name: "Speed Test",
+    desc: "Đo tốc độ mạng thời gian thực 20 giây — download, upload, ping, jitter. Bảng thống kê chi tiết với min/max/avg và đánh giá chất lượng.",
+    tag: "Network · News",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    pinned: true,
+    route: "/tool/speed-test",
   },
   {
     id: "prompt-image",
