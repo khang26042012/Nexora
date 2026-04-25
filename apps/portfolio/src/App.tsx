@@ -31,6 +31,7 @@ const PromptImage = lazy(() => import("@/pages/tools/PromptImage").then(m => ({ 
 const TempMail = lazy(() => import("@/pages/tools/TempMail").then(m => ({ default: m.TempMail })));
 const FileConverter = lazy(() => import("@/pages/tools/FileConverter").then(m => ({ default: m.FileConverter })));
 const SpeedTest = lazy(() => import("@/pages/tools/SpeedTest").then(m => ({ default: m.SpeedTest })));
+const Project = lazy(() => import("@/pages/Project").then(m => ({ default: m.Project })));
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/tool" component={Tool} />
+        <Route path="/project" component={Project} />
         <Route path="/tool/yt-downloader" component={YtDownloader} />
         <Route path="/tool/video-trimmer" component={VideoTrimmer} />
         <Route path="/tool/text-formatter" component={TextFormatter} />

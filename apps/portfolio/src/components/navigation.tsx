@@ -20,21 +20,13 @@ const NAV_LINKS: NavItem[] = [
   { name: "Trang chủ", href: "/",     icon: Home,          accent: "rgba(180,220,255,0.7)" },
   { name: "Tool",       href: "/tool", icon: Wrench,        accent: "rgba(180,255,210,0.7)" },
   { name: "Chat Bot",   href: "/chat", icon: MessageCircle, accent: "rgba(220,180,255,0.7)" },
-  {
-    name: "Project",
-    icon: FolderKanban,
-    accent: "rgba(255,210,160,0.7)",
-    children: [
-      { name: "NexoraGarden", href: "https://nexorax.cloud/NexoraGarden", external: true },
-      { name: "NexoraAI",     href: "/chat" },
-      { name: "NexoraTool",   href: "/tool" },
-    ],
-  },
+  { name: "Project",    href: "/project", icon: FolderKanban,  accent: "rgba(255,210,160,0.7)" },
 ];
 
 function getActiveFromLocation(loc: string): string {
   if (loc.startsWith("/chat")) return "/chat";
   if (loc.startsWith("/tool")) return "/tool";
+  if (loc.startsWith("/project")) return "/project";
   return "/";
 }
 
