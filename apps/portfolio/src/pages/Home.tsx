@@ -7,7 +7,7 @@ import {
 import { SiZalo } from "react-icons/si";
 import { Navigation } from "@/components/navigation";
 import avatarImg from "@/assets/avatar_new.jpg";
-import avatarVideo from "@assets/snaptik.vn_7568520141940559112_1777088866498.mp4";
+import avatarVideo from "@/assets/avatar.mp4";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
