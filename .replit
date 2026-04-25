@@ -42,7 +42,7 @@ args = "PORT=21113 BASE_PATH=/ pnpm --filter @workspace/portfolio run dev"
 waitForPort = 21113
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
