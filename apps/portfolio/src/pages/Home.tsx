@@ -7,7 +7,6 @@ import {
 import { SiZalo } from "react-icons/si";
 import { Navigation } from "@/components/navigation";
 import avatarImg from "@/assets/avatar_new.jpg";
-import avatarVideo from "@/assets/avatar.mp4";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -89,21 +88,41 @@ function AnimBorderCard({
   );
 }
 
-/* ── Scroll Progress Bar ── */
+/* ── Scroll Progress Bar — rAF throttle + transform scaleX (no React re-render) ── */
 function ScrollProgress() {
-  const [progress, setProgress] = useState(0);
+  const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    let ticking = false;
     const update = () => {
+      ticking = false;
+      const el = barRef.current;
+      if (!el) return;
       const h = document.documentElement.scrollHeight - window.innerHeight;
-      setProgress(h > 0 ? window.scrollY / h : 0);
+      const p = h > 0 ? window.scrollY / h : 0;
+      el.style.transform = `scaleX(${p})`;
     };
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
   return (
     <div className="fixed top-0 left-0 right-0 z-50 h-[2px]" style={{ background: "rgba(255,255,255,0.05)" }}>
       <div
-        style={{ height: "100%", width: `${progress * 100}%`, background: "rgba(255,255,255,0.5)" }}
+        ref={barRef}
+        style={{
+          height: "100%",
+          width: "100%",
+          background: "rgba(255,255,255,0.5)",
+          transformOrigin: "left center",
+          transform: "scaleX(0)",
+          willChange: "transform",
+        }}
       />
     </div>
   );
@@ -140,25 +159,31 @@ export function Home() {
   const timelineRef = useRef<HTMLElement>(null);
   const projectsRef = useRef<HTMLElement>(null);
   const isAboutInView = useInView(aboutRef, { margin: "0px 0px -100px 0px" });
-  const isTimelineInView = useInView(timelineRef, { margin: "0px 0px -100px 0px" });
+  const _isTimelineInView = useInView(timelineRef, { margin: "0px 0px -100px 0px" });
   const isProjectsInView = useInView(projectsRef, { margin: "0px 0px -100px 0px" });
 
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
-    vid.play().catch(() => {});
+    const start = () => vid.play().catch(() => {});
+    if ("requestIdleCallback" in window) {
+      (window as any).requestIdleCallback(start, { timeout: 1500 });
+    } else {
+      setTimeout(start, 600);
+    }
   }, []);
 
   return (
     <div className="min-h-screen text-white overflow-x-hidden" style={{ fontFamily: FONT, background: "rgba(0,0,0,0.0)" }}>
 
-      {/* ── FIXED VIDEO BACKGROUND — không dùng CSS filter ── */}
+      {/* ── FIXED VIDEO BACKGROUND — preload metadata only, play when idle ── */}
       <div className="fixed inset-0" style={{ zIndex: -2 }}>
         <video
           ref={videoRef}
-          autoPlay loop muted playsInline
+          loop muted playsInline preload="metadata"
+          disableRemotePlayback
           className="w-full h-full object-cover"
-          style={{ opacity: 0.38 }}
+          style={{ opacity: 0.38, backgroundColor: "#000010" }}
         >
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
@@ -247,12 +272,13 @@ export function Home() {
                 boxShadow: "0 0 32px rgba(255,255,255,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
               }}
             >
-              <video
-                src={avatarVideo}
-                autoPlay
-                muted
-                loop
-                playsInline
+              <img
+                src={avatarImg}
+                alt="Phan Trọng Khang"
+                width={96}
+                height={96}
+                decoding="async"
+                fetchPriority="high"
                 className="w-full h-full object-cover"
                 style={{ display: "block" }}
               />
@@ -341,7 +367,7 @@ export function Home() {
             <motion.div
               initial={{ opacity: 0, x: -40, rotateY: -15 }}
               whileInView={{ opacity: 1, x: 0, rotateY: 0 }}
-              viewport={{ once: false }}
+              viewport={{ once: true }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             >
               <AnimBorderCard speed={6} color="rgba(255,255,255,0.45)" radius={20} innerStyle={{ padding: "28px" }} animate={isAboutInView}>
@@ -370,12 +396,13 @@ export function Home() {
                       className="rounded-2xl overflow-hidden"
                       style={{ width: 140, height: 140, border: "2px solid rgba(255,255,255,0.18)" }}
                     >
-                      <video
-                        src={avatarVideo}
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
+                      <img
+                        src={avatarImg}
+                        alt="Phan Trọng Khang"
+                        width={140}
+                        height={140}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                         style={{ display: "block" }}
                       />
@@ -398,7 +425,7 @@ export function Home() {
                         key={i}
                         initial={{ opacity: 0, x: -10 }}
                         whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: false }}
+                        viewport={{ once: true }}
                         transition={{ delay: i * 0.1, duration: 0.4 }}
                         className="flex justify-between text-sm mt-2"
                       >
@@ -415,7 +442,7 @@ export function Home() {
             <motion.div
               initial={{ opacity: 0, x: 40 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: false }}
+              viewport={{ once: true }}
               transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col gap-5"
             >
@@ -427,7 +454,7 @@ export function Home() {
                   key={i}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: false }}
+                  viewport={{ once: true }}
                   transition={{ delay: 0.15 + i * 0.12, duration: 0.6 }}
                 >
                   <div style={{ ...glass, borderRadius: 16, padding: "24px" }}>
@@ -449,7 +476,7 @@ export function Home() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: false }}
+                viewport={{ once: true }}
                 transition={{ delay: 0.3, duration: 0.6 }}
               >
                 <div style={{ ...glass, borderRadius: 16, padding: "24px" }}>
@@ -460,7 +487,7 @@ export function Home() {
                         key={s}
                         initial={{ opacity: 0, scale: 0.8 }}
                         whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: false }}
+                        viewport={{ once: true }}
                         transition={{ delay: idx * 0.04, duration: 0.3 }}
                         whileHover={{ scale: 1.06 }}
                         className="px-3 py-1 rounded-xl text-xs font-medium text-white/55 cursor-default"
@@ -497,14 +524,14 @@ export function Home() {
                   key={i}
                   initial={{ opacity: 0, x: -30 }}
                   whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: false, margin: "-60px" }}
+                  viewport={{ once: true, margin: "-60px" }}
                   transition={{ duration: 0.65, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
                   className="flex gap-5"
                 >
                   <div className="flex-shrink-0 relative flex items-start pt-4">
                     <motion.div
                       whileInView={{ scale: [0, 1.4, 1] }}
-                      viewport={{ once: false }}
+                      viewport={{ once: true }}
                       transition={{ delay: i * 0.07 + 0.3, duration: 0.5 }}
                       className="w-[10px] h-[10px] rounded-full mt-1"
                       style={{
@@ -557,7 +584,7 @@ export function Home() {
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false }}
+            viewport={{ once: true }}
             transition={{ duration: 0.6 }}
             className="mt-4 text-white/40 text-sm text-center"
           >
@@ -587,58 +614,43 @@ export function Home() {
   );
 }
 
-/* ── Section Header ── */
+/* ── Section Header — single motion node, no per-character animation ── */
 function SectionHeader({ label, title }: { label: string; title: string }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false }}
-      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
     >
-      <motion.p
-        initial={{ opacity: 0, x: -20 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: false }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="text-[11px] font-semibold tracking-[0.22em] uppercase text-white/30 mb-2"
-      >
+      <p className="text-[11px] font-semibold tracking-[0.22em] uppercase text-white/30 mb-2">
         {label}
-      </motion.p>
+      </p>
       <h2 className="text-3xl sm:text-4xl font-bold text-white" style={{ fontFamily: FONT, fontWeight: 800 }}>
-        {title.split("").map((char, i) => (
-          <motion.span
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false }}
-            transition={{ delay: 0.15 + i * 0.03, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            style={{ display: "inline-block" }}
-          >
-            {char === " " ? "\u00a0" : char}
-          </motion.span>
-        ))}
+        {title}
       </h2>
-      <motion.div
-        initial={{ width: 0 }}
-        whileInView={{ width: 40 }}
-        viewport={{ once: false }}
-        transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      <div
         className="mt-3 h-px rounded-full"
-        style={{ background: "linear-gradient(to right, rgba(255,255,255,0.4), transparent)" }}
+        style={{ width: 40, background: "linear-gradient(to right, rgba(255,255,255,0.4), transparent)" }}
       />
     </motion.div>
   );
 }
 
-/* ── Project Card — hover glow dùng CSS, không filter blur ── */
+/* ── Project Card — 3D tilt only on devices with hover (skip touch / mobile) ── */
 function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i: number; animateBorder?: boolean }) {
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);
   const springRX = useSpring(rotateX, { stiffness: 200, damping: 18 });
   const springRY = useSpring(rotateY, { stiffness: 200, damping: 18 });
 
+  const supportsHover =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
   const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!supportsHover) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
@@ -653,7 +665,7 @@ function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i:
       rel="noopener noreferrer"
       initial={{ opacity: 0, y: 40, scale: 0.93 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: false }}
+      viewport={{ once: true }}
       transition={{ duration: 0.65, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
       onMouseLeave={() => { rotateX.set(0); rotateY.set(0); }}
       onMouseMove={handleMouseMove}
@@ -715,7 +727,7 @@ function ContactCard({ c, i }: { c: typeof CONTACTS[0]; i: number }) {
       rel="noopener noreferrer"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false }}
+      viewport={{ once: true }}
       transition={{ duration: 0.45, delay: i * 0.05 }}
       style={{ display: "block" }}
     >

@@ -286,3 +286,30 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+/* ─── Respect prefers-reduced-motion: stop all infinite animations ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .ring-cw,
+  .ring-ccw,
+  .avatar-glow,
+  .avatar-glow-outer,
+  .dot-pulse,
+  .arcane-pulse,
+  .arcane-float,
+  .arcane-spin-slow,
+  .arcane-glow,
+  .arcane-shimmer {
+    animation: none !important;
+  }
+  .running-border::before {
+    animation: none !important;
+    background: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06)) !important;
+  }
+}

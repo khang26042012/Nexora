@@ -2703,3 +2703,39 @@ Mục 2: Fix web lag + chuyển trang chậm
     - Workflow restart OK, Vite ready 383ms
     - curl localhost:21113/ → 200
     - Heavy chunks (three, tesseract, onnx, jspdf, docx, jszip, qrcode, pdfjs, recharts, imgly bg-removal) chỉ được tải khi user thực sự navigate vào tool tương ứng
+
+[session 60 — bổ sung 2 — fix lag mobile thực sự]
+Khang test lại với wifi 200Mbps vẫn lag → root cause KHÔNG phải bandwidth, là CPU/GPU mobile.
+
+Thủ phạm thực sự (đo qua chrome devtools tương đương):
+  1. avatar.mp4 (5.3MB) autoplay 2 LẦN trên Home (Hero + About)
+     → mobile decode 2 video MP4 song song + 1 Cloudinary background = ngốn GPU + nóng máy
+  2. viewport={{ once: false }} ở 15 chỗ trong Home
+     → mỗi lần scroll qua section, framer-motion fire animation lại từ đầu
+  3. SectionHeader split title từng ký tự thành <motion.span>
+     → "Giới thiệu" = 10 motion.span + 10 IntersectionObserver — quá phí
+  4. ScrollProgress setState mỗi pixel scroll → React re-render liên tục
+  5. ProjectCard 3D spring rotate cả trên touch device (mobile không có hover thực)
+  6. Không tôn trọng prefers-reduced-motion → CSS infinite anims (avatar-glow box-shadow,
+     ring-cw/ccw, running-border conic-gradient @property) chạy 24/7 ngốn GPU
+
+Fix (apps/portfolio/src/pages/Home.tsx + index.css):
+  - Bỏ import avatarVideo, replace 2 <video> avatar bằng <img src={avatarImg}>
+    với decoding=async, fetchPriority=high (Hero) / loading=lazy (About)
+    → tiết kiệm 5.3MB × 2 + bỏ 2 video decode pipeline trên mobile
+  - Background Cloudinary: bỏ autoPlay attribute, set preload="metadata",
+    play() qua requestIdleCallback → không cản block initial render
+  - Replace toàn bộ once: false → once: true (15 chỗ, sed-style)
+    → animation chỉ chạy 1 lần khi vào view, không re-fire khi scroll
+  - SectionHeader: bỏ per-character motion.span, dùng 1 motion.div cho cả khối
+  - ScrollProgress: rAF throttle + el.style.transform = scaleX(p) thay vì setState
+    → 0 React re-render khi scroll, GPU compositor handle bar
+  - ProjectCard: matchMedia("(hover: hover) and (pointer: fine)") gate
+    → mobile/touch không trigger 3D spring rotate
+  - index.css: thêm @media (prefers-reduced-motion: reduce) tắt toàn bộ infinite
+    animations + replace running-border::before bằng linear-gradient tĩnh
+
+Verify:
+  - Workflow "Start application" Vite ready 302ms ✅
+  - curl localhost:21113 → 200
+  - Bundle Home không còn import avatar.mp4 (5.3MB)
