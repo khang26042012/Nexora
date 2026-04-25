@@ -9,7 +9,7 @@ services:
     healthCheckPath: /NexoraGarden/health
     envVars:
       - key: NODE_ENV
-        sync: false
+        value: production
       - key: PORT
         value: "8080"
       - key: LOG_LEVEL
