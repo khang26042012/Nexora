@@ -1,17 +1,34 @@
 import { useState, useEffect, useCallback } from "react";
-import { Home, Wrench, MessageCircle, LucideIcon } from "lucide-react";
+import { Home, Wrench, MessageCircle, FolderKanban, ChevronDown, LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
-import avatarImg from "@/assets/avatar_new.jpg";
+import avatarVideo from "@/assets/avatar.mp4";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
-type NavLink = { name: string; href: string; icon: LucideIcon; accent: string };
+type NavChild = { name: string; href: string; external?: boolean };
+type NavItem = {
+  name: string;
+  href?: string;
+  icon: LucideIcon;
+  accent: string;
+  children?: NavChild[];
+};
 
-const NAV_LINKS: NavLink[] = [
+const NAV_LINKS: NavItem[] = [
   { name: "Trang chủ", href: "/",     icon: Home,          accent: "rgba(180,220,255,0.7)" },
   { name: "Tool",       href: "/tool", icon: Wrench,        accent: "rgba(180,255,210,0.7)" },
   { name: "Chat Bot",   href: "/chat", icon: MessageCircle, accent: "rgba(220,180,255,0.7)" },
+  {
+    name: "Project",
+    icon: FolderKanban,
+    accent: "rgba(255,210,160,0.7)",
+    children: [
+      { name: "NexoraGarden", href: "https://nexorax.cloud/NexoraGarden", external: true },
+      { name: "NexoraAI",     href: "/chat" },
+      { name: "NexoraTool",   href: "/tool" },
+    ],
+  },
 ];
 
 function getActiveFromLocation(loc: string): string {
@@ -59,10 +76,11 @@ function SidebarToggleIcon({ isOpen }: { isOpen: boolean }) {
 }
 
 export function Navigation() {
-  const [isOpen, setIsOpen]     = useState(false);
-  const [location, navigate]    = useLocation();
-  const [active, setActive]     = useState(() => getActiveFromLocation(location));
-  const [hovered, setHovered]   = useState<string | null>(null);
+  const [isOpen, setIsOpen]       = useState(false);
+  const [location, navigate]      = useLocation();
+  const [active, setActive]       = useState(() => getActiveFromLocation(location));
+  const [hovered, setHovered]     = useState<string | null>(null);
+  const [expanded, setExpanded]   = useState<string | null>(null);
 
   useEffect(() => {
     setActive(getActiveFromLocation(location));
@@ -84,6 +102,20 @@ export function Navigation() {
       e.preventDefault();
       setIsOpen(false);
       navigate(href);
+    },
+    [navigate],
+  );
+
+  const handleChildClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, child: NavChild) => {
+      e.preventDefault();
+      if (child.external) {
+        setIsOpen(false);
+        window.location.href = child.href;
+      } else {
+        setIsOpen(false);
+        navigate(child.href);
+      }
     },
     [navigate],
   );
@@ -191,7 +223,15 @@ export function Navigation() {
                       border: "2px solid rgba(255,255,255,0.18)",
                       boxShadow: "0 0 0 1px rgba(255,255,255,0.05)",
                     }}>
-                      <img src={avatarImg} alt="Phan Trọng Khang" className="w-full h-full object-cover" />
+                      <video
+                        src={avatarVideo}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className="w-full h-full object-cover"
+                        style={{ display: "block" }}
+                      />
                     </div>
                     {/* Online dot */}
                     <motion.div
@@ -250,14 +290,140 @@ export function Navigation() {
               <nav className="flex-1 px-4 pt-3 pb-4 flex flex-col gap-2.5 overflow-y-auto" style={{ position: "relative", zIndex: 2 }}>
                 {NAV_LINKS.map((link, i) => {
                   const Icon = link.icon;
-                  const isAct = active === link.href;
-                  const isHov = hovered === link.href;
+                  const hasChildren = !!link.children;
+                  const isAct = !hasChildren && active === link.href;
+                  const isHov = hovered === link.name;
+                  const isExp = expanded === link.name;
+
+                  if (hasChildren) {
+                    return (
+                      <motion.div
+                        key={link.name}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.04 + i * 0.04, duration: 0.18, ease: "easeOut" }}
+                        className="flex flex-col"
+                      >
+                        <motion.button
+                          type="button"
+                          onClick={() => setExpanded(isExp ? null : link.name)}
+                          onMouseEnter={() => setHovered(link.name)}
+                          onMouseLeave={() => setHovered(null)}
+                          whileTap={{ scale: 0.97 }}
+                          className="flex items-center justify-center gap-2.5 py-3.5 px-5 cursor-pointer select-none"
+                          style={{
+                            borderRadius: 9999,
+                            background: isExp
+                              ? "rgba(255,255,255,0.1)"
+                              : isHov
+                              ? "rgba(255,255,255,0.07)"
+                              : "rgba(255,255,255,0.04)",
+                            border: isExp
+                              ? "1px solid rgba(255,255,255,0.18)"
+                              : "1px solid rgba(255,255,255,0.09)",
+                            transition: "background 0.18s ease, border-color 0.18s ease",
+                          }}
+                        >
+                          <Icon
+                            size={17}
+                            style={{
+                              color: isExp ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)",
+                              transition: "color 0.18s ease",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: 15,
+                              fontWeight: isExp ? 600 : 400,
+                              color: isExp ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)",
+                              fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+                              letterSpacing: "-0.01em",
+                              transition: "color 0.18s ease, font-weight 0.18s ease",
+                            }}
+                          >
+                            {link.name}
+                          </span>
+                          <motion.span
+                            animate={{ rotate: isExp ? 180 : 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ display: "inline-flex", marginLeft: 2 }}
+                          >
+                            <ChevronDown size={14} style={{ color: "rgba(255,255,255,0.45)" }} />
+                          </motion.span>
+                        </motion.button>
+
+                        <AnimatePresence initial={false}>
+                          {isExp && (
+                            <motion.div
+                              key="children"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.22, ease: "easeOut" }}
+                              style={{ overflow: "hidden" }}
+                            >
+                              <div className="flex flex-col gap-1.5 mt-2 px-2">
+                                {link.children!.map((child) => {
+                                  const childKey = `${link.name}::${child.name}`;
+                                  const childHov = hovered === childKey;
+                                  return (
+                                    <motion.a
+                                      key={child.name}
+                                      href={child.href}
+                                      onClick={(e) => handleChildClick(e, child)}
+                                      onMouseEnter={() => setHovered(childKey)}
+                                      onMouseLeave={() => setHovered(null)}
+                                      whileTap={{ scale: 0.97 }}
+                                      className="flex items-center gap-2 py-2.5 pl-6 pr-4 cursor-pointer select-none"
+                                      style={{
+                                        borderRadius: 9999,
+                                        background: childHov
+                                          ? "rgba(255,255,255,0.06)"
+                                          : "rgba(255,255,255,0.025)",
+                                        border: "1px solid rgba(255,255,255,0.07)",
+                                        transition: "background 0.18s ease",
+                                      }}
+                                      target={child.external ? "_self" : undefined}
+                                      rel={child.external ? "noopener" : undefined}
+                                    >
+                                      <span
+                                        style={{
+                                          width: 5, height: 5, borderRadius: "50%",
+                                          background: link.accent,
+                                          flexShrink: 0,
+                                          boxShadow: `0 0 6px ${link.accent}`,
+                                        }}
+                                      />
+                                      <span
+                                        style={{
+                                          fontSize: 13.5,
+                                          fontWeight: 400,
+                                          color: childHov ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.55)",
+                                          fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+                                          letterSpacing: "-0.01em",
+                                          transition: "color 0.18s ease",
+                                        }}
+                                      >
+                                        {child.name}
+                                      </span>
+                                    </motion.a>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    );
+                  }
+
                   return (
                     <motion.a
                       key={link.href}
                       href={link.href}
-                      onClick={(e) => handleNavClick(e, link.href)}
-                      onMouseEnter={() => setHovered(link.href)}
+                      onClick={(e) => handleNavClick(e, link.href!)}
+                      onMouseEnter={() => setHovered(link.name)}
                       onMouseLeave={() => setHovered(null)}
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
