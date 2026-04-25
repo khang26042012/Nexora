@@ -3,6 +3,7 @@ import { Home, Wrench, MessageCircle, FolderKanban, ChevronDown, LucideIcon } fr
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import avatarImg from "@/assets/avatar_new.jpg";
+import avatarVideo from "@/assets/avatar-gojo.mp4";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -223,13 +224,17 @@ export function Navigation() {
                       border: "2px solid rgba(255,255,255,0.18)",
                       boxShadow: "0 0 0 1px rgba(255,255,255,0.05)",
                     }}>
-                      <img
-                        src={avatarImg}
-                        alt="Phan Trọng Khang"
+                      <video
+                        src={avatarVideo}
+                        poster={avatarImg}
                         width={44}
                         height={44}
-                        loading="lazy"
-                        decoding="async"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="auto"
+                        aria-label="Phan Trọng Khang"
                         className="w-full h-full object-cover"
                         style={{ display: "block" }}
                       />

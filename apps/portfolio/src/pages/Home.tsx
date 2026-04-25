@@ -7,6 +7,7 @@ import {
 import { SiZalo } from "react-icons/si";
 import { Navigation } from "@/components/navigation";
 import avatarImg from "@/assets/avatar_new.jpg";
+import avatarVideo from "@/assets/avatar-gojo.mp4";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -272,13 +273,17 @@ export function Home() {
                 boxShadow: "0 0 32px rgba(255,255,255,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
               }}
             >
-              <img
-                src={avatarImg}
-                alt="Phan Trọng Khang"
+              <video
+                src={avatarVideo}
+                poster={avatarImg}
                 width={96}
                 height={96}
-                decoding="async"
-                fetchPriority="high"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                aria-label="Phan Trọng Khang"
                 className="w-full h-full object-cover"
                 style={{ display: "block" }}
               />
@@ -396,13 +401,17 @@ export function Home() {
                       className="rounded-2xl overflow-hidden"
                       style={{ width: 140, height: 140, border: "2px solid rgba(255,255,255,0.18)" }}
                     >
-                      <img
-                        src={avatarImg}
-                        alt="Phan Trọng Khang"
+                      <video
+                        src={avatarVideo}
+                        poster={avatarImg}
                         width={140}
                         height={140}
-                        loading="lazy"
-                        decoding="async"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        aria-label="Phan Trọng Khang"
                         className="w-full h-full object-cover"
                         style={{ display: "block" }}
                       />
