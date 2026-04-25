@@ -1,7 +1,7 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 57] DEPLOY — Setup OpenShift Developer Sandbox (free 7GB RAM)
+    Cập nhật: [session 58] DEPLOY — Quay lại Render (render.yaml Blueprint)
   ================================================================
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2591,3 +2591,45 @@ Files thay đổi:
   OPENSHIFT.md      (MỚI)
 
 ESP32 cần nạp firmware: TÙY (nếu đổi domain), không nếu giữ nexorax.cloud
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[25/04/2026] DEPLOY — Quay lại Render (Khang chốt)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Khang sau khi thử Leapcell + tìm OpenShift (Red Hat đổi UI sang
+30-day trial chứ không free vĩnh viễn nữa) → quyết định quay lại Render.
+
+Đã làm:
+  1. Tạo render.yaml (Render Blueprint) ở root:
+     - type: web, runtime: docker, plan: free, region: singapore
+     - dockerfilePath: ./Dockerfile (build cả 3 package)
+     - autoDeploy: true (push GitHub → Render rebuild)
+     - healthCheckPath: /NexoraGarden/health
+     - envVars: NODE_ENV/PORT set sẵn, các secret sync:false (Khang điền tay)
+  2. Tạo RENDER.md hướng dẫn:
+     - Sign up GitHub → New Blueprint → chọn repo
+     - Set env secrets (TELEGRAM/GEMINI/WEATHER)
+     - Cảnh báo Render free KHÔNG có persistent disk → SQLite mất sau restart
+     - 4 lựa chọn xử lý SQLite
+     - Setup custom domain nexorax.cloud
+  3. Xoá OPENSHIFT.md + LEAPCELL.md (không dùng nữa)
+  4. Giữ Dockerfile session 57 (USER 1001 + chgrp 0) — vô hại trên Render
+
+Files thay đổi:
+  render.yaml         (MỚI)
+  RENDER.md           (MỚI)
+  OPENSHIFT.md        (XOÁ)
+  LEAPCELL.md         (XOÁ)
+  tiến_trình.txt      (cập nhật)
+
+Khang cần làm trên Render:
+  1. render.com → Sign Up with GitHub
+  2. New → Blueprint → chọn repo Nexora → Apply
+  3. Service nexora → Environment → điền 6 secret
+  4. Đợi build ~6-10 phút
+  5. Cloudflare DNS: CNAME @ → nexora.onrender.com (proxied)
+
+Render free WARNING:
+  - Sleep sau 15 phút idle → cần Cloudflare Worker ping (xem DEPLOY.md cũ)
+  - KHÔNG có persistent disk → SQLite mất → cần $7/tháng nếu muốn giữ data
