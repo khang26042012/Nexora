@@ -1,11 +1,9 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.resolve(__dirname, "../../../../apps/nexora-garden/data");
+const dataDir = path.join(process.cwd(), "packages/api-server/data");
 
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
