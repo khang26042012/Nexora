@@ -2663,3 +2663,10 @@ Fix (commit 5aaa80d):
 Verify:
   - pnpm --filter @workspace/api-server run build → OK (dist/index.mjs 4.1mb)
   - Push 1 commit duy nhất qua Git Tree API → Railway redeploy 1 lần
+
+[session 59 — bổ sung]
+  Railway diag tiếp lần 2: tempmail-db.ts cũng còn __dirname (bị miss session trước).
+  Fix tempmail-db.ts → process.cwd() (commit bd042ac).
+  Đã grep toàn bộ src/lib → 3 file db đều sạch __dirname.
+  Còn __dirname trong app.ts/youtube.ts/trim.ts: dùng cho static dir + ffmpeg binary
+  trong dist/ (build.mjs có banner inject), KHÔNG phải data dir → giữ nguyên.
