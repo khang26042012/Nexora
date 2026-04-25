@@ -2670,3 +2670,36 @@ Verify:
   Đã grep toàn bộ src/lib → 3 file db đều sạch __dirname.
   Còn __dirname trong app.ts/youtube.ts/trim.ts: dùng cho static dir + ffmpeg binary
   trong dist/ (build.mjs có banner inject), KHÔNG phải data dir → giữ nguyên.
+
+[session 60 — 25/04/2026 — Migration Replit + fix lag]
+Mục 1: Migration sang Replit account/môi trường mới
+  - pnpm install --ignore-scripts → 49s, 844 packages
+  - Restart workflow "Start application" → Vite v7.3.1 ready 383ms ở port 21113 ✅
+
+Mục 2: Fix web lag + chuyển trang chậm
+  Triệu chứng (Khang report):
+    - Web rất lag dù đt mạnh, các site three.js khác chạy OK
+    - Reload + chuyển hướng rất lâu
+
+  Root cause:
+    apps/portfolio/src/App.tsx import EAGER toàn bộ pages:
+      Home, Tool, Chat, Admin, NotFound + 17 tool pages
+    → Bundle khởi đầu kéo theo:
+      three, @react-three/fiber, @react-three/drei (Tool/Chat/ThreeScene)
+      tesseract.js (ImageToText)
+      jspdf, docx, jszip, qrcode, pdfjs-dist (file converter, QR, PromptBuilder, Note, TextFormatter)
+      onnxruntime-web, @imgly/background-removal (BackgroundRemover)
+      recharts (chart.tsx)
+    → User vào "/" cũng phải tải HẾT những thư viện trên dù không dùng
+
+  Fix (apps/portfolio/src/App.tsx):
+    - Giữ Home eager (landing page → cần fast first paint)
+    - Mọi route khác → React.lazy(() => import(...))
+    - Bọc <Suspense fallback={<PageFallback />}> quanh Switch
+    - PageFallback: spinner đơn giản, không kéo deps mới
+
+  Verify:
+    - pnpm typecheck: chỉ còn lỗi pre-existing (three types, Chat video field, PromptBuilder/TextFormatter never type) — không phải lỗi do session này
+    - Workflow restart OK, Vite ready 383ms
+    - curl localhost:21113/ → 200
+    - Heavy chunks (three, tesseract, onnx, jspdf, docx, jszip, qrcode, pdfjs, recharts, imgly bg-removal) chỉ được tải khi user thực sự navigate vào tool tương ứng
