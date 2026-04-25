@@ -7,6 +7,7 @@ import {
 import { SiZalo } from "react-icons/si";
 import { Navigation } from "@/components/navigation";
 import avatarImg from "@/assets/avatar_new.jpg";
+import avatarVideo from "@assets/snaptik.vn_7568520141940559112_1777088866498.mp4";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -246,7 +247,15 @@ export function Home() {
                 boxShadow: "0 0 32px rgba(255,255,255,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
               }}
             >
-              <img src={avatarImg} alt="Phan Trọng Khang" className="w-full h-full object-cover" />
+              <video
+                src={avatarVideo}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="w-full h-full object-cover"
+                style={{ display: "block" }}
+              />
             </div>
 
             {/* Online dot — CSS dot-pulse */}
@@ -361,7 +370,15 @@ export function Home() {
                       className="rounded-2xl overflow-hidden"
                       style={{ width: 140, height: 140, border: "2px solid rgba(255,255,255,0.18)" }}
                     >
-                      <img src={avatarImg} alt="Phan Trọng Khang" className="w-full h-full object-cover" />
+                      <video
+                        src={avatarVideo}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        className="w-full h-full object-cover"
+                        style={{ display: "block" }}
+                      />
                     </div>
                   </div>
 
