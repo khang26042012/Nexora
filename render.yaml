@@ -42,3 +42,5 @@ services:
         sync: false
       - key: TEMPMAIL_WEBHOOK_SECRET
         sync: false
+      - key: YOUTUBE_COOKIES
+        sync: false
