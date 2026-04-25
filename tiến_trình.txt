@@ -2739,3 +2739,34 @@ Verify:
   - Workflow "Start application" Vite ready 302ms ✅
   - curl localhost:21113 → 200
   - Bundle Home không còn import avatar.mp4 (5.3MB)
+
+[session 60 — bổ sung 3 — fix lag ở MỌI trang (không chỉ /chat)]
+Khang phản hồi: tất cả các trang đều chậm, không riêng /chat. Phát hiện gốc rễ:
+
+  THỦ PHẠM: apps/portfolio/src/components/navigation.tsx vẫn còn dòng:
+    import avatarVideo from "@/assets/avatar.mp4";   (file 5.1MB)
+  Navigation render ở MỌI trang (Home, Tool, Chat, Admin, ProjectShowcase)
+  → tất cả trang đều phải tải 5.1MB avatar.mp4 + decode video pipeline.
+  Session 60 trước chỉ sửa Home.tsx, QUÊN navigation.tsx → fix không trọn vẹn.
+
+  + 1 video 5.1MB nữa trong Chat.tsx line 594:
+    <video src="https://raw.githubusercontent.com/.../avatar.mp4">
+    (load từ GitHub raw, không vào bundle nhưng vẫn ngốn 5MB băng thông + GPU
+     decode mỗi lần user mở /chat)
+
+Fix:
+  - apps/portfolio/src/components/navigation.tsx
+    · Bỏ import avatarVideo → import avatarImg from "@/assets/avatar_new.jpg" (96KB)
+    · Replace <video autoPlay muted loop> → <img loading=lazy decoding=async>
+    → Mọi trang giảm 5.1MB tải + bỏ video decode pipeline trên mobile
+  - apps/portfolio/src/pages/Chat.tsx line 594
+    · Replace <video src=raw.githubusercontent/.../avatar.mp4> 
+      → <img src=raw.githubusercontent/.../nexora-avatar.jpg> (44KB)
+    → /chat giảm 5MB băng thông + bỏ 1 video decode
+  - XÓA apps/portfolio/src/assets/avatar.mp4 (5.1MB) khỏi repo
+    → git/Railway build artifact giảm 5MB
+
+Verify:
+  - rg "avatar.mp4|avatarVideo" apps/portfolio/src/ → 0 matches ✅
+  - du -sh apps/portfolio/src/assets/ → 148K (trước: 5.3MB)
+  - Workflow "Start application" restart OK

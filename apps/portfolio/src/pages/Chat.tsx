@@ -591,8 +591,8 @@ export function Chat() {
                 <motion.div animate={{ scale: [1, 1.025, 1] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                   style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden",
                     border: "2px solid rgba(255,255,255,0.18)", boxShadow: "0 0 24px rgba(140,100,255,0.25), inset 0 0 12px rgba(0,0,0,0.4)" }}>
-                  <video src="https://raw.githubusercontent.com/khang26042012/Nexora/main/public/avatar.mp4"
-                    autoPlay muted loop playsInline
+                  <img src="https://raw.githubusercontent.com/khang26042012/Nexora/main/public/nexora-avatar.jpg"
+                    alt="Nexora" width={120} height={120} loading="lazy" decoding="async"
                     style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
                 </motion.div>
               </div>

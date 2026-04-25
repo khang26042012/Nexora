@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Home, Wrench, MessageCircle, FolderKanban, ChevronDown, LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
-import avatarVideo from "@/assets/avatar.mp4";
+import avatarImg from "@/assets/avatar_new.jpg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -223,12 +223,13 @@ export function Navigation() {
                       border: "2px solid rgba(255,255,255,0.18)",
                       boxShadow: "0 0 0 1px rgba(255,255,255,0.05)",
                     }}>
-                      <video
-                        src={avatarVideo}
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
+                      <img
+                        src={avatarImg}
+                        alt="Phan Trọng Khang"
+                        width={44}
+                        height={44}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                         style={{ display: "block" }}
                       />
