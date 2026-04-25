@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Personal cheatsheet — chứa API keys, không push lên GitHub
+data-replit.md
+data-replit.txt
