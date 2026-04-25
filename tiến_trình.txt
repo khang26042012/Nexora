@@ -1,7 +1,7 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 58] DEPLOY — Quay lại Render (render.yaml Blueprint)
+    Cập nhật: [session 59] FIX Railway healthcheck — admin-db/notes-db dùng process.cwd()
   ================================================================
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2633,3 +2633,33 @@ Khang cần làm trên Render:
 Render free WARNING:
   - Sleep sau 15 phút idle → cần Cloudflare Worker ping (xem DEPLOY.md cũ)
   - KHÔNG có persistent disk → SQLite mất → cần $7/tháng nếu muốn giữ data
+
+
+================================================================
+SESSION 59 — FIX RAILWAY HEALTHCHECK CRASH (admin-db / notes-db)
+================================================================
+
+Triệu chứng (Railway):
+  - Build OK, Deploy OK
+  - Network → Healthcheck FAILURE (04:52)
+  - Diagnosis: EACCES: permission denied, mkdir '/apps/nexora-garden/data'
+
+Root cause:
+  - admin-db.ts + notes-db.ts dùng:
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const dataDir = path.resolve(__dirname, "../../../../apps/nexora-garden/data");
+  - esbuild bundle vào dist/index.mjs → __dirname resolve = /
+  - "../../../../apps/nexora-garden/data" → "/apps/nexora-garden/data"
+  - Container chạy USER 1001 → mkdir / fail EACCES → app crash → healthcheck timeout
+
+Fix (commit 5aaa80d):
+  packages/api-server/src/lib/admin-db.ts
+  packages/api-server/src/lib/notes-db.ts
+    - Bỏ fileURLToPath / __dirname
+    - const dataDir = path.join(process.cwd(), "packages/api-server/data");
+  → Dockerfile WORKDIR /app + đã RUN mkdir -p /app/packages/api-server/data
+  → cwd=/app → dataDir=/app/packages/api-server/data ✅ writeable
+
+Verify:
+  - pnpm --filter @workspace/api-server run build → OK (dist/index.mjs 4.1mb)
+  - Push 1 commit duy nhất qua Git Tree API → Railway redeploy 1 lần
