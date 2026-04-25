@@ -12,15 +12,51 @@ services:
         value: production
       - key: PORT
         value: "8080"
+      - key: LOG_LEVEL
+        value: info
+      - key: BASE_PATH
+        value: /NexoraGarden
+
+      # Telegram bot
       - key: TELEGRAM_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: WEATHER_API_KEY
-        sync: false
       - key: TELEGRAM_WEBHOOK_URL
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+
+      # Gemini AI (key chính + 4 key rotation)
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_KEY_1
+        sync: false
+      - key: GEMINI_KEY_2
+        sync: false
+      - key: GEMINI_KEY_3
+        sync: false
+      - key: GEMINI_KEY_4
+        sync: false
+
+      # Zuki AI (chat fallback)
+      - key: ZUKI_API_KEY
+        sync: false
+      - key: ZUKI_API_KEY_1
+        sync: false
+      - key: ZUKI_API_KEY_2
+        sync: false
+
+      # Các API khác
+      - key: ADMIN_KEY
+        sync: false
+      - key: WEATHER_API_KEY
+        sync: false
+      - key: REMOVE_BG_API_KEY
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: TEMPMAIL_WEBHOOK_SECRET
+        sync: false
+      - key: YOUTUBE_COOKIES
         sync: false
