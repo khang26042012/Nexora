@@ -111,23 +111,40 @@ function useStockfish() {
   return { topMoves, evaluation, thinking, analyze, stop, ready };
 }
 
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 export function ChessTool() {
   const [, navigate] = useLocation();
-  const [game, setGame] = useState(() => new Chess());
+
+  // FEN string là state chính — Chess object trong ref để tính toán
+  const chessRef = useRef(new Chess());
+  const [fen, setFen] = useState(START_FEN);
+
   const [userColor, setUserColor] = useState<"white" | "black">("white");
   const [depth, setDepth] = useState(15);
   const [arrows, setArrows] = useState<[string, string, string][]>([]);
   const [moveLog, setMoveLog] = useState<MoveLog[]>([]);
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [customSquares, setCustomSquares] = useState<Record<string, React.CSSProperties>>({});
+  const [boardSize, setBoardSize] = useState(460);
   const logRef = useRef<HTMLDivElement>(null);
   const { topMoves, evaluation, thinking, analyze, stop, ready } = useStockfish();
 
+  // Tính kích thước bàn cờ responsive
+  useEffect(() => {
+    function calc() {
+      setBoardSize(Math.min(window.innerWidth - 80, 460));
+    }
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
+
   const myColorChar = userColor === "white" ? "w" : "b";
 
-  const triggerAnalysis = useCallback((fen: string, turn: "w" | "b") => {
+  const triggerAnalysis = useCallback((currentFen: string, turn: "w" | "b") => {
     if (turn !== myColorChar) return;
-    analyze(fen, depth, (moves) => {
+    analyze(currentFen, depth, (moves) => {
       if (moves.length > 0) {
         const best = moves[0];
         setArrows([[best.from, best.to, "rgba(99,255,180,0.9)"] as [string, string, string]]);
@@ -141,15 +158,16 @@ export function ChessTool() {
 
   function onPieceDrop(from: string, to: string): boolean {
     try {
-      const newGame = new Chess(game.fen());
-      const move = newGame.move({ from, to, promotion: "q" });
+      const move = chessRef.current.move({ from, to, promotion: "q" });
       if (!move) return false;
 
-      setGame(newGame);
+      const newFen = chessRef.current.fen();
+      const turn = chessRef.current.turn() as "w" | "b";
+      setFen(newFen);
       setArrows([]);
       setCustomSquares({});
       setMoveLog(prev => [...prev, { san: move.san, color: move.color as "w" | "b", ply: prev.length + 1 }]);
-      triggerAnalysis(newGame.fen(), newGame.turn() as "w" | "b");
+      triggerAnalysis(newFen, turn);
       return true;
     } catch {
       return false;
@@ -158,7 +176,8 @@ export function ChessTool() {
 
   function reset() {
     stop();
-    setGame(new Chess());
+    chessRef.current = new Chess();
+    setFen(START_FEN);
     setArrows([]);
     setCustomSquares({});
     setMoveLog([]);
@@ -169,19 +188,21 @@ export function ChessTool() {
   }
 
   function playBestMove() {
-    if (topMoves.length === 0 || game.isGameOver()) return;
-    const best = topMoves[0];
-    onPieceDrop(best.from, best.to);
+    if (topMoves.length === 0) return;
+    const { isGameOver } = chessRef.current;
+    if (isGameOver()) return;
+    onPieceDrop(topMoves[0].from, topMoves[0].to);
   }
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [moveLog]);
 
-  const gameOver = game.isGameOver();
-  const isCheck = game.isCheck();
-  const isCheckmate = game.isCheckmate();
-  const isDraw = game.isDraw();
+  const gameOver = chessRef.current.isGameOver();
+  const isCheck = chessRef.current.isCheck();
+  const isCheckmate = chessRef.current.isCheckmate();
+  const isDraw = chessRef.current.isDraw();
+  const currentTurn = chessRef.current.turn() as "w" | "b";
 
   const barPct = userColor === "white" ? evalToBar(evaluation.cp) : evalToBar(-evaluation.cp);
   const evalStr = evalLabel(evaluation.cp, evaluation.mate);
@@ -258,7 +279,16 @@ export function ChessTool() {
                 <div className="text-xs font-semibold mb-2" style={{ color: "rgba(255,255,255,0.45)" }}>Màu của bạn</div>
                 <div className="flex gap-2">
                   {(["white", "black"] as const).map(c => (
-                    <button key={c} onClick={() => { setUserColor(c); setBoardOrientation(c); reset(); }}
+                    <button key={c} onClick={() => {
+                      setUserColor(c);
+                      setBoardOrientation(c);
+                      stop();
+                      chessRef.current = new Chess();
+                      setFen(START_FEN);
+                      setArrows([]);
+                      setCustomSquares({});
+                      setMoveLog([]);
+                    }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                       style={{
                         background: userColor === c ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
@@ -299,10 +329,11 @@ export function ChessTool() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-4">
           <AnimBorderCard speed={5} color="rgba(99,255,180,0.5)" radius={16} innerStyle={{ padding: "1rem" }}>
             <div className="flex flex-col items-center gap-4">
-              <div className="w-full" style={{ maxWidth: 460 }}>
+              <div className="w-full flex justify-center">
                 <Chessboard
-                  boardWidth={Math.min(typeof window !== "undefined" ? window.innerWidth - 80 : 460, 460)}
-                  position={game.fen()}
+                  id="chess-main"
+                  boardWidth={boardSize}
+                  position={fen}
                   onPieceDrop={onPieceDrop}
                   boardOrientation={boardOrientation}
                   customArrows={arrows as any}
@@ -310,6 +341,7 @@ export function ChessTool() {
                   customDarkSquareStyle={{ backgroundColor: "#3a6b4e" }}
                   customLightSquareStyle={{ backgroundColor: "#b5d4bb" }}
                   animationDuration={150}
+                  arePiecesDraggable={!gameOver}
                 />
               </div>
 
@@ -326,7 +358,7 @@ export function ChessTool() {
                   <RotateCcw size={13} /> Đặt lại
                 </button>
                 <button
-                  onClick={() => triggerAnalysis(game.fen(), game.turn() as "w" | "b")}
+                  onClick={() => triggerAnalysis(fen, currentTurn)}
                   disabled={!ready || thinking}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ml-auto"
                   style={{
@@ -378,7 +410,7 @@ export function ChessTool() {
           <AnimBorderCard speed={5} color="rgba(255,255,255,0.4)" radius={14} innerStyle={{ padding: "1rem" }}>
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.45)" }}>Gợi ý nước đi</span>
-              {topMoves.length > 0 && !gameOver && game.turn() === myColorChar && (
+              {topMoves.length > 0 && !gameOver && currentTurn === myColorChar && (
                 <button onClick={playBestMove}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold"
                   style={{ background: "rgba(99,255,180,0.1)", border: "1px solid rgba(99,255,180,0.25)", color: "rgba(99,255,180,0.85)" }}>
@@ -397,7 +429,7 @@ export function ChessTool() {
               </div>
             ) : topMoves.length === 0 ? (
               <p className="text-xs py-3 text-center" style={{ color: "rgba(255,255,255,0.2)" }}>
-                {game.turn() === myColorChar
+                {currentTurn === myColorChar
                   ? 'Nhấn "Phân tích" để xem gợi ý'
                   : "Nhập nước đối thủ rồi xem gợi ý…"}
               </p>
@@ -407,7 +439,7 @@ export function ChessTool() {
                   <motion.div key={m.move} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.06 }}
                     onClick={() => {
-                      if (game.turn() !== myColorChar || gameOver) return;
+                      if (currentTurn !== myColorChar || gameOver) return;
                       if (i === 0) { playBestMove(); return; }
                       setArrows([[m.from, m.to, i === 1 ? "rgba(147,197,253,0.8)" : "rgba(196,181,253,0.7)"] as [string, string, string]]);
                       setCustomSquares({
