@@ -19,6 +19,7 @@ function AnimBorderCard({ children, speed = 4, color = "rgba(255,255,255,0.85)",
   );
 }
 
+type Arrow = { startSquare: string; endSquare: string; color: string };
 type TopMove = { move: string; score: number; from: string; to: string; mate?: number };
 type MoveLog = { san: string; color: "w" | "b"; ply: number };
 
@@ -122,7 +123,7 @@ export function ChessTool() {
 
   const [userColor, setUserColor] = useState<"white" | "black">("white");
   const [depth, setDepth] = useState(15);
-  const [arrows, setArrows] = useState<[string, string, string][]>([]);
+  const [arrows, setArrows] = useState<Arrow[]>([]);
   const [moveLog, setMoveLog] = useState<MoveLog[]>([]);
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [customSquares, setCustomSquares] = useState<Record<string, React.CSSProperties>>({});
@@ -147,7 +148,7 @@ export function ChessTool() {
     analyze(currentFen, depth, (moves) => {
       if (moves.length > 0) {
         const best = moves[0];
-        setArrows([[best.from, best.to, "rgba(99,255,180,0.9)"] as [string, string, string]]);
+        setArrows([{ startSquare: best.from, endSquare: best.to, color: "rgba(99,255,180,0.9)" }]);
         setCustomSquares({
           [best.from]: { backgroundColor: "rgba(99,255,180,0.25)", borderRadius: "4px" },
           [best.to]: { backgroundColor: "rgba(99,255,180,0.35)", borderRadius: "4px" },
@@ -156,9 +157,10 @@ export function ChessTool() {
     });
   }, [myColorChar, analyze, depth]);
 
-  function onPieceDrop(from: string, to: string): boolean {
+  function onPieceDrop({ sourceSquare, targetSquare }: { piece: any; sourceSquare: string; targetSquare: string | null }): boolean {
+    if (!targetSquare) return false;
     try {
-      const move = chessRef.current.move({ from, to, promotion: "q" });
+      const move = chessRef.current.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
       if (!move) return false;
 
       const newFen = chessRef.current.fen();
@@ -331,17 +333,18 @@ export function ChessTool() {
             <div className="flex flex-col items-center gap-4">
               <div className="w-full flex justify-center">
                 <Chessboard
-                  id="chess-main"
-                  boardWidth={boardSize}
-                  position={fen}
-                  onPieceDrop={onPieceDrop}
-                  boardOrientation={boardOrientation}
-                  customArrows={arrows as any}
-                  customSquareStyles={customSquares}
-                  customDarkSquareStyle={{ backgroundColor: "#3a6b4e" }}
-                  customLightSquareStyle={{ backgroundColor: "#b5d4bb" }}
-                  animationDuration={150}
-                  arePiecesDraggable={!gameOver}
+                  options={{
+                    position: fen,
+                    boardOrientation,
+                    onPieceDrop,
+                    arrows,
+                    squareStyles: customSquares,
+                    darkSquareStyle: { backgroundColor: "#3a6b4e" },
+                    lightSquareStyle: { backgroundColor: "#b5d4bb" },
+                    animationDurationInMs: 150,
+                    allowDragging: !gameOver,
+                    boardStyle: { width: boardSize, maxWidth: "100%" },
+                  }}
                 />
               </div>
 
@@ -441,7 +444,7 @@ export function ChessTool() {
                     onClick={() => {
                       if (currentTurn !== myColorChar || gameOver) return;
                       if (i === 0) { playBestMove(); return; }
-                      setArrows([[m.from, m.to, i === 1 ? "rgba(147,197,253,0.8)" : "rgba(196,181,253,0.7)"] as [string, string, string]]);
+                      setArrows([{ startSquare: m.from, endSquare: m.to, color: i === 1 ? "rgba(147,197,253,0.8)" : "rgba(196,181,253,0.7)" }]);
                       setCustomSquares({
                         [m.from]: { backgroundColor: "rgba(147,197,253,0.18)", borderRadius: "4px" },
                         [m.to]: { backgroundColor: "rgba(147,197,253,0.28)", borderRadius: "4px" },
