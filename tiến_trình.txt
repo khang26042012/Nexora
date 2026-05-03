@@ -23,8 +23,12 @@
        - Chỉ analyze khi đến lượt bên mình (đúng use-case)
     5. Route: /tool/chess ✅
     6. Card project trong tab Project (Swords icon, màu #63ffb4) ✅
-    7. GitHub push CHƯA ĐƯỢC — token ghp_BQMx7... đã hết hạn (401) ❌
-       → Cần Khang cấp token mới để push
+    7. GitHub push ✅ commit bbc55b48
+    8. ⚠️ QUY TẮC GHI NHỚ: KHÔNG DÙNG SCREENSHOT TOOL
+       - Tool screenshot/app_preview không hoạt động trong Replit này (luôn ERR_CONNECTION_REFUSED)
+       - Mỗi lần thử tốn ~1000 token, lặp hàng chục lần = lãng phí cực lớn
+       - Khang tự kiểm tra UI trên preview pane của Replit
+       - AI Agent chỉ verify bằng cách đọc code, KHÔNG chụp ảnh
 
   Files thay đổi:
     - apps/portfolio/src/pages/tools/ChessTool.tsx (MỚI, ~390 dòng)

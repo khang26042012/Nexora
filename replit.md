@@ -33,6 +33,13 @@ pnpm --filter @workspace/portfolio run dev
 pnpm run typecheck
 ```
 
+## ⛔ QUY TẮC BẮT BUỘC CHO AI AGENT
+
+> **KHÔNG BAO GIỜ dùng screenshot tool** (`screenshot`, `app_preview`).
+> Tool này **không hoạt động** trong môi trường Replit này (luôn trả về ERR_CONNECTION_REFUSED ở localhost:5000),
+> và cực kỳ tốn token khi lặp lại. Khang sẽ tự kiểm tra UI trực tiếp trên preview pane.
+> Nếu cần verify UI, hãy đọc code hoặc hỏi Khang — tuyệt đối không thử chụp ảnh.
+
 ## Quy trình push GitHub
 
 **LUÔN dùng Git Tree API** (1 blob → 1 tree → 1 commit → update ref) để tránh spam deploy. KHÔNG dùng Contents API.
