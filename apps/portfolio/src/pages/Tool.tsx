@@ -1,10 +1,25 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon, Inbox, Pin, ArrowLeftRight, Gauge } from "lucide-react";
+import { Search, Video, ArrowUpRight, Sparkles, Lock, Scissors, FileText, ScanText, Wand2, NotebookPen, QrCode, ImageDown, AlignLeft, Languages, Code2, Calculator, ImageOff, ShieldCheck, Mail, KeyRound, ImageIcon, Inbox, Pin, ArrowLeftRight, Gauge, Swords } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const TOOLS = [
+  {
+    id: "chess",
+    icon: Swords,
+    iconColor: "rgba(99,255,180,0.85)",
+    iconBg: "rgba(99,255,180,0.08)",
+    iconBorder: "rgba(99,255,180,0.2)",
+    glowColor: "rgba(99,255,180,0.06)",
+    name: "AI Chess Advisor",
+    desc: "Nhập nước đối thủ — Stockfish gợi ý 3 nước tốt nhất cho bên bạn. Evaluation bar, lịch sử nước đi, điều chỉnh độ sâu. Chạy 100% trên trình duyệt.",
+    tag: "Game AI",
+    tagColor: "rgba(255,255,255,0.6)",
+    available: true,
+    pinned: true,
+    route: "/tool/chess",
+  },
   {
     id: "temp-mail",
     icon: Inbox,
