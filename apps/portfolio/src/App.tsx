@@ -31,6 +31,7 @@ const PromptImage = lazy(() => import("@/pages/tools/PromptImage").then(m => ({ 
 const TempMail = lazy(() => import("@/pages/tools/TempMail").then(m => ({ default: m.TempMail })));
 const FileConverter = lazy(() => import("@/pages/tools/FileConverter").then(m => ({ default: m.FileConverter })));
 const SpeedTest = lazy(() => import("@/pages/tools/SpeedTest").then(m => ({ default: m.SpeedTest })));
+const ChessTool = lazy(() => import("@/pages/tools/ChessTool").then(m => ({ default: m.ChessTool })));
 const Project = lazy(() => import("@/pages/Project").then(m => ({ default: m.Project })));
 
 const queryClient = new QueryClient();
@@ -71,6 +72,7 @@ function Router() {
         <Route path="/tool/temp-mail" component={TempMail} />
         <Route path="/tool/file-converter" component={FileConverter} />
         <Route path="/tool/speed-test" component={SpeedTest} />
+        <Route path="/tool/chess" component={ChessTool} />
         <Route path="/chat" component={Chat} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />

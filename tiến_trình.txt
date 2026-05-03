@@ -1,8 +1,37 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 59] FIX Railway healthcheck — admin-db/notes-db dùng process.cwd()
+    Cập nhật: [session 60] AI Chess Advisor Tool — Stockfish Web Worker
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 60] AI Chess Advisor Tool
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Đã làm:
+    1. Thêm tool AI Chess Advisor vào portfolio ✅
+    2. Stack: chess.js + react-chessboard + Stockfish.js (pure JS browser) ✅
+    3. public/stockfish.js (~1.5MB) — download thẳng vào repo, không dùng npm ✅
+    4. Tính năng:
+       - Bàn cờ kéo thả (react-chessboard, màu xanh rừng phù hợp theme)
+       - Stockfish chạy trong Web Worker — phân tích <1s, depth 5-22
+       - Top 3 nước gợi ý + score (centipawn/mate notation)
+       - Evaluation bar đỏ-xanh hiển thị lợi thế
+       - Mũi tên xanh highlight nước tốt nhất trên bàn
+       - Lịch sử nước đi theo ký hiệu SAN, auto-scroll
+       - Chọn màu (Trắng/Đen), xoay bàn, đặt lại, "Đi luôn"
+       - Chỉ analyze khi đến lượt bên mình (đúng use-case)
+    5. Route: /tool/chess ✅
+    6. Card project trong tab Project (Swords icon, màu #63ffb4) ✅
+    7. GitHub push CHƯA ĐƯỢC — token ghp_BQMx7... đã hết hạn (401) ❌
+       → Cần Khang cấp token mới để push
+
+  Files thay đổi:
+    - apps/portfolio/src/pages/tools/ChessTool.tsx (MỚI, ~390 dòng)
+    - apps/portfolio/src/App.tsx (+2 dòng: import + route)
+    - apps/portfolio/src/pages/Project.tsx (+project card AI Chess)
+    - apps/portfolio/public/stockfish.js (MỚI, 1.5MB)
+    - apps/portfolio/package.json (+chess.js, +react-chessboard)
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 55] MIGRATION — Replit environment mới (lần 18)

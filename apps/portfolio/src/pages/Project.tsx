@@ -1,6 +1,6 @@
 import { Navigation } from "@/components/navigation";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { Sparkles, ArrowUpRight, ExternalLink, FolderKanban, Leaf, Bot, Wrench, Github } from "lucide-react";
+import { Sparkles, ArrowUpRight, ExternalLink, FolderKanban, Leaf, Bot, Wrench, Github, Swords } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -69,6 +69,21 @@ const PROJECTS: Project[] = [
     statusLabel: "Đang chạy",
     tags: ["Utility", "AI Tools", "Free"],
     href: "/tool",
+  },
+  {
+    id: "ai-chess",
+    icon: Swords,
+    iconColor: "rgba(99,255,180,0.9)",
+    iconBg: "rgba(99,255,180,0.08)",
+    iconBorder: "rgba(99,255,180,0.22)",
+    glowColor: "rgba(99,255,180,0.1)",
+    name: "AI Chess Advisor",
+    tagline: "Phân tích cờ bằng Stockfish",
+    desc: "Nhập nước đối thủ — Stockfish gợi ý 3 nước tốt nhất cho bên bạn theo thời gian thực. Thanh đánh giá thế cờ, lịch sử nước đi, điều chỉnh độ sâu. Chạy 100% trình duyệt.",
+    status: "live",
+    statusLabel: "Mới",
+    tags: ["Chess", "Stockfish", "Game AI"],
+    href: "/tool/chess",
   },
 ];
 
