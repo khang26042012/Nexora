@@ -1,8 +1,34 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 60] AI Chess Advisor Tool — Stockfish Web Worker
+    Cập nhật: [session 61] FIX — Telegram NexoraGarden bot lỗi "Không có API key"
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 61] FIX — Telegram NexoraGarden bot lỗi "Không có API key"
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vấn đề:
+    - Bot Telegram NexoraGarden trả "❌ Không có API key khả dụng." khi nhận tin nhắn tự do
+    - Lỗi tại: apps/nexora-garden/server/gemini.ts dòng 60
+
+  Nguyên nhân:
+    - gemini.ts chỉ đọc ZUKI_API_KEY và GEMINI_API_KEY
+    - Railway có set GEMINI_KEY_1..4 nhưng GEMINI_API_KEY không được set
+    - → GEMINI_KEYS rỗng → return lỗi ngay
+
+  Đã fix:
+    - Rewrite apps/nexora-garden/server/gemini.ts:
+      + Xóa Zuki logic hoàn toàn
+      + Đọc GEMINI_KEY_1, GEMINI_KEY_2, GEMINI_KEY_3, GEMINI_KEY_4 + GEMINI_API_KEY fallback
+      + Vòng lặp thử từng key: skip nếu 429/403, thử key tiếp
+      + Đã xác nhận Railway có đủ 4 keys qua Railway GraphQL API
+
+  Files thay đổi:
+    - apps/nexora-garden/server/gemini.ts (rewrite)
+
+  Push GitHub: commit ed86c345 (Git Tree API, 1 commit) ✅
+  Railway sẽ tự deploy sau push ✅
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 60] AI Chess Advisor Tool
