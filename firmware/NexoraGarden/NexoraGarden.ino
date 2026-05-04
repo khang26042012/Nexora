@@ -233,84 +233,84 @@ bool wifiWasConnected = false;
 bool apMode = false;
 WebServer localServer(80);
 
-const char AP_HTML[] = R"(<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexoraGarden</title><style>
-*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;padding:16px;max-width:420px;margin:0 auto}
-h1{color:#00ffcc;font-size:1.5em;text-align:center;margin-bottom:2px}
-.sub{color:#667799;text-align:center;font-size:.8em;margin-bottom:16px}
-.card{background:#1a2740;border-radius:12px;padding:14px;margin:10px 0}
+const char AP_HTML[] = R"rawhtml(<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexoraGarden</title><style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:rgb(10,22,40);color:white;padding:16px;max-width:420px;margin:0 auto}
+h1{color:rgb(0,255,204);font-size:1.5em;text-align:center;margin-bottom:2px}
+.sub{color:rgb(102,119,153);text-align:center;font-size:.8em;margin-bottom:16px}
+.card{background:rgb(26,39,64);border-radius:12px;padding:14px;margin:10px 0}
 .row{display:flex;justify-content:space-between;align-items:center;margin:7px 0;font-size:.95em}
-.lbl{color:#88aacc}.val{font-weight:bold;color:#00ffcc}
-.val-warn{color:#ff8800}.val-err{color:#ff4444}
+.lbl{color:rgb(136,170,204)}.val{font-weight:bold;color:rgb(0,255,204)}
+.val-warn{color:rgb(255,136,0)}.val-err{color:rgb(255,68,68)}
 .btns{display:flex;gap:8px;margin-top:10px}
 .btn{flex:1;padding:14px 8px;border:none;border-radius:10px;font-size:.95em;font-weight:bold;cursor:pointer}
 .btn:active{opacity:.7}
-.bon{background:#00aa55;color:#fff}.boff{background:#cc2200;color:#fff}
-.bunlock{background:#1155cc;color:#fff;width:100%;margin-top:8px;padding:12px;border:none;border-radius:10px;font-size:.9em;font-weight:bold;cursor:pointer}
+.bon{background:rgb(0,170,85);color:white}.boff{background:rgb(204,34,0);color:white}
+.bunlock{background:rgb(17,85,204);color:white;width:100%;margin-top:8px;padding:12px;border:none;border-radius:10px;font-size:.9em;font-weight:bold;cursor:pointer}
 .bunlock:active{opacity:.7}
 .ps{text-align:center;padding:10px;border-radius:8px;font-size:.95em;margin-bottom:8px;font-weight:bold}
-.pon{background:#003322;color:#00ff88}.poff{background:#111827;color:#8899aa}.plck{background:#2a1500;color:#ff9944}
-#msg{text-align:center;min-height:20px;font-size:.85em;margin-top:8px;padding:6px;border-radius:8px}
-.ok{color:#00ff88}.err{color:#ff4444}.info{color:#ffcc44}
+.pon{background:rgb(0,51,34);color:rgb(0,255,136)}.poff{background:rgb(17,24,39);color:rgb(136,153,170)}.plck{background:rgb(42,21,0);color:rgb(255,153,68)}
+.msgbox{text-align:center;min-height:20px;font-size:.85em;margin-top:8px;padding:6px;border-radius:8px}
+.ok{color:rgb(0,255,136)}.err{color:rgb(255,68,68)}.info{color:rgb(255,204,68)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
-.dot-ap{background:#ff8800}.dot-ok{background:#00ff88}
+.dot-ap{background:rgb(255,136,0)}.dot-ok{background:rgb(0,255,136)}
 </style></head><body>
-<h1>&#x1F33F; NEXORA GARDEN</h1>
+<h1>* NEXORA GARDEN *</h1>
 <p class="sub"><span class="dot dot-ap"></span>Che do AP cuc bo &nbsp;|&nbsp; 192.168.4.1</p>
 <div class="card">
-  <div class="row"><span class="lbl">&#x1F331; Do am dat</span><span class="val" id="soil">--</span></div>
-  <div class="row"><span class="lbl">&#x1F4A7; Muc nuoc</span><span class="val" id="water">--</span></div>
-  <div class="row"><span class="lbl">&#x1F321; Nhiet do</span><span class="val" id="temp">--</span></div>
-  <div class="row"><span class="lbl">&#x1F4A8; Do am KK</span><span class="val" id="hum">--</span></div>
-  <div class="row"><span class="lbl">&#x1F525; Lua</span><span class="val" id="fire">--</span></div>
-  <div class="row"><span class="lbl">&#x1F327; Mua</span><span class="val" id="rain">--</span></div>
+  <div class="row"><span class="lbl">Do am dat</span><span class="val" id="soil">--</span></div>
+  <div class="row"><span class="lbl">Muc nuoc</span><span class="val" id="water">--</span></div>
+  <div class="row"><span class="lbl">Nhiet do</span><span class="val" id="temp">--</span></div>
+  <div class="row"><span class="lbl">Do am KK</span><span class="val" id="hum">--</span></div>
+  <div class="row"><span class="lbl">Lua</span><span class="val" id="fire">--</span></div>
+  <div class="row"><span class="lbl">Mua</span><span class="val" id="rain">--</span></div>
 </div>
 <div class="card">
-  <div id="ps" class="ps poff">&#x2699; Bom: --</div>
+  <div id="ps" class="ps poff">Bom: --</div>
   <div class="btns">
-    <button class="btn bon" onclick="doPump('ON')">&#x1F4A7; BAT BOM</button>
-    <button class="btn boff" onclick="doPump('OFF')">&#x26D4; TAT BOM</button>
+    <button class="btn bon" onclick="doPump('ON')">BAT BOM</button>
+    <button class="btn boff" onclick="doPump('OFF')">TAT BOM</button>
   </div>
-  <button class="bunlock" onclick="doUnlock()">&#x1F513; Mo khoa bom tu dong</button>
+  <button class="bunlock" onclick="doUnlock()">Mo khoa bom tu dong</button>
 </div>
-<div id="msg" class="info"></div>
+<div id="msgbox" class="msgbox info"></div>
 <script>
 var tid=0;
 function upd(){
   fetch('/status').then(function(r){return r.json();}).then(function(d){
     document.getElementById('soil').textContent=d.soil+'%';
     document.getElementById('water').textContent=d.water+'%';
-    document.getElementById('temp').textContent=d.temp<-100?'---':d.temp.toFixed(1)+'\u00B0C';
+    document.getElementById('temp').textContent=d.temp<-100?'---':d.temp.toFixed(1)+'C';
     document.getElementById('hum').textContent=d.hum<-100?'---':d.hum.toFixed(1)+'%';
     var fe=document.getElementById('fire');
-    fe.textContent=d.fire?'\u26A0 CO LUA!':'Khong';
+    fe.textContent=d.fire?'CO LUA!':'Khong';
     fe.className='val'+(d.fire?' val-err':'');
     document.getElementById('rain').textContent=d.rain?'Co':'Khong';
     var ps=document.getElementById('ps');
-    if(d.pump){ps.textContent='\u2699 Bom: DANG CHAY';ps.className='ps pon';}
-    else if(d.locked){ps.textContent='\uD83D\uDD12 Bom: TAT (da khoa)';ps.className='ps plck';}
-    else{ps.textContent='\u2699 Bom: TAT';ps.className='ps poff';}
-  }).catch(function(){setMsg('\u274C Mat ket noi ESP32','err');});
+    if(d.pump){ps.textContent='Bom: DANG CHAY';ps.className='ps pon';}
+    else if(d.locked){ps.textContent='Bom: TAT (da khoa)';ps.className='ps plck';}
+    else{ps.textContent='Bom: TAT';ps.className='ps poff';}
+  }).catch(function(){setMsg('Mat ket noi ESP32','err');});
 }
 function setMsg(t,cls){
-  var el=document.getElementById('msg');
-  el.textContent=t;el.className=cls||'info';
+  var el=document.getElementById('msgbox');
+  el.textContent=t;el.className='msgbox '+(cls||'info');
   clearTimeout(tid);tid=setTimeout(function(){el.textContent='';},3500);
 }
 function doPump(a){
-  setMsg(a==='ON'?'\u23F3 Dang bat bom...':'\u23F3 Dang tat bom...','info');
+  setMsg(a==='ON'?'Dang bat bom...':'Dang tat bom...','info');
   fetch('/pump?a='+a).then(function(r){return r.json();}).then(function(d){
-    setMsg((d.ok?'\u2705 ':'\u274C ')+d.msg,d.ok?'ok':'err');
-  }).catch(function(){setMsg('\u274C Loi ket noi','err');});
+    setMsg((d.ok?'OK: ':'LOI: ')+d.msg,d.ok?'ok':'err');
+  }).catch(function(){setMsg('Loi ket noi','err');});
 }
 function doUnlock(){
-  setMsg('\u23F3 Dang mo khoa...','info');
+  setMsg('Dang mo khoa...','info');
   fetch('/unlock').then(function(r){return r.json();}).then(function(d){
-    setMsg((d.ok?'\u2705 ':'\u274C ')+d.msg,d.ok?'ok':'err');
-  }).catch(function(){setMsg('\u274C Loi ket noi','err');});
+    setMsg((d.ok?'OK: ':'LOI: ')+d.msg,d.ok?'ok':'err');
+  }).catch(function(){setMsg('Loi ket noi','err');});
 }
 upd();setInterval(upd,2000);
 </script></body></html>
-)";
+)rawhtml";
 
 // Pending commands tu server (viet Core 0, doc Core 1)
 struct PendingCmd {
