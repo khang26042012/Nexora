@@ -227,7 +227,8 @@ TaskHandle_t  wsTaskHandle     = NULL;
 TaskHandle_t  weatherTaskHandle = NULL;
 volatile bool weatherBusy      = false;
 
-bool wifiWasConnected = false;
+bool wifiWasConnected    = false;
+int  wifiRuntimeFailCount = 0;   // dem so lan that bai runtime, sau NUM_WIFI -> AP mode
 
 // --- AP Mode -----------------------------------------------------------------
 bool apMode = false;
@@ -887,6 +888,28 @@ void manageTFT() {
 //  AP MODE -- Web server cuc bo (khong can WiFi ngoai)
 // ===============================================================
 
+// Man hinh AP: hien WiFi + pass de user ket noi (goi khi vua vao AP mode)
+void showAPScreen() {
+  tft.fillScreen(C_BLACK);
+  tft.setTextSize(2); tft.setTextColor(C_ORANGE);
+  tft.setCursor(5, 15); tft.println("** AP MODE **");
+  tft.drawFastHLine(0, 38, 240, C_ORANGE);
+  tft.setTextSize(1); tft.setTextColor(C_CYAN);
+  tft.setCursor(5, 48); tft.println("Ket noi WiFi vao may tinh/dien thoai:");
+  tft.setTextColor(C_WHITE);
+  tft.setCursor(5, 65); tft.print("WiFi : "); tft.setTextColor(C_LIME);   tft.println("NexoraGarden");
+  tft.setTextColor(C_WHITE);
+  tft.setCursor(5, 80); tft.print("Pass : "); tft.setTextColor(C_YELLOW); tft.println("26042012khang");
+  tft.setTextColor(C_WHITE);
+  tft.setCursor(5, 98); tft.print("Web  : "); tft.setTextColor(C_CYAN);   tft.println("192.168.4.1");
+  tft.drawFastHLine(0, 113, 240, C_GRAY);
+  tft.setTextColor(C_GRAY);
+  tft.setCursor(5, 120); tft.println("(Sau khi ket noi WiFi tren,");
+  tft.setCursor(5, 132); tft.println(" mo trinh duyet va nhap IP)");
+  tft.setTextColor(C_DIMWHITE);
+  tft.setCursor(5, 150); tft.println("Sensor van hoat dong binh thuong.");
+}
+
 void handleAPRoot() {
   localServer.send(200, "text/html", AP_HTML);
 }
@@ -957,36 +980,87 @@ void startAPMode() {
 
 bool connectWiFi() {
   for (int i = 0; i < NUM_WIFI; i++) {
+    // Hien thi SSID dang thu tren TFT
+    tft.fillScreen(C_BLACK);
+    tft.setTextSize(1); tft.setTextColor(C_YELLOW);
+    tft.setCursor(5, 80);
+    char buf[32]; snprintf(buf, sizeof(buf), "Thu WiFi %d/%d:", i + 1, NUM_WIFI);
+    tft.println(buf);
+    tft.setTextColor(C_WHITE);
+    tft.setCursor(5, 94);  tft.println(ssids[i]);
+    tft.setTextColor(C_GRAY);
+    tft.setCursor(5, 108); tft.println("Dang ket noi...");
+
     Serial.print("[WiFi] Thu: "); Serial.println(ssids[i]);
     WiFi.disconnect(); WiFi.begin(ssids[i], passwords[i]);
     int tries = 0;
-    while (WiFi.status() != WL_CONNECTED && tries < 20) { delay(500); Serial.print("."); tries++; }
+    while (WiFi.status() != WL_CONNECTED && tries < 20) {
+      delay(500); Serial.print(".");
+      // Hien thi dot dong bo tren TFT
+      tft.setTextColor(C_CYAN);
+      tft.setCursor(5 + tries * 7, 122);
+      tft.print(".");
+      tries++;
+    }
     if (WiFi.status() == WL_CONNECTED) {
       Serial.printf("\n[WiFi] OK: %s\n", WiFi.localIP().toString().c_str());
       return true;
     }
+    tft.setTextColor(C_RED);
+    tft.setCursor(5, 137); tft.println("That bai.");
+    delay(300);
   }
   Serial.println("\n[WiFi] Tat ca SSID that bai -- chuyen sang AP mode");
   return false;
 }
 
 void handleWiFi() {
-  if (apMode) return;  // AP mode: khong can quan ly WiFi
+  if (apMode) return;
   bool connected = (WiFi.status() == WL_CONNECTED);
   if (!connected) {
     wifiWasConnected = false;
     static unsigned long lastAttempt = 0;
     static int wifiIdx = 0;
     unsigned long now = millis();
-    if (now - lastAttempt > 12000) {
+    if (now - lastAttempt > 10000) {
       lastAttempt = now;
+
+      // Hien thi dang thu ket noi WiFi tren TFT
+      tft.fillScreen(C_BLACK);
+      tft.setTextSize(1); tft.setTextColor(C_YELLOW);
+      tft.setCursor(5, 80);
+      char buf[40]; snprintf(buf, sizeof(buf), "Mat WiFi. Thu lai %d/%d:", wifiRuntimeFailCount + 1, NUM_WIFI);
+      tft.println(buf);
+      tft.setTextColor(C_WHITE);
+      tft.setCursor(5, 94); tft.println(ssids[wifiIdx]);
+      tft.setTextColor(C_GRAY);
+      tft.setCursor(5, 108); tft.println("Dang ket noi...");
+
       Serial.printf("[WiFi] Ket noi lai voi: %s\n", ssids[wifiIdx]);
       WiFi.disconnect(); WiFi.begin(ssids[wifiIdx], passwords[wifiIdx]);
       wifiIdx = (wifiIdx + 1) % NUM_WIFI;
+      wifiRuntimeFailCount++;
+
+      // Da thu het NUM_WIFI SSID ma van that bai -> chuyen AP mode ngay
+      if (wifiRuntimeFailCount >= NUM_WIFI) {
+        Serial.println("[WiFi] Tat ca SSID that bai -> chuyen AP mode");
+        startAPMode();
+        showAPScreen();
+        // Delay ngan de man hinh AP hien ro truoc khi manageTFT ghi de
+        // (manageTFT se tiep tuc hien AP info o dong 9 cua drawMainScreen)
+        unsigned long apShowUntil = millis() + 5000;
+        while (millis() < apShowUntil) {
+          localServer.handleClient();
+          delay(10);
+        }
+        tft.fillScreen(C_BLACK);
+        tftForceRedraw = true;
+      }
     }
   } else {
     if (!wifiWasConnected) {
       wifiWasConnected = true;
+      wifiRuntimeFailCount = 0;  // reset khi ket noi thanh cong
       Serial.printf("[WiFi] Da ket noi lai: %s\n", WiFi.localIP().toString().c_str());
     }
   }
@@ -1087,16 +1161,8 @@ void setup() {
   } else {
     // Khong co WiFi -> AP mode
     startAPMode();
-
-    // Man hinh AP mode
-    tft.fillScreen(C_BLACK);
-    tft.setTextSize(2); tft.setTextColor(C_ORANGE);
-    tft.setCursor(10, 60);  tft.println("AP MODE");
-    tft.setTextSize(1); tft.setTextColor(C_WHITE);
-    tft.setCursor(10, 90);  tft.println("WiFi: NexoraGarden");
-    tft.setCursor(10, 105); tft.println("Pass: 26042012khang");
-    tft.setCursor(10, 120); tft.println("Web:  192.168.4.1");
-    delay(2000);
+    showAPScreen();   // man hinh den voi WiFi + pass
+    delay(3000);      // cho user doc thong tin
     Serial.println("[System] San sang! AP mode -- Khong co WiFi ngoai");
   }
 
