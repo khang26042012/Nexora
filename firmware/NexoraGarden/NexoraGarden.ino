@@ -9,6 +9,7 @@
 #include <ArduinoJson.h>
 #include <DHT.h>
 #include <WebSocketsClient.h>
+#include <WebServer.h>
 #include <time.h>
 #define LGFX_USE_V1
 #include <LovyanGFX.hpp>
@@ -227,6 +228,89 @@ TaskHandle_t  weatherTaskHandle = NULL;
 volatile bool weatherBusy      = false;
 
 bool wifiWasConnected = false;
+
+// ─── AP Mode ─────────────────────────────────────────────────────────────────
+bool apMode = false;
+WebServer localServer(80);
+
+const char AP_HTML[] = R"(<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexoraGarden</title><style>
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;padding:16px;max-width:420px;margin:0 auto}
+h1{color:#00ffcc;font-size:1.5em;text-align:center;margin-bottom:2px}
+.sub{color:#667799;text-align:center;font-size:.8em;margin-bottom:16px}
+.card{background:#1a2740;border-radius:12px;padding:14px;margin:10px 0}
+.row{display:flex;justify-content:space-between;align-items:center;margin:7px 0;font-size:.95em}
+.lbl{color:#88aacc}.val{font-weight:bold;color:#00ffcc}
+.val-warn{color:#ff8800}.val-err{color:#ff4444}
+.btns{display:flex;gap:8px;margin-top:10px}
+.btn{flex:1;padding:14px 8px;border:none;border-radius:10px;font-size:.95em;font-weight:bold;cursor:pointer}
+.btn:active{opacity:.7}
+.bon{background:#00aa55;color:#fff}.boff{background:#cc2200;color:#fff}
+.bunlock{background:#1155cc;color:#fff;width:100%;margin-top:8px;padding:12px;border:none;border-radius:10px;font-size:.9em;font-weight:bold;cursor:pointer}
+.bunlock:active{opacity:.7}
+.ps{text-align:center;padding:10px;border-radius:8px;font-size:.95em;margin-bottom:8px;font-weight:bold}
+.pon{background:#003322;color:#00ff88}.poff{background:#111827;color:#8899aa}.plck{background:#2a1500;color:#ff9944}
+#msg{text-align:center;min-height:20px;font-size:.85em;margin-top:8px;padding:6px;border-radius:8px}
+.ok{color:#00ff88}.err{color:#ff4444}.info{color:#ffcc44}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.dot-ap{background:#ff8800}.dot-ok{background:#00ff88}
+</style></head><body>
+<h1>🌿 NEXORA GARDEN</h1>
+<p class="sub"><span class="dot dot-ap"></span>Chế độ AP cục bộ &nbsp;|&nbsp; 192.168.4.1</p>
+<div class="card">
+  <div class="row"><span class="lbl">🌱 Độ ẩm đất</span><span class="val" id="soil">--</span></div>
+  <div class="row"><span class="lbl">💧 Mức nước</span><span class="val" id="water">--</span></div>
+  <div class="row"><span class="lbl">🌡 Nhiệt độ</span><span class="val" id="temp">--</span></div>
+  <div class="row"><span class="lbl">💨 Độ ẩm KK</span><span class="val" id="hum">--</span></div>
+  <div class="row"><span class="lbl">🔥 Lửa</span><span class="val" id="fire">--</span></div>
+  <div class="row"><span class="lbl">🌧 Mưa</span><span class="val" id="rain">--</span></div>
+</div>
+<div class="card">
+  <div id="ps" class="ps poff">⚙️ Bơm: --</div>
+  <div class="btns">
+    <button class="btn bon" onclick="doPump('ON')">💧 BẬT BƠM</button>
+    <button class="btn boff" onclick="doPump('OFF')">⛔ TẮT BƠM</button>
+  </div>
+  <button class="bunlock" onclick="doUnlock()">🔓 Mở khóa bơm tự động</button>
+</div>
+<div id="msg" class="info"></div>
+<script>
+var tid=0;
+function upd(){
+  fetch('/status').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('soil').textContent=d.soil+'%';
+    document.getElementById('water').textContent=d.water+'%';
+    document.getElementById('temp').textContent=d.temp<-100?'---':d.temp.toFixed(1)+'°C';
+    document.getElementById('hum').textContent=d.hum<-100?'---':d.hum.toFixed(1)+'%';
+    var fe=document.getElementById('fire');
+    fe.textContent=d.fire?'⚠️ CÓ LỬA!':'Không';
+    fe.className='val'+(d.fire?' val-err':'');
+    document.getElementById('rain').textContent=d.rain?'Có':'Không';
+    var ps=document.getElementById('ps');
+    if(d.pump){ps.textContent='⚙️ Bơm: ĐANG CHẠY';ps.className='ps pon';}
+    else if(d.locked){ps.textContent='🔒 Bơm: TẮT (đã khóa)';ps.className='ps plck';}
+    else{ps.textContent='⚙️ Bơm: TẮT';ps.className='ps poff';}
+  }).catch(function(){setMsg('❌ Mất kết nối ESP32','err');});
+}
+function setMsg(t,cls){
+  var el=document.getElementById('msg');
+  el.textContent=t;el.className=cls||'info';
+  clearTimeout(tid);tid=setTimeout(function(){el.textContent='';},3500);
+}
+function doPump(a){
+  setMsg(a==='ON'?'⏳ Đang bật bơm...':'⏳ Đang tắt bơm...','info');
+  fetch('/pump?a='+a).then(function(r){return r.json();}).then(function(d){
+    setMsg((d.ok?'✅ ':'❌ ')+d.msg,d.ok?'ok':'err');
+  }).catch(function(){setMsg('❌ Lỗi kết nối','err');});
+}
+function doUnlock(){
+  setMsg('⏳ Đang mở khóa...','info');
+  fetch('/unlock').then(function(r){return r.json();}).then(function(d){
+    setMsg((d.ok?'✅ ':'❌ ')+d.msg,d.ok?'ok':'err');
+  }).catch(function(){setMsg('❌ Lỗi kết nối','err');});
+}
+upd();setInterval(upd,2000);
+</script></body></html>
+)";
 
 // Pending commands từ server (viết Core 0, đọc Core 1)
 struct PendingCmd {
@@ -692,14 +776,19 @@ void drawMainScreen() {
   tft.setTextSize(1);
   tft.setTextPadding(240);
 
-  // Dòng 9: WS + WiFi
-  bool wifiOk = (WiFi.status() == WL_CONNECTED);
+  // Dòng 9: WS + WiFi (hoặc AP mode info)
   tft.setCursor(5, 170);
-  tft.setTextColor(wsConnected ? C_LIME : C_RED, C_BLACK);
-  char wsBuf[38]; snprintf(wsBuf, sizeof(wsBuf), "%-18s%-18s",
-    wsConnected ? "WS: ONLINE" : "WS: OFFLINE",
-    wifiOk      ? "WiFi: OK"   : "WiFi: MAT KET NOI");
-  tft.print(wsBuf);
+  if (apMode) {
+    tft.setTextColor(C_ORANGE, C_BLACK);
+    tft.print("AP: NexoraGarden  192.168.4.1 ");
+  } else {
+    bool wifiOk = (WiFi.status() == WL_CONNECTED);
+    tft.setTextColor(wsConnected ? C_LIME : C_RED, C_BLACK);
+    char wsBuf[38]; snprintf(wsBuf, sizeof(wsBuf), "%-18s%-18s",
+      wsConnected ? "WS: ONLINE" : "WS: OFFLINE",
+      wifiOk      ? "WiFi: OK"   : "WiFi: MAT KET NOI");
+    tft.print(wsBuf);
+  }
 
   // Dòng 10: Fire / Rain / Admin / Khóa
   tft.setCursor(5, 182);
@@ -795,10 +884,78 @@ void manageTFT() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  AP MODE — Web server cục bộ (không cần WiFi ngoài)
+// ═══════════════════════════════════════════════════════════════
+
+void handleAPRoot() {
+  localServer.send(200, "text/html", AP_HTML);
+}
+
+void handleAPStatus() {
+  bool rainNow = pumpState ? false : (digitalRead(RAIN_PIN) == LOW);
+  JsonDocument doc;
+  doc["soil"]   = soilPercent;
+  doc["water"]  = waterPercent;
+  doc["temp"]   = localTemp;
+  doc["hum"]    = localHum;
+  doc["fire"]   = fireActive;
+  doc["rain"]   = rainNow;
+  doc["pump"]   = pumpState;
+  doc["locked"] = pumpLocked;
+  doc["admin"]  = adminActive;
+  doc["pending"]= pumpPending;
+  String out; serializeJson(doc, out);
+  localServer.send(200, "application/json", out);
+}
+
+void handleAPPump() {
+  if (!localServer.hasArg("a")) {
+    localServer.send(400, "application/json", "{\"ok\":false,\"msg\":\"Thieu tham so action\"}");
+    return;
+  }
+  String action = localServer.arg("a");
+  if (action == "ON") {
+    if (pumpState) {
+      localServer.send(200, "application/json", "{\"ok\":false,\"msg\":\"Bom dang chay roi\"}");
+      return;
+    }
+    pendingCmd.pumpOn  = true;
+    pendingCmd.hasPump = true;
+    localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da bat bom\"}");
+  } else if (action == "OFF") {
+    pendingCmd.pumpOn  = false;
+    pendingCmd.hasPump = true;
+    localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da tat bom\"}");
+  } else {
+    localServer.send(400, "application/json", "{\"ok\":false,\"msg\":\"Action khong hop le\"}");
+  }
+}
+
+void handleAPUnlock() {
+  pendingCmd.unlockOn  = true;
+  pendingCmd.hasUnlock = true;
+  localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da mo khoa bom tu dong\"}");
+}
+
+void startAPMode() {
+  apMode = true;
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("NexoraGarden", "26042012khang");
+  IPAddress ip = WiFi.softAPIP();
+  Serial.printf("[AP] Hotspot: NexoraGarden | Pass: 26042012khang | IP: %s\n", ip.toString().c_str());
+  localServer.on("/",       HTTP_GET, handleAPRoot);
+  localServer.on("/status", HTTP_GET, handleAPStatus);
+  localServer.on("/pump",   HTTP_GET, handleAPPump);
+  localServer.on("/unlock", HTTP_GET, handleAPUnlock);
+  localServer.begin();
+  Serial.println("[AP] Web server bat dau tai port 80 — Mo trinh duyet: 192.168.4.1");
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  WIFI
 // ═══════════════════════════════════════════════════════════════
 
-void connectWiFi() {
+bool connectWiFi() {
   for (int i = 0; i < NUM_WIFI; i++) {
     Serial.print("[WiFi] Thu: "); Serial.println(ssids[i]);
     WiFi.disconnect(); WiFi.begin(ssids[i], passwords[i]);
@@ -806,12 +963,15 @@ void connectWiFi() {
     while (WiFi.status() != WL_CONNECTED && tries < 20) { delay(500); Serial.print("."); tries++; }
     if (WiFi.status() == WL_CONNECTED) {
       Serial.printf("\n[WiFi] OK: %s\n", WiFi.localIP().toString().c_str());
-      return;
+      return true;
     }
   }
+  Serial.println("\n[WiFi] Tat ca SSID that bai — chuyen sang AP mode");
+  return false;
 }
 
 void handleWiFi() {
+  if (apMode) return;  // AP mode: không cần quản lý WiFi
   bool connected = (WiFi.status() == WL_CONNECTED);
   if (!connected) {
     wifiWasConnected = false;
@@ -901,38 +1061,53 @@ void setup() {
   tft.setCursor(30, 100); tft.println("Dang ket noi...");
 
   delay(2000);
-  connectWiFi();
-  wifiWasConnected = (WiFi.status() == WL_CONNECTED);
+  bool wifiOk = connectWiFi();
+  wifiWasConnected = wifiOk;
   configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov", "asia.pool.ntp.org");
 
-  // FreeRTOS tasks
-  wsSendQueue = xQueueCreate(16, sizeof(char*));
-  xTaskCreatePinnedToCore(wsTask,      "wsTask",      16384, NULL, 2, &wsTaskHandle,     0);
-  xTaskCreatePinnedToCore(weatherTask, "weatherTask",  8192, NULL, 1, &weatherTaskHandle, 0);
-  Serial.println("[WS]      Task khoi tao tren Core 0");
-  Serial.println("[Weather] Task khoi tao tren Core 0");
+  if (wifiOk) {
+    // Kết nối WiFi thành công → khởi động WebSocket + Weather tasks
+    wsSendQueue = xQueueCreate(16, sizeof(char*));
+    xTaskCreatePinnedToCore(wsTask,      "wsTask",      16384, NULL, 2, &wsTaskHandle,     0);
+    xTaskCreatePinnedToCore(weatherTask, "weatherTask",  8192, NULL, 1, &weatherTaskHandle, 0);
+    Serial.println("[WS]      Task khoi tao tren Core 0");
+    Serial.println("[Weather] Task khoi tao tren Core 0");
 
-  // Màn hình khởi động OK
-  tft.fillScreen(C_BLACK);
-  tft.setTextSize(2); tft.setTextColor(C_GREEN);
-  tft.setCursor(10, 80);  tft.println("Nexora OK!");
-  tft.setTextSize(1); tft.setTextColor(C_WHITE);
-  tft.setCursor(10, 110); tft.println(WiFi.localIP().toString());
-  delay(1500);
+    // Màn hình khởi động OK
+    tft.fillScreen(C_BLACK);
+    tft.setTextSize(2); tft.setTextColor(C_GREEN);
+    tft.setCursor(10, 80);  tft.println("Nexora OK!");
+    tft.setTextSize(1); tft.setTextColor(C_WHITE);
+    tft.setCursor(10, 110); tft.println(WiFi.localIP().toString());
+    delay(1500);
+
+    triggerWeatherUpdate();
+    lastWeather = millis();
+    Serial.println("[System] San sang! Core 1: sensors+TFT | Core 0: WebSocket+Weather");
+  } else {
+    // Không có WiFi → AP mode
+    startAPMode();
+
+    // Màn hình AP mode
+    tft.fillScreen(C_BLACK);
+    tft.setTextSize(2); tft.setTextColor(C_ORANGE);
+    tft.setCursor(10, 60);  tft.println("AP MODE");
+    tft.setTextSize(1); tft.setTextColor(C_WHITE);
+    tft.setCursor(10, 90);  tft.println("WiFi: NexoraGarden");
+    tft.setCursor(10, 105); tft.println("Pass: 26042012khang");
+    tft.setCursor(10, 120); tft.println("Web:  192.168.4.1");
+    delay(2000);
+    Serial.println("[System] San sang! AP mode — Khong co WiFi ngoai");
+  }
 
   // Đọc sensor lần đầu trước khi vào loop
   tft.fillScreen(C_BLACK);
   updateSoil(); updateWater(); updateDHT();
 
-  // Khởi tạo TFT
+  // Khởi tạo TFT state machine
   tftWasOn       = true;
   tftForceRedraw = true;
-  tftLastDraw    = millis();  // init để watchdog không trigger ngay lúc đầu
-
-  triggerWeatherUpdate();
-  lastWeather = millis();
-
-  Serial.println("[System] San sang! Core 1: sensors+TFT | Core 0: WebSocket+Weather");
+  tftLastDraw    = millis();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -941,6 +1116,16 @@ void setup() {
 
 void loop() {
   unsigned long now = millis();
+
+  // AP mode: phục vụ web client cục bộ, bỏ qua mọi logic WS/Weather
+  if (apMode) {
+    localServer.handleClient();
+    updateSoil(); updateWater(); updateDHT();
+    handlePump();
+    manageTFT();
+    delay(10);
+    return;
+  }
 
   // Gửi dữ liệu ngay khi WS vừa kết nối
   if (sendOnConnect && wsConnected) {
