@@ -254,23 +254,23 @@ h1{color:#00ffcc;font-size:1.5em;text-align:center;margin-bottom:2px}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
 .dot-ap{background:#ff8800}.dot-ok{background:#00ff88}
 </style></head><body>
-<h1>🌿 NEXORA GARDEN</h1>
-<p class="sub"><span class="dot dot-ap"></span>Chế độ AP cục bộ &nbsp;|&nbsp; 192.168.4.1</p>
+<h1>&#x1F33F; NEXORA GARDEN</h1>
+<p class="sub"><span class="dot dot-ap"></span>Che do AP cuc bo &nbsp;|&nbsp; 192.168.4.1</p>
 <div class="card">
-  <div class="row"><span class="lbl">🌱 Độ ẩm đất</span><span class="val" id="soil">--</span></div>
-  <div class="row"><span class="lbl">💧 Mức nước</span><span class="val" id="water">--</span></div>
-  <div class="row"><span class="lbl">🌡 Nhiệt độ</span><span class="val" id="temp">--</span></div>
-  <div class="row"><span class="lbl">💨 Độ ẩm KK</span><span class="val" id="hum">--</span></div>
-  <div class="row"><span class="lbl">🔥 Lửa</span><span class="val" id="fire">--</span></div>
-  <div class="row"><span class="lbl">🌧 Mưa</span><span class="val" id="rain">--</span></div>
+  <div class="row"><span class="lbl">&#x1F331; Do am dat</span><span class="val" id="soil">--</span></div>
+  <div class="row"><span class="lbl">&#x1F4A7; Muc nuoc</span><span class="val" id="water">--</span></div>
+  <div class="row"><span class="lbl">&#x1F321; Nhiet do</span><span class="val" id="temp">--</span></div>
+  <div class="row"><span class="lbl">&#x1F4A8; Do am KK</span><span class="val" id="hum">--</span></div>
+  <div class="row"><span class="lbl">&#x1F525; Lua</span><span class="val" id="fire">--</span></div>
+  <div class="row"><span class="lbl">&#x1F327; Mua</span><span class="val" id="rain">--</span></div>
 </div>
 <div class="card">
-  <div id="ps" class="ps poff">⚙️ Bơm: --</div>
+  <div id="ps" class="ps poff">&#x2699; Bom: --</div>
   <div class="btns">
-    <button class="btn bon" onclick="doPump('ON')">💧 BẬT BƠM</button>
-    <button class="btn boff" onclick="doPump('OFF')">⛔ TẮT BƠM</button>
+    <button class="btn bon" onclick="doPump('ON')">&#x1F4A7; BAT BOM</button>
+    <button class="btn boff" onclick="doPump('OFF')">&#x26D4; TAT BOM</button>
   </div>
-  <button class="bunlock" onclick="doUnlock()">🔓 Mở khóa bơm tự động</button>
+  <button class="bunlock" onclick="doUnlock()">&#x1F513; Mo khoa bom tu dong</button>
 </div>
 <div id="msg" class="info"></div>
 <script>
@@ -279,17 +279,17 @@ function upd(){
   fetch('/status').then(function(r){return r.json();}).then(function(d){
     document.getElementById('soil').textContent=d.soil+'%';
     document.getElementById('water').textContent=d.water+'%';
-    document.getElementById('temp').textContent=d.temp<-100?'---':d.temp.toFixed(1)+'°C';
+    document.getElementById('temp').textContent=d.temp<-100?'---':d.temp.toFixed(1)+'\u00B0C';
     document.getElementById('hum').textContent=d.hum<-100?'---':d.hum.toFixed(1)+'%';
     var fe=document.getElementById('fire');
-    fe.textContent=d.fire?'⚠️ CÓ LỬA!':'Không';
+    fe.textContent=d.fire?'\u26A0 CO LUA!':'Khong';
     fe.className='val'+(d.fire?' val-err':'');
-    document.getElementById('rain').textContent=d.rain?'Có':'Không';
+    document.getElementById('rain').textContent=d.rain?'Co':'Khong';
     var ps=document.getElementById('ps');
-    if(d.pump){ps.textContent='⚙️ Bơm: ĐANG CHẠY';ps.className='ps pon';}
-    else if(d.locked){ps.textContent='🔒 Bơm: TẮT (đã khóa)';ps.className='ps plck';}
-    else{ps.textContent='⚙️ Bơm: TẮT';ps.className='ps poff';}
-  }).catch(function(){setMsg('❌ Mất kết nối ESP32','err');});
+    if(d.pump){ps.textContent='\u2699 Bom: DANG CHAY';ps.className='ps pon';}
+    else if(d.locked){ps.textContent='\uD83D\uDD12 Bom: TAT (da khoa)';ps.className='ps plck';}
+    else{ps.textContent='\u2699 Bom: TAT';ps.className='ps poff';}
+  }).catch(function(){setMsg('\u274C Mat ket noi ESP32','err');});
 }
 function setMsg(t,cls){
   var el=document.getElementById('msg');
@@ -297,16 +297,16 @@ function setMsg(t,cls){
   clearTimeout(tid);tid=setTimeout(function(){el.textContent='';},3500);
 }
 function doPump(a){
-  setMsg(a==='ON'?'⏳ Đang bật bơm...':'⏳ Đang tắt bơm...','info');
+  setMsg(a==='ON'?'\u23F3 Dang bat bom...':'\u23F3 Dang tat bom...','info');
   fetch('/pump?a='+a).then(function(r){return r.json();}).then(function(d){
-    setMsg((d.ok?'✅ ':'❌ ')+d.msg,d.ok?'ok':'err');
-  }).catch(function(){setMsg('❌ Lỗi kết nối','err');});
+    setMsg((d.ok?'\u2705 ':'\u274C ')+d.msg,d.ok?'ok':'err');
+  }).catch(function(){setMsg('\u274C Loi ket noi','err');});
 }
 function doUnlock(){
-  setMsg('⏳ Đang mở khóa...','info');
+  setMsg('\u23F3 Dang mo khoa...','info');
   fetch('/unlock').then(function(r){return r.json();}).then(function(d){
-    setMsg((d.ok?'✅ ':'❌ ')+d.msg,d.ok?'ok':'err');
-  }).catch(function(){setMsg('❌ Lỗi kết nối','err');});
+    setMsg((d.ok?'\u2705 ':'\u274C ')+d.msg,d.ok?'ok':'err');
+  }).catch(function(){setMsg('\u274C Loi ket noi','err');});
 }
 upd();setInterval(upd,2000);
 </script></body></html>
