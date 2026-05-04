@@ -980,35 +980,49 @@ void startAPMode() {
 
 bool connectWiFi() {
   for (int i = 0; i < NUM_WIFI; i++) {
-    // Hien thi SSID dang thu tren TFT
+    // Bo qua SSID rong
+    if (strlen(ssids[i]) == 0) {
+      Serial.printf("[WiFi] Bo qua SSID %d (rong)\n", i + 1);
+      continue;
+    }
+
+    // --- TFT: "Thu WiFi X/Y" to, ro rang ---
     tft.fillScreen(C_BLACK);
-    tft.setTextSize(1); tft.setTextColor(C_YELLOW);
-    tft.setCursor(5, 80);
-    char buf[32]; snprintf(buf, sizeof(buf), "Thu WiFi %d/%d:", i + 1, NUM_WIFI);
+    tft.setTextSize(2); tft.setTextColor(C_YELLOW);
+    tft.setCursor(5, 20);
+    char buf[24]; snprintf(buf, sizeof(buf), "WiFi %d/%d", i + 1, NUM_WIFI);
     tft.println(buf);
-    tft.setTextColor(C_WHITE);
-    tft.setCursor(5, 94);  tft.println(ssids[i]);
-    tft.setTextColor(C_GRAY);
-    tft.setCursor(5, 108); tft.println("Dang ket noi...");
+    tft.drawFastHLine(0, 44, 240, C_YELLOW);
+    tft.setTextSize(2); tft.setTextColor(C_WHITE);
+    tft.setCursor(5, 54);  tft.println(ssids[i]);
+    tft.setTextSize(1); tft.setTextColor(C_GRAY);
+    tft.setCursor(5, 82);  tft.println("Dang ket noi...");
 
     Serial.print("[WiFi] Thu: "); Serial.println(ssids[i]);
-    WiFi.disconnect(); WiFi.begin(ssids[i], passwords[i]);
+    WiFi.disconnect();
+    delay(300);            // cho WiFi driver on dinh truoc khi begin
+    WiFi.begin(ssids[i], passwords[i]);
+
     int tries = 0;
-    while (WiFi.status() != WL_CONNECTED && tries < 20) {
-      delay(500); Serial.print(".");
-      // Hien thi dot dong bo tren TFT
-      tft.setTextColor(C_CYAN);
-      tft.setCursor(5 + tries * 7, 122);
-      tft.print(".");
+    const int MAX_TRIES = 16;   // 8s max (16 x 500ms) -- tranh WDT timeout
+    while (WiFi.status() != WL_CONNECTED && tries < MAX_TRIES) {
+      delay(500);
+      yield();             // feed WDT va schedule task khac
+      Serial.print(".");
+      // Hien thi thanh tien trinh
+      int barW = (tries + 1) * (220 / MAX_TRIES);
+      tft.fillRect(10, 95, barW, 8, C_CYAN);
       tries++;
     }
+
     if (WiFi.status() == WL_CONNECTED) {
       Serial.printf("\n[WiFi] OK: %s\n", WiFi.localIP().toString().c_str());
       return true;
     }
-    tft.setTextColor(C_RED);
-    tft.setCursor(5, 137); tft.println("That bai.");
-    delay(300);
+
+    tft.setTextSize(1); tft.setTextColor(C_RED);
+    tft.setCursor(5, 112); tft.println("That bai! Thu SSID tiep...");
+    delay(400);
   }
   Serial.println("\n[WiFi] Tat ca SSID that bai -- chuyen sang AP mode");
   return false;
@@ -1025,16 +1039,19 @@ void handleWiFi() {
     if (now - lastAttempt > 10000) {
       lastAttempt = now;
 
-      // Hien thi dang thu ket noi WiFi tren TFT
+      // Hien thi dang thu ket noi WiFi tren TFT (to, ro rang)
       tft.fillScreen(C_BLACK);
-      tft.setTextSize(1); tft.setTextColor(C_YELLOW);
-      tft.setCursor(5, 80);
-      char buf[40]; snprintf(buf, sizeof(buf), "Mat WiFi. Thu lai %d/%d:", wifiRuntimeFailCount + 1, NUM_WIFI);
+      tft.setTextSize(2); tft.setTextColor(C_ORANGE);
+      tft.setCursor(5, 10); tft.println("Mat WiFi!");
+      tft.drawFastHLine(0, 34, 240, C_ORANGE);
+      tft.setTextSize(2); tft.setTextColor(C_YELLOW);
+      tft.setCursor(5, 44);
+      char buf[20]; snprintf(buf, sizeof(buf), "Thu %d/%d:", wifiRuntimeFailCount + 1, NUM_WIFI);
       tft.println(buf);
-      tft.setTextColor(C_WHITE);
-      tft.setCursor(5, 94); tft.println(ssids[wifiIdx]);
+      tft.setTextSize(1); tft.setTextColor(C_WHITE);
+      tft.setCursor(5, 72); tft.println(ssids[wifiIdx]);
       tft.setTextColor(C_GRAY);
-      tft.setCursor(5, 108); tft.println("Dang ket noi...");
+      tft.setCursor(5, 86); tft.println("Dang ket noi...");
 
       Serial.printf("[WiFi] Ket noi lai voi: %s\n", ssids[wifiIdx]);
       WiFi.disconnect(); WiFi.begin(ssids[wifiIdx], passwords[wifiIdx]);
