@@ -962,8 +962,19 @@ void handleAPUnlock() {
 
 void startAPMode() {
   apMode = true;
-  WiFi.mode(WIFI_AP);
+
+  // Dung han WiFi STA truoc khi chuyen sang AP mode
+  // (chuyen mode ngay luc driver dang connecting -> crash/reset)
+  Serial.println("[AP] Dung WiFi STA...");
+  WiFi.disconnect(false);   // dung ket noi, giu credentials
+  delay(500);               // cho driver giai phong STA state
+  WiFi.mode(WIFI_OFF);      // tat han WiFi
+  delay(300);               // doi nguon WiFi on dinh
+  WiFi.mode(WIFI_AP);       // bat lai o mode AP
+  delay(200);
+
   WiFi.softAP("NexoraGarden", "26042012khang");
+  delay(100);               // doi softAP khoi dong xong
   IPAddress ip = WiFi.softAPIP();
   Serial.printf("[AP] Hotspot: NexoraGarden | Pass: 26042012khang | IP: %s\n", ip.toString().c_str());
   localServer.on("/",       HTTP_GET, handleAPRoot);
