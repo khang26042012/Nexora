@@ -206,6 +206,7 @@ bool          pumpLocked     = false;
 bool          pumpAutoActive = false;
 bool          manualUnlock   = false;
 bool          adminActive    = false;
+unsigned long adminUntil     = 0;      // millis() luc admin tu tat (0 = khong co timer)
 bool          pumpPending    = false;
 unsigned long pumpPendingTime = 0;
 
@@ -248,8 +249,14 @@ h1{color:rgb(0,255,204);font-size:1.5em;text-align:center;margin-bottom:2px}
 .bon{background:rgb(0,170,85);color:white}.boff{background:rgb(204,34,0);color:white}
 .bunlock{background:rgb(17,85,204);color:white;width:100%;margin-top:8px;padding:12px;border:none;border-radius:10px;font-size:.9em;font-weight:bold;cursor:pointer}
 .bunlock:active{opacity:.7}
+.badmin{background:rgb(160,70,0);color:white;width:100%;padding:12px;border:none;border-radius:10px;font-size:.95em;font-weight:bold;cursor:pointer;margin-top:8px}
+.badmin.admon{background:rgb(90,0,0)}.badmin:active{opacity:.7}
+.admbar{height:6px;border-radius:3px;background:rgb(30,45,70);margin-top:7px;overflow:hidden}
+.admfill{height:100%;width:0%;background:rgb(255,110,0);transition:width .9s linear}
+.admtxt{text-align:center;font-size:.82em;color:rgb(255,160,60);margin-top:3px;min-height:16px}
 .ps{text-align:center;padding:10px;border-radius:8px;font-size:.95em;margin-bottom:8px;font-weight:bold}
 .pon{background:rgb(0,51,34);color:rgb(0,255,136)}.poff{background:rgb(17,24,39);color:rgb(136,153,170)}.plck{background:rgb(42,21,0);color:rgb(255,153,68)}
+.padm{background:rgb(60,30,0);color:rgb(255,170,60)}
 .msgbox{text-align:center;min-height:20px;font-size:.85em;margin-top:8px;padding:6px;border-radius:8px}
 .ok{color:rgb(0,255,136)}.err{color:rgb(255,68,68)}.info{color:rgb(255,204,68)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
@@ -272,10 +279,13 @@ h1{color:rgb(0,255,204);font-size:1.5em;text-align:center;margin-bottom:2px}
     <button class="btn boff" onclick="doPump('OFF')">TAT BOM</button>
   </div>
   <button class="bunlock" onclick="doUnlock()">Mo khoa bom tu dong</button>
+  <button class="badmin" id="badmin" onclick="doAdmin()">Admin ON (25s)</button>
+  <div class="admbar"><div class="admfill" id="admfill"></div></div>
+  <div class="admtxt" id="admtxt"></div>
 </div>
 <div id="msgbox" class="msgbox info"></div>
 <script>
-var tid=0;
+var tid=0,ADM_MAX=25;
 function upd(){
   fetch('/status').then(function(r){return r.json();}).then(function(d){
     document.getElementById('soil').textContent=d.soil+'%';
@@ -287,9 +297,22 @@ function upd(){
     fe.className='val'+(d.fire?' val-err':'');
     document.getElementById('rain').textContent=d.rain?'Co':'Khong';
     var ps=document.getElementById('ps');
-    if(d.pump){ps.textContent='Bom: DANG CHAY';ps.className='ps pon';}
+    if(d.pump&&d.admin){ps.textContent='Bom: DANG CHAY [ADMIN]';ps.className='ps padm';}
+    else if(d.pump){ps.textContent='Bom: DANG CHAY';ps.className='ps pon';}
     else if(d.locked){ps.textContent='Bom: TAT (da khoa)';ps.className='ps plck';}
     else{ps.textContent='Bom: TAT';ps.className='ps poff';}
+    var sec=d.adminSec||0;
+    var ba=document.getElementById('badmin');
+    var af=document.getElementById('admfill');
+    var at=document.getElementById('admtxt');
+    if(sec>0){
+      ba.textContent='Admin OFF';ba.className='badmin admon';
+      af.style.width=Math.round(sec/ADM_MAX*100)+'%';
+      at.textContent='Con lai: '+sec+'s';
+    }else{
+      ba.textContent='Admin ON (25s)';ba.className='badmin';
+      af.style.width='0%';at.textContent='';
+    }
   }).catch(function(){setMsg('Mat ket noi ESP32','err');});
 }
 function setMsg(t,cls){
@@ -300,13 +323,20 @@ function setMsg(t,cls){
 function doPump(a){
   setMsg(a==='ON'?'Dang bat bom...':'Dang tat bom...','info');
   fetch('/pump?a='+a).then(function(r){return r.json();}).then(function(d){
-    setMsg((d.ok?'OK: ':'LOI: ')+d.msg,d.ok?'ok':'err');
+    setMsg((d.ok?'OK: ':'LOI: ')+d.msg,d.ok?'ok':'err');upd();
   }).catch(function(){setMsg('Loi ket noi','err');});
 }
 function doUnlock(){
   setMsg('Dang mo khoa...','info');
   fetch('/unlock').then(function(r){return r.json();}).then(function(d){
-    setMsg((d.ok?'OK: ':'LOI: ')+d.msg,d.ok?'ok':'err');
+    setMsg((d.ok?'OK: ':'LOI: ')+d.msg,d.ok?'ok':'err');upd();
+  }).catch(function(){setMsg('Loi ket noi','err');});
+}
+function doAdmin(){
+  var isOn=document.getElementById('admtxt').textContent!=='';
+  setMsg(isOn?'Dang tat admin...':'Dang bat admin...','info');
+  fetch('/admin?a='+(isOn?'OFF':'ON')).then(function(r){return r.json();}).then(function(d){
+    setMsg((d.ok?'OK: ':'LOI: ')+d.msg,d.ok?'ok':'err');upd();
   }).catch(function(){setMsg('Loi ket noi','err');});
 }
 upd();setInterval(upd,2000);
@@ -836,6 +866,83 @@ void drawMainScreen() {
   }
 }
 
+// --- Man hinh AP mode (TFT den, hien AP info + sensor) -----------------------
+void drawAPTFTScreen() {
+  tft.setTextPadding(240);
+
+  // Header
+  tft.setTextSize(2); tft.setTextColor(C_ORANGE, C_BLACK);
+  tft.setCursor(5, 2);  tft.print("** AP MODE **   ");
+  tft.drawFastHLine(0, 22, 240, C_ORANGE);
+
+  // Huong dan ket noi
+  tft.setTextSize(1); tft.setTextColor(C_GRAY, C_BLACK);
+  tft.setCursor(5, 28); tft.print("Ket noi WiFi tren may/dien thoai:");
+  tft.setTextColor(C_LIME, C_BLACK);
+  tft.setCursor(5, 40); tft.print("WiFi: NexoraGarden              ");
+  tft.setTextColor(C_YELLOW, C_BLACK);
+  tft.setCursor(5, 52); tft.print("Pass: 26042012khang             ");
+  tft.setTextColor(C_CYAN, C_BLACK);
+  tft.setCursor(5, 64); tft.print("Web : 192.168.4.1               ");
+  tft.drawFastHLine(0, 76, 240, C_GRAY);
+
+  // Sensor (size 2 de de doc)
+  tft.setTextSize(2); tft.setTextPadding(240);
+
+  // Dat
+  tft.setCursor(5, 82);
+  if (soilState.isError || soilPercent == 0) {
+    tft.setTextColor(C_RED, C_BLACK); tft.print("Dat: LOI        ");
+  } else {
+    uint16_t col = soilPercent <= PUMP_SOIL_ON ? C_ORANGE : C_GREEN;
+    tft.setTextColor(col, C_BLACK);
+    char b[22]; snprintf(b, sizeof(b), "Dat: %3d%%        ", soilPercent); tft.print(b);
+  }
+
+  // Nuoc
+  tft.setCursor(5, 102);
+  if (waterState.isError) {
+    tft.setTextColor(C_RED, C_BLACK); tft.print("Nuoc: LOI       ");
+  } else {
+    tft.setTextColor(waterPercent <= 15 ? C_RED : C_WHITE, C_BLACK);
+    char b[22]; snprintf(b, sizeof(b), "Nuoc: %3d%%       ", waterPercent); tft.print(b);
+  }
+
+  // Nhiet do
+  tft.setCursor(5, 122); tft.setTextColor(C_WHITE, C_BLACK);
+  if (localTemp == -999.0) tft.print("Nhiet: --.-C    ");
+  else { char b[22]; snprintf(b, sizeof(b), "Nhiet: %4.1fC    ", localTemp); tft.print(b); }
+
+  // Do am KK
+  tft.setCursor(5, 142); tft.setTextColor(C_WHITE, C_BLACK);
+  if (localHum == -999.0) tft.print("Am KK: --.-%%   ");
+  else { char b[22]; snprintf(b, sizeof(b), "Am KK: %4.1f%%    ", localHum); tft.print(b); }
+
+  // Trang thai bom
+  tft.setCursor(5, 162);
+  if (pumpState) {
+    if (adminActive) { tft.setTextColor(C_ORANGE, C_BLACK); tft.print("Bom: BAT[ADMIN] "); }
+    else             { tft.setTextColor(C_LIME,   C_BLACK); tft.print("Bom: BAT [AUTO] "); }
+  } else if (pumpLocked) {
+    tft.setTextColor(C_GRAY, C_BLACK); tft.print("Bom: TAT[KHOA]  ");
+  } else {
+    tft.setTextColor(C_DIMWHITE, C_BLACK); tft.print("Bom: TAT        ");
+  }
+
+  tft.drawFastHLine(0, 183, 240, C_GRAY);
+
+  // Admin timer (size 1)
+  tft.setTextSize(1); tft.setTextPadding(240);
+  tft.setCursor(5, 188);
+  if (adminActive && adminUntil != 0) {
+    unsigned long rem = millis() < adminUntil ? (adminUntil - millis()) / 1000 : 0;
+    char b[40]; snprintf(b, sizeof(b), "[ADMIN ON] Con lai: %lus             ", rem);
+    tft.setTextColor(C_ORANGE, C_BLACK); tft.print(b);
+  } else {
+    tft.setTextColor(C_GRAY, C_BLACK); tft.print("Admin: OFF                       ");
+  }
+}
+
 // --- TFT Manager -------------------------------------------------------------
 void manageTFT() {
   // Vua bi tat -> xoa man 1 lan roi dung
@@ -881,7 +988,10 @@ void manageTFT() {
   if (!shouldDraw) return;
   tftForceRedraw = false;
   tftLastDraw    = now;
-  drawMainScreen();
+
+  // AP mode: hien man hinh den chuyen biet voi AP info + sensor
+  if (apMode) drawAPTFTScreen();
+  else        drawMainScreen();
 }
 
 // ===============================================================
@@ -923,10 +1033,12 @@ void handleAPStatus() {
   doc["hum"]    = localHum;
   doc["fire"]   = fireActive;
   doc["rain"]   = rainNow;
-  doc["pump"]   = pumpState;
-  doc["locked"] = pumpLocked;
-  doc["admin"]  = adminActive;
-  doc["pending"]= pumpPending;
+  doc["pump"]     = pumpState;
+  doc["locked"]   = pumpLocked;
+  doc["admin"]    = adminActive;
+  doc["pending"]  = pumpPending;
+  unsigned long now_ms = millis();
+  doc["adminSec"] = (adminActive && adminUntil != 0 && now_ms < adminUntil) ? (adminUntil - now_ms) / 1000 : 0;
   String out; serializeJson(doc, out);
   localServer.send(200, "application/json", out);
 }
@@ -942,6 +1054,16 @@ void handleAPPump() {
       localServer.send(200, "application/json", "{\"ok\":false,\"msg\":\"Bom dang chay roi\"}");
       return;
     }
+    if (!adminActive && pumpLocked) {
+      localServer.send(200, "application/json", "{\"ok\":false,\"msg\":\"Bom dang bi khoa -- bam Mo khoa truoc\"}");
+      return;
+    }
+    if (!adminActive && soilPercent >= PUMP_SOIL_OFF) {
+      char msg[80];
+      snprintf(msg, sizeof(msg), "{\"ok\":false,\"msg\":\"Dat du am (%d%%), khong can tuoi\"}", soilPercent);
+      localServer.send(200, "application/json", msg);
+      return;
+    }
     pendingCmd.pumpOn  = true;
     pendingCmd.hasPump = true;
     localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da bat bom\"}");
@@ -951,6 +1073,32 @@ void handleAPPump() {
     localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da tat bom\"}");
   } else {
     localServer.send(400, "application/json", "{\"ok\":false,\"msg\":\"Action khong hop le\"}");
+  }
+}
+
+void handleAPAdmin() {
+  if (!localServer.hasArg("a")) {
+    localServer.send(400, "application/json", "{\"ok\":false,\"msg\":\"Thieu tham so\"}");
+    return;
+  }
+  String a = localServer.arg("a");
+  if (a == "ON") {
+    adminActive  = true;
+    adminUntil   = millis() + 25000;
+    pumpLocked   = false;
+    manualUnlock = false;
+    pumpAutoActive = false;
+    setPump(true);
+    Serial.println("[Admin] AP: BAT bom admin 25s");
+    localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Admin ON: bom bat 25 giay\"}");
+  } else {
+    adminActive  = false;
+    adminUntil   = 0;
+    setPump(false);
+    pumpLocked   = true;
+    pumpAutoCooldownUntil = millis() + PUMP_AUTO_COOLDOWN_MS;
+    Serial.println("[Admin] AP: TAT bom admin");
+    localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Admin OFF: da tat bom\"}");
   }
 }
 
@@ -980,6 +1128,7 @@ void startAPMode() {
   localServer.on("/",       HTTP_GET, handleAPRoot);
   localServer.on("/status", HTTP_GET, handleAPStatus);
   localServer.on("/pump",   HTTP_GET, handleAPPump);
+  localServer.on("/admin",  HTTP_GET, handleAPAdmin);
   localServer.on("/unlock", HTTP_GET, handleAPUnlock);
   localServer.begin();
   Serial.println("[AP] Web server bat dau tai port 80 -- Mo trinh duyet: 192.168.4.1");
@@ -1214,6 +1363,34 @@ void loop() {
   // AP mode: phuc vu web client cuc bo, bo qua moi logic WS/Weather
   if (apMode) {
     localServer.handleClient();
+
+    // Admin timer: tu tat sau 25s
+    if (adminActive && adminUntil != 0 && millis() >= adminUntil) {
+      adminActive = false;
+      adminUntil  = 0;
+      setPump(false);
+      pumpLocked = true;
+      pumpAutoCooldownUntil = millis() + PUMP_AUTO_COOLDOWN_MS;
+      Serial.println("[Admin] Het 25s -> tu tat bom");
+      tftForceRedraw = true;
+    }
+
+    // Xu ly lenh bom thu cong tu web AP (truoc day bi bo qua trong AP mode)
+    if (pendingCmd.hasPump) {
+      pendingCmd.hasPump = false;
+      if (pendingCmd.pumpOn && !pumpState) {
+        setPump(true); pumpAutoActive = false;
+      } else if (!pendingCmd.pumpOn && pumpState) {
+        setPump(false); pumpLocked = true;
+        adminActive = false; adminUntil = 0;
+      }
+    }
+    if (pendingCmd.hasUnlock) {
+      pendingCmd.hasUnlock = false;
+      if (pendingCmd.unlockOn) { pumpLocked = false; pumpAutoCooldownUntil = 0; }
+      manualUnlock = pendingCmd.unlockOn;
+    }
+
     updateSoil(); updateWater(); updateDHT();
     handlePump();
     manageTFT();
@@ -1263,17 +1440,32 @@ void loop() {
     tftForceRedraw = true;
     Serial.printf("[TFT] Nhan lenh: %s\n", tftOn ? "BAT" : "TAT");
   }
+  // Admin timer (non-AP, WS mode): tu tat sau het gio
+  if (adminActive && adminUntil != 0 && now >= adminUntil) {
+    adminActive = false;
+    adminUntil  = 0;
+    setPump(false);
+    pumpLocked = true;
+    pumpAutoCooldownUntil = now + PUMP_AUTO_COOLDOWN_MS;
+    Serial.println("[Admin] Het gio -> tu tat bom");
+    tftForceRedraw = true;
+  }
   if (pendingCmd.hasAdmin) {
     pendingCmd.hasAdmin = false;
     if (pendingCmd.adminOn) {
-      adminActive = true; pumpLocked = false; manualUnlock = false;
-      setPump(true); pumpAutoActive = false;
-      Serial.println("[Admin] BAT bom buoc");
+      adminActive    = true;
+      adminUntil     = millis() + 25000;   // 25s timer
+      pumpLocked     = false;
+      manualUnlock   = false;
+      setPump(true);
+      pumpAutoActive = false;
+      Serial.println("[Admin] BAT bom buoc 25s");
     } else {
-      adminActive = false;
+      adminActive    = false;
+      adminUntil     = 0;
       setPump(false);
-      pumpLocked = true;
-      pumpAutoCooldownUntil = millis() + PUMP_AUTO_COOLDOWN_MS;  // cooldown 10 phut tranh auto-pump ngay lap tuc
+      pumpLocked     = true;
+      pumpAutoCooldownUntil = millis() + PUMP_AUTO_COOLDOWN_MS;
       Serial.println("[Admin] TAT bom buoc -- khoa + cooldown 10 phut");
     }
   }
