@@ -304,7 +304,7 @@ function upd(){
     if(d.pump&&d.admin){ps.textContent='Bom: DANG CHAY [ADMIN]';ps.className='ps padm';}
     else if(d.pump){ps.textContent='Bom: DANG CHAY ('+d.soil+'%)';ps.className='ps pon';}
     else if(d.locked){ps.textContent='Bom: TAT - Dang khoa. Bam Mo khoa truoc.';ps.className='ps plck';}
-    else if(d.soil<30){ps.textContent='Bom: TAT - Dat KHO ('+d.soil+'%). Co the tuoi.';ps.className='ps poff';}
+    else if(d.soil<70){ps.textContent='Bom: TAT - Dat KHO ('+d.soil+'%). Co the tuoi.';ps.className='ps poff';}
     else{ps.textContent='Bom: TAT - Dat du am ('+d.soil+'%). Dung Admin neu can.';ps.className='ps poff';}
     var sec=d.adminSec||0;
     admState=sec>0||d.admin;
@@ -1065,9 +1065,9 @@ void handleAPPump() {
       localServer.send(200, "application/json", "{\"ok\":false,\"msg\":\"Bom dang bi khoa -- bam Mo khoa bom truoc\"}");
       return;
     }
-    if (!adminActive && soilPercent >= PUMP_SOIL_ON) {
+    if (!adminActive && soilPercent >= PUMP_SOIL_OFF) {
       char msg[96];
-      snprintf(msg, sizeof(msg), "{\"ok\":false,\"msg\":\"Dat du am (%d%%), chua can tuoi -- dung Admin de buoc bat\"}", soilPercent);
+      snprintf(msg, sizeof(msg), "{\"ok\":false,\"msg\":\"Dat da du am (%d%% >= %d%%), khong can tuoi -- dung Admin de buoc bat\"}", soilPercent, PUMP_SOIL_OFF);
       localServer.send(200, "application/json", msg);
       return;
     }

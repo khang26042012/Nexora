@@ -5,6 +5,23 @@
   ================================================================
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 63b] FIX — AP mode pump: sửa ngưỡng chặn bơm về PUMP_SOIL_OFF (70)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vấn đề: Session 62 đổi ngưỡng chặn bơm từ PUMP_SOIL_OFF (70) → PUMP_SOIL_ON (30)
+    → quá chặt: đất 31-69% cũng không bật được bơm (sai logic)
+
+  Logic đúng (theo Khang): đất khô = soilPercent < 70% → được phép bật bơm
+    → Chặn bơm chỉ khi soilPercent >= PUMP_SOIL_OFF (70%) = đất đã đủ ướt
+
+  Đã fix:
+    - handleAPPump(): đổi điều kiện chặn về soilPercent >= PUMP_SOIL_OFF (70)
+    - JS hiển thị: "Đất KHÔ" khi soil < 70 (không phải < 30)
+
+  Files: firmware/NexoraGarden/NexoraGarden.ino
+  Push GitHub: commit (Git Tree API) ✅
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 63] FIX — AP mode: logic bơm, unlock, admin, UI toàn diện
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
