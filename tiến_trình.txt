@@ -1,8 +1,38 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 61] FIX — Telegram NexoraGarden bot lỗi "Không có API key"
+    Cập nhật: [session 62] FIX — AP mode pump: thêm kiểm tra độ ẩm đất
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 62] FIX — AP mode pump: thêm kiểm tra độ ẩm đất
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vấn đề:
+    - Nút "BẬT BOM" trên web AP mode cho phép bật bơm kể cả khi đất chưa đủ khô
+    - handleAPPump() chỉ chặn khi soilPercent >= PUMP_SOIL_OFF (70%)
+    - Kết quả: với đất 31%-69%, vẫn bật bơm được dù không cần tưới
+
+  Nguyên nhân:
+    - Logic kiểm tra dùng PUMP_SOIL_OFF (70) thay vì PUMP_SOIL_ON (30)
+    - → Không khớp với ngưỡng tự động của hệ thống
+
+  Đã fix:
+    - firmware/NexoraGarden/NexoraGarden.ino hàm handleAPPump():
+      + Đổi điều kiện chặn từ soilPercent >= PUMP_SOIL_OFF (70)
+                              thành soilPercent >= PUMP_SOIL_ON (30)
+      + Thông báo lỗi rõ hơn: "Độ ẩm đất đủ (X% >= 30%), chưa cần tưới -- dùng Admin để buộc bật"
+    - Admin mode vẫn bypass toàn bộ kiểm tra như cũ
+
+  Kết quả sau fix:
+    - Nút BẬT BOM thường: chỉ hoạt động khi soil < 30% (đất khô)
+    - Nút Admin ON: bật bơm không cần điều kiện (25s timer)
+    - Nhất quán với logic tự động (PUMP_SOIL_ON = 30)
+
+  Files thay đổi:
+    - firmware/NexoraGarden/NexoraGarden.ino (handleAPPump, dòng 1064-1069)
+
+  Push GitHub: commit (Git Tree API) ✅
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 61] FIX — Telegram NexoraGarden bot lỗi "Không có API key"

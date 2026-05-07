@@ -1058,9 +1058,9 @@ void handleAPPump() {
       localServer.send(200, "application/json", "{\"ok\":false,\"msg\":\"Bom dang bi khoa -- bam Mo khoa truoc\"}");
       return;
     }
-    if (!adminActive && soilPercent >= PUMP_SOIL_OFF) {
+    if (!adminActive && soilPercent >= PUMP_SOIL_ON) {
       char msg[80];
-      snprintf(msg, sizeof(msg), "{\"ok\":false,\"msg\":\"Dat du am (%d%%), khong can tuoi\"}", soilPercent);
+      snprintf(msg, sizeof(msg), "{\"ok\":false,\"msg\":\"Do am dat du (%d%% >= %d%%), chua can tuoi -- dung Admin de buoc bat\"}", soilPercent, PUMP_SOIL_ON);
       localServer.send(200, "application/json", msg);
       return;
     }
