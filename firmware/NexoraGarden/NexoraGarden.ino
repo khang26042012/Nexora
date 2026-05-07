@@ -1318,8 +1318,8 @@ void setup() {
 
   pinMode(SOIL_PIN,  INPUT);
   pinMode(WATER_PIN, INPUT);
-  pinMode(FIRE_PIN,  INPUT);
-  pinMode(RAIN_PIN,  INPUT);
+  pinMode(FIRE_PIN,  INPUT);           // GPIO34: input-only, khong ho tro pullup noi
+  pinMode(RAIN_PIN,  INPUT_PULLUP);    // GPIO25: pull HIGH -> floating/thao cam bien = LOW false = khong mua
   pinMode(RELAY_PIN, OUTPUT); digitalWrite(RELAY_PIN, LOW);
 
   dht.begin();

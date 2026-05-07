@@ -5,6 +5,34 @@
   ================================================================
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 64] FIX — Cảm biến mưa luôn báo có mưa (floating GPIO)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vấn đề:
+    - Cảm biến mưa vật lý hoạt động bình thường, nhưng dù tháo hẳn ra
+      vẫn luôn báo "có mưa" → lỗi code, không phải phần cứng
+
+  Root cause:
+    - pinMode(RAIN_PIN, INPUT) — GPIO 25, không có pull-up/pull-down
+    - Khi cảm biến tháo ra (hoặc chân rời), GPIO 25 bị FLOATING
+    - Chân floating trên ESP32 thường rơi về LOW ngẫu nhiên
+    - Code: rainNow = (digitalRead(RAIN_PIN) == LOW) → luôn true
+
+  Fix:
+    - Đổi pinMode(RAIN_PIN, INPUT) → pinMode(RAIN_PIN, INPUT_PULLUP)
+    - Internal pull-up kéo chân lên HIGH khi không có tín hiệu
+    - Cảm biến tháo ra / khô → HIGH → rainNow = false ✓
+    - Cảm biến ướt → cảm biến kéo LOW → rainNow = true ✓
+
+  Lưu ý FIRE_PIN (GPIO 34):
+    - GPIO 34 là input-only pin trên ESP32, KHÔNG hỗ trợ INPUT_PULLUP nội
+    - Giữ nguyên INPUT, không thể fix bằng software → cần điện trở kéo ngoài nếu bị floating
+    - Chưa có báo lỗi fire nên bỏ qua
+
+  Files: firmware/NexoraGarden/NexoraGarden.ino (setup(), 1 dòng)
+  Push GitHub: commit (Git Tree API) ✅
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 63b] FIX — AP mode pump: sửa ngưỡng chặn bơm về PUMP_SOIL_OFF (70)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
