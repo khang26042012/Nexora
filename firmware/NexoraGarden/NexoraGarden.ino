@@ -86,6 +86,7 @@ const char* WEATHER_URL =
 #define FIRE_PIN   34
 #define RELAY_PIN  26
 #define RAIN_PIN   25
+#define RAIN_DEBOUNCE_MS  2000   // Yeu cau tin hieu LOW lien tuc 2s moi xac nhan co mua
 
 // --- Hieu chinh cam bien -----------------------------------------------------
 #define SOIL_RAW_DRY     3200
@@ -189,6 +190,10 @@ float lastSentTemp  = -999.0;
 float lastSentHum   = -999.0;
 bool  lastSentFire  = false;
 bool  lastSentRain  = false;
+
+// --- Rain debounce -----------------------------------------------------------
+bool          rainConfirmed  = false;   // trang thai mua da xac nhan (co debounce)
+unsigned long rainRawStart   = 0;       // millis() luc bat dau nhan tin hieu LOW lien tuc
 
 // --- Co canh bao -------------------------------------------------------------
 unsigned long fireStartTime   = 0;
@@ -593,19 +598,32 @@ void handleFire() {
 
 void handleRain() {
   // Khi bom dang bat: bo qua cam bien mua (nuoc bom ban vao gay nhieu)
-  if (pumpState) { rainAlerted = false; return; }
-  bool rainNow = (digitalRead(RAIN_PIN) == LOW);
-  if (rainNow && !rainAlerted) {
+  if (pumpState) { rainAlerted = false; rainConfirmed = false; rainRawStart = 0; return; }
+
+  bool rawLow = (digitalRead(RAIN_PIN) == LOW);
+  unsigned long now = millis();
+
+  if (rawLow) {
+    if (rainRawStart == 0) rainRawStart = now;              // bat dau dem thoi gian
+    if (!rainConfirmed && (now - rainRawStart >= RAIN_DEBOUNCE_MS)) {
+      rainConfirmed = true;                                 // xac nhan sau 2s lien tuc
+    }
+  } else {
+    rainRawStart  = 0;                                      // reset neu het tin hieu
+    rainConfirmed = false;
+  }
+
+  if (rainConfirmed && !rainAlerted) {
     sendNotify("Phat hien co nuoc tren cam bien, co the co mua!");
     rainAlerted = true;
-  } else if (!rainNow && rainAlerted) {
+  } else if (!rainConfirmed && rainAlerted) {
     rainAlerted = false;
   }
 }
 
 bool shouldSendData() {
   // Khi bom bat: rain bi force false, bo qua thay doi rain
-  bool rainNow = pumpState ? false : (digitalRead(RAIN_PIN) == LOW);
+  bool rainNow = pumpState ? false : rainConfirmed;
   bool fireNow = fireActive;  // Gui ngay khi phat hien, khong cho 3s debounce (debounce chi danh cho notify Telegram)
   if (abs(soilPercent  - lastSentSoil)  >= SOIL_THRESHOLD)  return true;
   if (abs(waterPercent - lastSentWater) >= WATER_THRESHOLD)  return true;
@@ -619,7 +637,7 @@ bool shouldSendData() {
 void sendSensorData() {
   if (!wsConnected) return;
   // Khi bom bat: cam bien mua bi nhieu -> gui false de server khong xu ly nham
-  bool rainNow = pumpState ? false : (digitalRead(RAIN_PIN) == LOW);
+  bool rainNow = pumpState ? false : rainConfirmed;
   bool fireNow = fireActive;  // Gui ngay khi phat hien lua (debounce 3s chi danh cho notify Telegram)
   JsonDocument doc;
   doc["type"]  = "sensor"; doc["soil"]  = soilPercent;  doc["water"] = waterPercent;
@@ -830,7 +848,7 @@ void drawMainScreen() {
 
   // Dong 10: Fire / Rain / Admin / Khoa
   tft.setCursor(5, 182);
-  bool rainNow = (digitalRead(RAIN_PIN) == LOW);
+  bool rainNow = rainConfirmed;
   char status[42] = "";
   if (adminActive)              strcat(status, "[ADMIN] ");
   if (pumpLocked && !pumpState) strcat(status, "[KHOA] ");
@@ -1032,7 +1050,7 @@ void handleAPRoot() {
 }
 
 void handleAPStatus() {
-  bool rainNow = pumpState ? false : (digitalRead(RAIN_PIN) == LOW);
+  bool rainNow = pumpState ? false : rainConfirmed;
   JsonDocument doc;
   doc["soil"]   = soilPercent;
   doc["water"]  = waterPercent;
@@ -1281,7 +1299,7 @@ void printSerial() {
   else Serial.printf("  [Am]    : %.1f %%\n", localHum);
   Serial.printf("  [Gio]   : %.1f km/h | Mua: %d %%\n", wind, rainChance);
   Serial.printf("  [Lua]   : %s | [Mua cb]: %s\n",
-    fireActive ? "CO" : "Khong", digitalRead(RAIN_PIN) == LOW ? "CO NUOC" : "Kho");
+    fireActive ? "CO" : "Khong", rainConfirmed ? "CO NUOC" : "Kho");
   Serial.printf("  [Bom]   : %s%s%s%s\n",
     pumpState    ? "BAT" : "TAT",
     pumpLocked   ? " (KHOA)"    : "",

@@ -1,8 +1,49 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 63] FIX — AP mode: logic bơm, unlock, admin, UI
+    Cập nhật: [session 65] FIX — Cảm biến mưa: chẩn đoán hardware + debounce 2s
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 65] FIX — Cảm biến mưa luôn báo có mưa (hardware + debounce)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Triệu chứng do Khang báo:
+    1. Cắm đủ VCC+GND+DO → luôn báo mưa, LED 2 trên module sáng dù pad khô
+    2. Chỉnh biến trở độ nhạy dù cao hay thấp → vẫn báo mưa
+    3. Rút dây DO → đèn LED mưa trên ESP32 tắt
+
+  Chẩn đoán:
+    - LED 2 trên MODULE tự sáng = chính chip LM393 quyết định "có mưa"
+      → không phải lỗi code, là lỗi phần cứng module
+    - Khi chỉnh biến trở cả 2 chiều đều báo mưa → sensing pad đang dẫn điện
+      ở mức cao hơn ngưỡng tối đa biến trở có thể chặn
+    - Nguyên nhân gốc rễ: sensing pad bị oxy hóa / cặn khoáng tạo đường dẫn điện
+
+  Hướng dẫn phần cứng cho Khang (code không fix được):
+    1. Vệ sinh sensing pad bằng cồn 70%+ + bàn chải cứng, chà kỹ 2 mặt lược, để khô ~5 phút
+    2. Kiểm tra VCC = 3.3V (không phải 5V)
+    3. Test: chỉ cấp VCC+GND, không cắm DO → LED 2 có tắt không?
+       → Nếu tắt sau vệ sinh = pad đã sạch → cắm DO lại
+    4. Vẫn sáng sau vệ sinh → module hỏng chip LM393 → thay module mới
+
+  Fix code (debounce — phòng false positive khi module hoạt động đúng):
+    - Thêm RAIN_DEBOUNCE_MS = 2000ms
+    - Thêm biến rainConfirmed (bool) và rainRawStart (unsigned long)
+    - handleRain(): yêu cầu tín hiệu LOW liên tục ≥ 2s mới set rainConfirmed = true
+      → HIGH bất kỳ lúc nào → reset ngay về false
+    - Thay toàn bộ digitalRead(RAIN_PIN) == LOW → rainConfirmed ở mọi nơi
+      (trừ chỗ đọc raw trong handleRain())
+    - Khi pump bật: reset rainConfirmed + rainRawStart luôn (tránh nhiễu từ nước bơm)
+
+  Files thay đổi:
+    - firmware/NexoraGarden/NexoraGarden.ino:
+      + Thêm #define RAIN_DEBOUNCE_MS 2000
+      + Thêm bool rainConfirmed, unsigned long rainRawStart
+      + Rewrite handleRain() với debounce logic
+      + 5 chỗ digitalRead(RAIN_PIN) == LOW → rainConfirmed
+
+  Push GitHub: [pending]
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 64] FIX — Cảm biến mưa luôn báo có mưa (floating GPIO)
