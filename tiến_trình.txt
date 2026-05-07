@@ -1,8 +1,50 @@
 ================================================================
     TIẾN TRÌNH LÀM VIỆC — NEXORAGARDEN
     Ghi lại mọi thứ đã làm được để AI khác hiểu context
-    Cập nhật: [session 62] FIX — AP mode pump: thêm kiểm tra độ ẩm đất
+    Cập nhật: [session 63] FIX — AP mode: logic bơm, unlock, admin, UI
   ================================================================
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [session 63] FIX — AP mode: logic bơm, unlock, admin, UI toàn diện
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vấn đề được báo: nút bật/tắt bơm, mở khóa rất lỗi, logic hiển thị sai
+
+  Bugs được fix (4 vấn đề):
+
+  BUG 1 — handlePump() auto-trigger bơm trong AP loop:
+    - AP loop gọi handlePump() đầy đủ → khi đất khô (<30%), bơm tự bật
+      mà không cần user bấm nút
+    - Fix: xóa handlePump() khỏi AP loop, thay bằng stop-only check
+      (chỉ dừng bơm khi timeout 25s hoặc đất đủ ẩm >=70%)
+
+  BUG 2 — handleAPPump/Unlock dùng pendingCmd (async):
+    - Pump ON/OFF và Unlock set pendingCmd → phải chờ vòng loop tiếp
+      xử lý → nếu user bấm nhanh 2 nút liên tiếp → race condition
+    - Fix: gọi setPump()/pumpLocked trực tiếp trong handler, bỏ pendingCmd
+
+  BUG 3 — doAdmin() JS toggle sai chiều:
+    - isOn = admtxt.textContent !== '' → phụ thuộc DOM text chưa cập nhật
+      → gửi sai action (ON khi admin đang ON, hoặc ngược lại)
+    - Fix: dùng biến JS admState=false, cập nhật từ /status response
+      → doAdmin() dựa trên admState, không đọc DOM
+
+  BUG 4 — Hiển thị trạng thái bơm không rõ ràng:
+    - Không hiện lý do tại sao tắt, không biết đất có cần tưới không
+    - Fix: thêm màu đỏ/cam cho soil/water thấp
+      Trạng thái bơm tắt: phân biệt 3 case:
+        + "Đang khóa. Bấm Mở khóa trước." (cam)
+        + "Đất KHÔ (X%). Có thể tưới." (trắng - gợi ý bật)
+        + "Đất đủ ẩm (X%). Dùng Admin nếu cần." (trắng)
+
+  Files thay đổi:
+    - firmware/NexoraGarden/NexoraGarden.ino:
+      + AP_HTML <script>: admState, màu soil/water, pump status text
+      + handleAPPump(): gọi setPump() trực tiếp, thêm check TAT BOM
+      + handleAPUnlock(): gọi trực tiếp thay vì pendingCmd
+      + loop() AP section: bỏ handlePump(), thêm stop-only logic
+
+  Push GitHub: commit (Git Tree API) ✅
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [session 62] FIX — AP mode pump: thêm kiểm tra độ ẩm đất

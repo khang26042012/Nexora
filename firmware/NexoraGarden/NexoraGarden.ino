@@ -285,11 +285,15 @@ h1{color:rgb(0,255,204);font-size:1.5em;text-align:center;margin-bottom:2px}
 </div>
 <div id="msgbox" class="msgbox info"></div>
 <script>
-var tid=0,ADM_MAX=25;
+var tid=0,ADM_MAX=25,admState=false;
 function upd(){
   fetch('/status').then(function(r){return r.json();}).then(function(d){
-    document.getElementById('soil').textContent=d.soil+'%';
-    document.getElementById('water').textContent=d.water+'%';
+    var se=document.getElementById('soil');
+    se.textContent=d.soil+'%';
+    se.className=d.soil<30?'val val-err':d.soil<50?'val val-warn':'val';
+    var we=document.getElementById('water');
+    we.textContent=d.water+'%';
+    we.className=d.water<15?'val val-err':d.water<30?'val val-warn':'val';
     document.getElementById('temp').textContent=d.temp<-100?'---':d.temp.toFixed(1)+'C';
     document.getElementById('hum').textContent=d.hum<-100?'---':d.hum.toFixed(1)+'%';
     var fe=document.getElementById('fire');
@@ -298,17 +302,19 @@ function upd(){
     document.getElementById('rain').textContent=d.rain?'Co':'Khong';
     var ps=document.getElementById('ps');
     if(d.pump&&d.admin){ps.textContent='Bom: DANG CHAY [ADMIN]';ps.className='ps padm';}
-    else if(d.pump){ps.textContent='Bom: DANG CHAY';ps.className='ps pon';}
-    else if(d.locked){ps.textContent='Bom: TAT (da khoa)';ps.className='ps plck';}
-    else{ps.textContent='Bom: TAT';ps.className='ps poff';}
+    else if(d.pump){ps.textContent='Bom: DANG CHAY ('+d.soil+'%)';ps.className='ps pon';}
+    else if(d.locked){ps.textContent='Bom: TAT - Dang khoa. Bam Mo khoa truoc.';ps.className='ps plck';}
+    else if(d.soil<30){ps.textContent='Bom: TAT - Dat KHO ('+d.soil+'%). Co the tuoi.';ps.className='ps poff';}
+    else{ps.textContent='Bom: TAT - Dat du am ('+d.soil+'%). Dung Admin neu can.';ps.className='ps poff';}
     var sec=d.adminSec||0;
+    admState=sec>0||d.admin;
     var ba=document.getElementById('badmin');
     var af=document.getElementById('admfill');
     var at=document.getElementById('admtxt');
-    if(sec>0){
+    if(admState){
       ba.textContent='Admin OFF';ba.className='badmin admon';
-      af.style.width=Math.round(sec/ADM_MAX*100)+'%';
-      at.textContent='Con lai: '+sec+'s';
+      af.style.width=sec>0?Math.round(sec/ADM_MAX*100)+'%':'100%';
+      at.textContent=sec>0?'Con lai: '+sec+'s':'Admin dang bat';
     }else{
       ba.textContent='Admin ON (25s)';ba.className='badmin';
       af.style.width='0%';at.textContent='';
@@ -333,9 +339,10 @@ function doUnlock(){
   }).catch(function(){setMsg('Loi ket noi','err');});
 }
 function doAdmin(){
-  var isOn=document.getElementById('admtxt').textContent!=='';
-  setMsg(isOn?'Dang tat admin...':'Dang bat admin...','info');
-  fetch('/admin?a='+(isOn?'OFF':'ON')).then(function(r){return r.json();}).then(function(d){
+  var goON=!admState;
+  setMsg(goON?'Dang bat admin...':'Dang tat admin...','info');
+  fetch('/admin?a='+(goON?'ON':'OFF')).then(function(r){return r.json();}).then(function(d){
+    if(d.ok)admState=goON;
     setMsg((d.ok?'OK: ':'LOI: ')+d.msg,d.ok?'ok':'err');upd();
   }).catch(function(){setMsg('Loi ket noi','err');});
 }
@@ -1055,21 +1062,31 @@ void handleAPPump() {
       return;
     }
     if (!adminActive && pumpLocked) {
-      localServer.send(200, "application/json", "{\"ok\":false,\"msg\":\"Bom dang bi khoa -- bam Mo khoa truoc\"}");
+      localServer.send(200, "application/json", "{\"ok\":false,\"msg\":\"Bom dang bi khoa -- bam Mo khoa bom truoc\"}");
       return;
     }
     if (!adminActive && soilPercent >= PUMP_SOIL_ON) {
-      char msg[80];
-      snprintf(msg, sizeof(msg), "{\"ok\":false,\"msg\":\"Do am dat du (%d%% >= %d%%), chua can tuoi -- dung Admin de buoc bat\"}", soilPercent, PUMP_SOIL_ON);
+      char msg[96];
+      snprintf(msg, sizeof(msg), "{\"ok\":false,\"msg\":\"Dat du am (%d%%), chua can tuoi -- dung Admin de buoc bat\"}", soilPercent);
       localServer.send(200, "application/json", msg);
       return;
     }
-    pendingCmd.pumpOn  = true;
-    pendingCmd.hasPump = true;
+    // Goi truc tiep (khong qua pendingCmd) de tranh race condition
+    setPump(true);
+    pumpAutoActive = false;
+    Serial.println("[AP] Bat bom thu cong");
     localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da bat bom\"}");
   } else if (action == "OFF") {
-    pendingCmd.pumpOn  = false;
-    pendingCmd.hasPump = true;
+    if (!pumpState) {
+      localServer.send(200, "application/json", "{\"ok\":false,\"msg\":\"Bom dang tat roi\"}");
+      return;
+    }
+    setPump(false);
+    pumpLocked   = true;
+    adminActive  = false;
+    adminUntil   = 0;
+    pumpAutoCooldownUntil = millis() + PUMP_AUTO_COOLDOWN_MS;
+    Serial.println("[AP] Tat bom thu cong");
     localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da tat bom\"}");
   } else {
     localServer.send(400, "application/json", "{\"ok\":false,\"msg\":\"Action khong hop le\"}");
@@ -1103,9 +1120,13 @@ void handleAPAdmin() {
 }
 
 void handleAPUnlock() {
-  pendingCmd.unlockOn  = true;
-  pendingCmd.hasUnlock = true;
-  localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da mo khoa bom tu dong\"}");
+  // Goi truc tiep, khong qua pendingCmd
+  pumpLocked            = false;
+  pumpAutoCooldownUntil = 0;
+  manualUnlock          = false;
+  pumpAutoFailCount     = 0;
+  Serial.println("[AP] Mo khoa bom");
+  localServer.send(200, "application/json", "{\"ok\":true,\"msg\":\"Da mo khoa. Co the bat bom ngay bay gio.\"}");
 }
 
 void startAPMode() {
@@ -1375,24 +1396,31 @@ void loop() {
       tftForceRedraw = true;
     }
 
-    // Xu ly lenh bom thu cong tu web AP (truoc day bi bo qua trong AP mode)
-    if (pendingCmd.hasPump) {
-      pendingCmd.hasPump = false;
-      if (pendingCmd.pumpOn && !pumpState) {
-        setPump(true); pumpAutoActive = false;
-      } else if (!pendingCmd.pumpOn && pumpState) {
-        setPump(false); pumpLocked = true;
-        adminActive = false; adminUntil = 0;
+    updateSoil(); updateWater(); updateDHT();
+
+    // Trong AP mode: chi check DUNG bom (timeout / dat du am), KHONG auto-trigger
+    // (handlePump() full se tu bat bom khi dat kho -- khong phu hop AP mode thu cong)
+    if (!adminActive && pumpState) {
+      unsigned long now_p = millis();
+      int raw = analogRead(SOIL_PIN);
+      int liveSoil = 0;
+      if (raw >= 100 && raw <= 4090) {
+        liveSoil = max(1, constrain(multiPointMap(raw), 0, 100));
+      }
+      bool timeout = (now_p - pumpStartTime >= PUMP_MAX_MS);
+      bool soilOK  = (liveSoil >= PUMP_SOIL_OFF);
+      if (timeout || soilOK) {
+        setPump(false);
+        pumpLocked = true;
+        soilPercent = liveSoil;
+        pumpAutoCooldownUntil = now_p + PUMP_AUTO_COOLDOWN_MS;
+        Serial.printf("[AP Bom] Tu dung: %s\n", timeout ? "het 25s" : "dat du am");
+        tftForceRedraw = true;
+      } else {
+        soilPercent = liveSoil;
       }
     }
-    if (pendingCmd.hasUnlock) {
-      pendingCmd.hasUnlock = false;
-      if (pendingCmd.unlockOn) { pumpLocked = false; pumpAutoCooldownUntil = 0; }
-      manualUnlock = pendingCmd.unlockOn;
-    }
 
-    updateSoil(); updateWater(); updateDHT();
-    handlePump();
     manageTFT();
     delay(10);
     return;
