@@ -122,15 +122,15 @@
   }
 }
 
-/* Ocean scrollbar */
+/* Arcane scrollbar */
 ::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: #000814; }
+::-webkit-scrollbar-track { background: #000010; }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, rgba(0,119,182,0.5), rgba(0,180,216,0.35));
+  background: linear-gradient(to bottom, rgba(120,60,255,0.4), rgba(80,0,200,0.3));
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, rgba(0,180,216,0.7), rgba(144,224,239,0.5));
+  background: linear-gradient(to bottom, rgba(160,100,255,0.6), rgba(100,20,240,0.5));
 }
 
 /* ─── Running Border (CSS @property + mask — single arc chạy theo viền) ─── */
@@ -259,14 +259,6 @@
 /* Gradient text utility */
 .arcane-text {
   background: linear-gradient(135deg, #e2d9ff 0%, #c084fc 35%, #818cf8 65%, #38bdf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Ocean gradient text */
-.ocean-gradient-text {
-  background: linear-gradient(135deg, #caf0f8 0%, #90e0ef 30%, #00b4d8 65%, #0077b6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
