@@ -11,8 +11,7 @@ import avatarVideo from "@/assets/avatar-gojo.mp4";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
-const VIDEO_URL =
-  "https://res.cloudinary.com/dfonotyfb/video/upload/v1775585556/dds3_1_rqhg7x.mp4";
+const VIDEO_URL = "/hero-bg.mp4";
 
 const CONTACTS = [
   { icon: Github, label: "GitHub", value: "khang26042012", href: "https://github.com/khang26042012", isReactIcon: false },
