@@ -11,7 +11,7 @@ import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
 import { ToolVideoBg } from "@/components/ToolVideoBg";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
-const MAX_CHARS = 2000;
+const MAX_CHARS = Infinity;
 const ACCEPTED = ".txt,.md,.doc,.docx,.csv,.json,.html,.xml,.jpg,.jpeg,.png,.webp,.gif,.bmp";
 
 /* ── AnimBorderCard ── */
@@ -532,14 +532,14 @@ export function TextFormatter() {
                   <div style={{ padding: "4px 4px 0" }}>
                     <textarea
                       value={textInput}
-                      onChange={e => setTextInput(e.target.value.slice(0, MAX_CHARS))}
+                      onChange={e => setTextInput(e.target.value)}
                       placeholder="Dán hoặc nhập văn bản cần định dạng vào đây..."
                       rows={10}
                       style={{ width: "100%", background: "transparent", border: "none", outline: "none", color: "rgba(255,255,255,0.82)", fontSize: 13.5, lineHeight: 1.75, resize: "vertical", padding: "12px 14px", fontFamily: FONT, caretColor: "rgba(255,255,255,0.7)", boxSizing: "border-box" }}
                     />
                     <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 14px 10px" }}>
-                      <span style={{ fontSize: 11, color: textInput.length > MAX_CHARS * 0.9 ? "rgba(255,180,80,0.7)" : "rgba(255,255,255,0.2)" }}>
-                        {textInput.length} / {MAX_CHARS}
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
+                        {textInput.length} / ∞
                       </span>
                     </div>
                   </div>
