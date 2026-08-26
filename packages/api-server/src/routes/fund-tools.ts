@@ -40,6 +40,41 @@ function getRandomPlayer(): string {
   return ALL_PLAYERS[Math.floor(Math.random() * ALL_PLAYERS.length)];
 }
 
+// Xử lý cookie chuẩn từ response headers
+function extractCookies(res: any, existingCookies: string[] = []): string[] {
+  const cookieMap = new Map<string, string>();
+  
+  // Nạp cookie hiện có
+  for (const c of existingCookies) {
+    const [k, v] = c.split("=");
+    if (k && v) cookieMap.set(k.trim(), v.trim());
+  }
+
+  let setCookieHeaders: string[] = [];
+  if (typeof res.headers.getSetCookie === "function") {
+    setCookieHeaders = res.headers.getSetCookie();
+  } else {
+    const raw = res.headers.get("set-cookie");
+    if (raw) setCookieHeaders = [raw];
+  }
+
+  for (const header of setCookieHeaders) {
+    const parts = header.split(";");
+    const cookiePart = parts[0];
+    if (cookiePart && cookiePart.includes("=")) {
+      const [k, ...valParts] = cookiePart.split("=");
+      const v = valParts.join("=");
+      if (k && v) cookieMap.set(k.trim(), v.trim());
+    }
+  }
+
+  const result: string[] = [];
+  cookieMap.forEach((v, k) => {
+    result.push(`${k}=${v}`);
+  });
+  return result;
+}
+
 async function generateLinkForHost(hostKey: string, playerName: string) {
   const config = HOST_CONFIGS[hostKey];
   if (!config) throw new Error(`Không tìm thấy cấu hình cho host ${hostKey}`);
@@ -48,7 +83,6 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
   const nonce = crypto.randomUUID();
   const mcUuid = crypto.randomUUID();
 
-  // Định dạng JSON body chuẩn với separators (',', ':') giống Python
   const bodyData = {
     server_id: config.serverId,
     minecraft_uuid: mcUuid,
@@ -57,12 +91,12 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
   };
   const bodyStr = JSON.stringify(bodyData);
 
-  // Chuỗi HMAC signature chuẩn: ts.nonce.body
   const payload = `${ts}.${nonce}.${bodyStr}`;
   const sig = hmacHex(config.secret, payload);
 
   let startUrl = "";
   let lastErr = "";
+  let cookies: string[] = [];
 
   try {
     const res = await fetch(`${PANEL_URL}/api/server-contributions/session`, {
@@ -78,6 +112,8 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
       body: bodyStr
     });
 
+    cookies = extractCookies(res, cookies);
+
     if (res.ok) {
       const json = await res.json();
       startUrl = json.url || "";
@@ -85,11 +121,7 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
       const errText = await res.text();
       try {
         const errJson = JSON.parse(errText);
-        if (errJson.message) {
-          lastErr = errJson.message;
-        } else {
-          lastErr = errText;
-        }
+        lastErr = errJson.message || errText;
       } catch (e) {
         lastErr = errText;
       }
@@ -107,13 +139,17 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
     };
   }
 
-  // Bước 2: Lấy HTML từ startUrl để trích xuất _token
+  // Bước 2: Lấy HTML từ startUrl để trích xuất CSRF token
   try {
     const startRes = await fetch(startUrl, {
-      headers: { "User-Agent": USER_AGENT }
+      headers: { 
+        "User-Agent": USER_AGENT,
+        "Cookie": cookies.join("; ")
+      }
     });
+
+    cookies = extractCookies(startRes, cookies);
     const html = await startRes.text();
-    const setCookie = startRes.headers.get("set-cookie") || "";
 
     const csrfMatch = html.match(/name="_token"\s+value="([^"]+)"/);
     if (!csrfMatch) {
@@ -134,7 +170,7 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": USER_AGENT,
-        "Cookie": setCookie
+        "Cookie": cookies.join("; ")
       },
       body: postBody,
       redirect: "manual"
