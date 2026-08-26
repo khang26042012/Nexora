@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Home, Wrench, MessageCircle, FolderKanban, ChevronDown, LucideIcon } from "lucide-react";
+import { Home, Coins, MessageCircle, FolderKanban, ChevronDown, LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import avatarImg from "@/assets/avatar_new.jpg";
@@ -18,14 +18,14 @@ type NavItem = {
 
 const NAV_LINKS: NavItem[] = [
   { name: "Trang chủ", href: "/",     icon: Home,          accent: "rgba(180,220,255,0.7)" },
-  { name: "Tool",       href: "/tool", icon: Wrench,        accent: "rgba(180,255,210,0.7)" },
+  { name: "Panel Coin Host", href: "/panel-coin-host", icon: Coins, accent: "rgba(255,225,130,0.75)" },
   { name: "Chat Bot",   href: "/chat", icon: MessageCircle, accent: "rgba(220,180,255,0.7)" },
   { name: "Project",    href: "/project", icon: FolderKanban,  accent: "rgba(255,210,160,0.7)" },
 ];
 
 function getActiveFromLocation(loc: string): string {
   if (loc.startsWith("/chat")) return "/chat";
-  if (loc.startsWith("/tool")) return "/tool";
+  if (loc.startsWith("/panel-coin-host")) return "/panel-coin-host";
   if (loc.startsWith("/project")) return "/project";
   return "/";
 }
