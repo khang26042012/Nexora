@@ -11,6 +11,7 @@ const Chat = lazy(() => import("@/pages/Chat").then(m => ({ default: m.Chat })))
 const PanelCoinHost = lazy(() => import("@/pages/PanelCoinHost").then(m => ({ default: m.PanelCoinHost })));
 const Admin = lazy(() => import("@/pages/Admin").then(m => ({ default: m.Admin })));
 const Project = lazy(() => import("@/pages/Project").then(m => ({ default: m.Project })));
+const FundTools = lazy(() => import("@/pages/FundTools"));
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/project" component={Project} />
         <Route path="/panel-coin-host" component={PanelCoinHost} />
+        <Route path="/fund-tools" component={FundTools} />
         <Route path="/chat" component={Chat} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
