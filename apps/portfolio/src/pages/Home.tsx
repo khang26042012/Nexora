@@ -43,7 +43,6 @@ const TIMELINE = [
 const PROJECTS = [
   { title: "NexoraGarden", subtitle: "IoT Smart Garden System", desc: "Hệ thống vườn thông minh kết hợp ESP32, WebSocket real-time, Telegram Bot và AI phân tích dữ liệu cảm biến. Cho phép theo dõi và điều khiển vườn từ xa 24/7 qua web dashboard và Telegram.", tags: ["ESP32", "React", "WebSocket", "Telegram Bot", "SQLite", "Railway"], href: "https://github.com/khang26042012/Nexora", live: true },
   { title: "NexoraAI", subtitle: "AI Assistant tích hợp Telegram", desc: "Hệ thống AI assistant thông minh tích hợp Google Gemini API, hoạt động trực tiếp qua Telegram Bot. Hỗ trợ trả lời câu hỏi, phân tích văn bản và xử lý thông tin theo ngữ cảnh.", tags: ["Google Gemini", "Telegram Bot", "Node.js", "Express"], href: "https://github.com/khang26042012" },
-  { title: "NexoraTool", subtitle: "Video Downloader Platform", desc: "Nền tảng tải video từ YouTube, Streamable và 1000+ trang web với yt-dlp + ffmpeg. Hỗ trợ nhiều định dạng và chất lượng đến 4K, giao diện web đơn giản, dễ sử dụng.", tags: ["yt-dlp", "ffmpeg", "Node.js", "React", "Vite"], href: "/tool/yt-downloader", internal: true },
 ];
 
 const glass: React.CSSProperties = {
