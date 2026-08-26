@@ -18,6 +18,7 @@ import codereviewRouter from "./codereview";
 import emailwriterRouter from "./emailwriter";
 import promptimageRouter from "./promptimage";
 import tempmailRouter from "./tempmail";
+import panelRouter from "./panel";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(codereviewRouter);
 router.use(emailwriterRouter);
 router.use(promptimageRouter);
 router.use(tempmailRouter);
+router.use(panelRouter);
 
 export default router;
