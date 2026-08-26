@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 
 const router = Router();
 
-// Cấu hình 3 host từ 3 script Python
+// Cấu hình 3 host chuẩn xác từ 3 script Python
 const HOST_CONFIGS: Record<string, { name: string; serverId: string; secret: string }> = {
   "aecf0f75": { // KhangSMP2
     name: "KhangSMP2",
@@ -40,7 +40,6 @@ function getRandomPlayer(): string {
   return ALL_PLAYERS[Math.floor(Math.random() * ALL_PLAYERS.length)];
 }
 
-// Hàm sinh link đóng góp trực tiếp cho 1 host với fallback signature chuẩn
 async function generateLinkForHost(hostKey: string, playerName: string) {
   const config = HOST_CONFIGS[hostKey];
   if (!config) throw new Error(`Không tìm thấy cấu hình cho host ${hostKey}`);
@@ -49,64 +48,66 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
   const nonce = crypto.randomUUID();
   const mcUuid = crypto.randomUUID();
 
-  // Tạo cả 2 định dạng JSON body (Standard Python json.dumps vs Compact JSON)
+  // Định dạng JSON body chuẩn với separators (',', ':') giống Python
   const bodyData = {
     server_id: config.serverId,
     minecraft_uuid: mcUuid,
     minecraft_name: playerName,
     playtime_seconds: 900
   };
+  const bodyStr = JSON.stringify(bodyData);
 
-  const bodyCompact = JSON.stringify(bodyData); // {"server_id":"...","minecraft_uuid":"..."}
-  const bodyStandard = `{"server_id": "${config.serverId}", "minecraft_uuid": "${mcUuid}", "minecraft_name": "${playerName}", "playtime_seconds": 900}`; // With spaces like Python default
-
-  // Danh sách kết hợp body + candidate payload formulas
-  const attempts = [
-    { body: bodyCompact, payload: `${ts}.${nonce}.${bodyCompact}` },
-    { body: bodyStandard, payload: `${ts}.${nonce}.${bodyStandard}` },
-    { body: bodyCompact, payload: `${ts}${nonce}${bodyCompact}` },
-    { body: bodyStandard, payload: `${ts}${nonce}${bodyStandard}` },
-    { body: bodyCompact, payload: `${bodyCompact}${ts}${nonce}` },
-    { body: bodyCompact, payload: `${nonce}.${ts}.${bodyCompact}` },
-    { body: bodyCompact, payload: `${ts}|${nonce}|${bodyCompact}` }
-  ];
+  // Chuỗi HMAC signature chuẩn: ts.nonce.body
+  const payload = `${ts}.${nonce}.${bodyStr}`;
+  const sig = hmacHex(config.secret, payload);
 
   let startUrl = "";
   let lastErr = "";
 
-  for (const { body, payload } of attempts) {
-    const sig = hmacHex(config.secret, payload);
-    try {
-      const res = await fetch(`${PANEL_URL}/api/server-contributions/session`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Plugin-Timestamp": ts.toString(),
-          "X-Plugin-Nonce": nonce,
-          "X-Plugin-Signature": sig,
-          "X-Plugin-Version": "NvnServerSupport/1.0.0",
-          "User-Agent": USER_AGENT
-        },
-        body
-      });
+  try {
+    const res = await fetch(`${PANEL_URL}/api/server-contributions/session`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Plugin-Timestamp": ts.toString(),
+        "X-Plugin-Nonce": nonce,
+        "X-Plugin-Signature": sig,
+        "X-Plugin-Version": "NvnServerSupport/1.0.0",
+        "User-Agent": USER_AGENT
+      },
+      body: bodyStr
+    });
 
-      if (res.ok) {
-        const json = await res.json();
-        startUrl = json.url || "";
-        if (startUrl) break;
-      } else {
-        lastErr = await res.text();
+    if (res.ok) {
+      const json = await res.json();
+      startUrl = json.url || "";
+    } else {
+      const errText = await res.text();
+      try {
+        const errJson = JSON.parse(errText);
+        if (errJson.message) {
+          lastErr = errJson.message;
+        } else {
+          lastErr = errText;
+        }
+      } catch (e) {
+        lastErr = errText;
       }
-    } catch (e: any) {
-      lastErr = e.message;
     }
+  } catch (e: any) {
+    lastErr = e.message;
   }
 
   if (!startUrl) {
-    return { success: false, error: `Không tạo được session: ${lastErr.slice(0, 100)}` };
+    return { 
+      success: false, 
+      error: lastErr.includes("reached its contribution limit") 
+        ? "Máy chủ đã đạt giới hạn đóng góp trong ngày trên Panel!" 
+        : `Không tạo được session: ${lastErr.slice(0, 100)}` 
+    };
   }
 
-  // Bước 2: Lấy CSRF token từ startUrl
+  // Bước 2: Lấy HTML từ startUrl để trích xuất _token
   try {
     const startRes = await fetch(startUrl, {
       headers: { "User-Agent": USER_AGENT }
@@ -143,7 +144,7 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
     if (location) {
       return { success: true, link: location, player: playerName };
     } else {
-      return { success: false, error: `Không nhận được redirect Location (${genRes.status})` };
+      return { success: false, error: `Không nhận được redirect Link4m (${genRes.status})` };
     }
   } catch (e: any) {
     return { success: false, error: `Lỗi xử lý tạo link: ${e.message}` };
