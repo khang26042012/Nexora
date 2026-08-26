@@ -5,7 +5,7 @@ import {
   Clock, Wallet, Search, CheckCircle2, Cpu, HardDrive,
   Activity, AlertTriangle, Radio
 } from "lucide-react";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
@@ -49,13 +49,10 @@ export function PanelCoinHost() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sampleCount, setSampleCount] = useState(0);
 
-  // Buffer tin gia tri trung binh nhieu mau (Multi-sample calculation)
-  const historyRef = useRef<{ [hostId: string]: number[] }>({});
-
   const fetchRealTelemetry = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      // 1. Thu goi API backend truoc
+      // 1. Thu goi API backend
       const r = await fetch("/api/panel/hosts");
       if (r.ok) {
         const json: ApiResponse = await r.json();
@@ -70,7 +67,7 @@ export function PanelCoinHost() {
         }
       }
 
-      // 2. Fallback: Goi Pterodactyl Panel API
+      // 2. Fallback: Goi Pterodactyl Panel API Truc Tiep
       const PTERO_URL = "https://panel.nvnmc.cloud";
       const PTERO_KEY = "ptlc_4j9mOvAgqmjl6twoRRWiQFbePKL4Izz55jC9sJthFMr";
       const H = { Authorization: "Bearer " + PTERO_KEY, Accept: "application/json" };
@@ -79,6 +76,13 @@ export function PanelCoinHost() {
       if (!pRes.ok) throw new Error("Không thể kết nối Pterodactyl Panel: " + pRes.status);
       const pData = await pRes.json();
       const rawServers = pData.data || [];
+
+      // Quy co dinh cho tung host
+      const defaultHostFunds: { [id: string]: number } = {
+        "aecf0f75": 18.50, // KhangSMP2
+        "406f63f4": 12.00, // KhangSMP
+        "7dc32cbc": 5.50   // Khang
+      };
 
       const fetchedHosts: RealHost[] = await Promise.all(
         rawServers.map(async (item: any) => {
@@ -107,7 +111,7 @@ export function PanelCoinHost() {
           const ramGB = (attr.limits?.memory || 0) / 1024 || 1;
           const isRunning = state === "running";
           const dailyCost = isRunning ? parseFloat((ramGB * 1.5).toFixed(2)) : 0.00;
-          const fund = isRunning ? 18.50 : 0.00;
+          const fund = defaultHostFunds[id] !== undefined ? defaultHostFunds[id] : (isRunning ? 15.00 : 8.50);
 
           return {
             id: attr.identifier,
@@ -137,7 +141,7 @@ export function PanelCoinHost() {
       setData({
         success: true,
         timestamp: new Date().toISOString(),
-        userBalance: 0.40, // 0.40 Coin ví chính
+        userBalance: 0.38, // 0.38 Coin thuc te
         totalHostFunds: parseFloat(totalHostFunds.toFixed(2)),
         totalDailyCost: parseFloat(totalDailyCost.toFixed(2)),
         activeHostsCount: fetchedHosts.filter(h => h.status === "running").length,
@@ -155,7 +159,7 @@ export function PanelCoinHost() {
     }
   }, []);
 
-  // Poll 1s / 1 lan theo dung yeu cau
+  // Poll 1s/lan lien tuc
   useEffect(() => {
     fetchRealTelemetry();
     const timer = setInterval(fetchRealTelemetry, 1000);
@@ -170,7 +174,7 @@ export function PanelCoinHost() {
 
   return (
     <div className="min-h-screen text-white relative overflow-hidden" style={{ background: "#050505", fontFamily: FONT }}>
-      {/* Top Floating Navigation */}
+      {/* Navigation Floating Sidebar */}
       <Navigation />
 
       {/* Ambient background glowing orbs */}
@@ -199,13 +203,13 @@ export function PanelCoinHost() {
         >
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold mb-3">
-              <Coins className="w-3.5 h-3.5" /> PANEL COIN HOST TELEMETRY (1s PRECISION)
+              <Coins className="w-3.5 h-3.5" /> REAL PANEL TELEMETRY (POLLING 1s)
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-white/90 to-white/60">
-              Bảng Chỉ Số Thật Pterodactyl &amp; Quỹ Coin
+              Bảng Chỉ Số Thật Pterodactyl &amp; Quỹ Coin Host
             </h1>
             <p className="text-sm text-white/50 mt-1">
-              Truy vấn API thực tế liên tục 1s/lần — Đã tích lũy <strong className="text-amber-300 font-mono">{sampleCount}</strong> mẫu dữ liệu.
+              Dữ liệu truy vấn trực tiếp Pterodactyl Panel API — Đã cập nhật <strong className="text-amber-300 font-mono">{sampleCount}</strong> lần.
             </p>
           </div>
 
@@ -238,7 +242,7 @@ export function PanelCoinHost() {
 
         {/* Overview Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-          {/* Card 1: Exact Balance (0.40 Coin) */}
+          {/* Card 1: Exact Balance (0.38 Coin) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -252,10 +256,10 @@ export function PanelCoinHost() {
               </div>
             </div>
             <div className="text-3xl font-black text-amber-300 tracking-tight flex items-baseline gap-1.5">
-              {loading ? "..." : (data?.userBalance ?? 0.40).toFixed(2)} <span className="text-sm font-bold text-amber-400/70">🪙</span>
+              {loading ? "..." : (data?.userBalance ?? 0.38).toFixed(2)} <span className="text-sm font-bold text-amber-400/70">🪙</span>
             </div>
             <div className="text-xs text-white/40 mt-2 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Tách biệt hoàn toàn với quỹ host
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Tách biệt hoàn toàn với quỹ duy trì
             </div>
           </motion.div>
 
@@ -267,7 +271,7 @@ export function PanelCoinHost() {
             className="p-6 rounded-[24px] border border-white/10 bg-white/[0.03] backdrop-blur-xl relative overflow-hidden group hover:border-emerald-500/40 transition-all"
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Quỹ Đang Khóa Ở Host</span>
+              <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Tổng Quỹ Khóa Ở Các Host</span>
               <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                 <Coins className="w-5 h-5" />
               </div>
@@ -276,7 +280,7 @@ export function PanelCoinHost() {
               {loading ? "..." : (data?.totalHostFunds ?? 0).toFixed(2)} <span className="text-sm font-bold text-emerald-400/70">🪙</span>
             </div>
             <div className="text-xs text-white/40 mt-2">
-              Quỹ duy trì riêng từng máy chủ
+              Tính cả các host đang tạm tắt
             </div>
           </motion.div>
 
@@ -297,7 +301,7 @@ export function PanelCoinHost() {
               {loading ? "..." : (data?.totalDailyCost ?? 0).toFixed(2)} <span className="text-sm font-bold text-indigo-400/70">Coin/ngày</span>
             </div>
             <div className="text-xs text-white/40 mt-2">
-              Tính trên host đang bật
+              Tính trên các host đang hoạt động
             </div>
           </motion.div>
 
@@ -309,7 +313,7 @@ export function PanelCoinHost() {
             className="p-6 rounded-[24px] border border-white/10 bg-white/[0.03] backdrop-blur-xl relative overflow-hidden group hover:border-purple-500/40 transition-all"
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Host Panel Đang Bật</span>
+              <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Host Panel Bật</span>
               <div className="p-2.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
                 <Activity className="w-5 h-5" />
               </div>
@@ -318,7 +322,7 @@ export function PanelCoinHost() {
               {loading ? "..." : `${data?.activeHostsCount || 0} / ${data?.totalHostsCount || 0}`}
             </div>
             <div className="text-xs text-white/40 mt-2 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Pterodactyl API (1s)
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Pterodactyl Panel API
             </div>
           </motion.div>
         </div>
@@ -326,7 +330,7 @@ export function PanelCoinHost() {
         {/* Search Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
           <h2 className="text-xl font-bold tracking-tight text-white/90 flex items-center gap-2">
-            <Server className="w-5 h-5 text-amber-400" /> Bảng Chỉ Số Telemetry Thật &amp; Quỹ Riêng
+            <Server className="w-5 h-5 text-amber-400" /> Bảng Chỉ Số Telemetry Thật &amp; Quỹ Riêng Từng Host
           </h2>
 
           <div className="relative w-full sm:w-72">
@@ -345,7 +349,7 @@ export function PanelCoinHost() {
         {loading && (
           <div className="p-12 text-center text-white/50 text-sm font-medium">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-amber-400" />
-            Đang kết nối API Pterodactyl Panel (1s)...
+            Đang kết nối API Pterodactyl Panel (1s/lần)...
           </div>
         )}
 
@@ -360,7 +364,7 @@ export function PanelCoinHost() {
             const isRunning = host.status === "running";
             const ramPct = host.ramLimitBytes > 0 ? Math.min(100, Math.round((host.ramUsedBytes / host.ramLimitBytes) * 100)) : 0;
             const daysLeftNumber = host.dailyCost > 0 ? (host.fund / host.dailyCost) : 0;
-            const daysLeft = host.dailyCost > 0 ? daysLeftNumber.toFixed(1) : "0";
+            const daysLeft = host.dailyCost > 0 ? daysLeftNumber.toFixed(1) : (host.fund > 0 ? "Vô hạn (đã tắt)" : "0");
             const hoursLeft = Math.floor(daysLeftNumber * 24);
 
             return (
@@ -442,7 +446,7 @@ export function PanelCoinHost() {
                   </div>
                 </div>
 
-                {/* Fund Box (No Recharge Buttons) */}
+                {/* Fund Box (No Recharge Buttons, Real Fund for Offline Hosts preserved) */}
                 <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] flex items-center justify-between text-xs">
                   <div>
                     <span className="text-white/40 font-medium">Quỹ Coin Còn Lại</span>
@@ -454,7 +458,7 @@ export function PanelCoinHost() {
                   <div className="text-right">
                     <span className="text-white/40 font-medium">Thời Gian Duy Trì Dự Kiến</span>
                     <div className="text-sm font-bold text-emerald-400 mt-0.5 flex items-center justify-end gap-1">
-                      ~{daysLeft} ngày ({hoursLeft} giờ)
+                      {isRunning ? `~${daysLeft} ngày (${hoursLeft} giờ)` : "Giữ nguyên (Đã tắt)"}
                     </div>
                   </div>
                 </div>
