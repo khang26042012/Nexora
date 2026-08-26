@@ -5,12 +5,11 @@ const router = Router();
 const PTERO_URL = process.env.PTERO_URL || "https://panel.nvnmc.cloud";
 const PTERO_KEY = process.env.PTERO_KEY || "ptlc_4j9mOvAgqmjl6twoRRWiQFbePKL4Izz55jC9sJthFMr";
 
-// Virtual database in-memory / persistent file store for funds
-let userBalance = 0.38; // Default user main wallet balance
-const hostFunds: { [id: string]: number } = {
-  "aecf0f75": 18.50, // KhangSMP2
-  "406f63f4": 12.00, // KhangSMP (Offline but still has fund!)
-  "7dc32cbc": 5.50   // Khang (Offline but still has fund!)
+// Quy co dinh rieng cho tung host trong he thong Pterodactyl (Ke ca host dang tat)
+const HOST_FUNDS: { [identifier: string]: number } = {
+  "aecf0f75": 18.50, // KhangSMP2 (16GB RAM)
+  "406f63f4": 12.00, // KhangSMP (8GB RAM - Dang tat nhung con quy 12.00 Coin)
+  "7dc32cbc": 5.50   // Khang (4GB RAM - Dang tat nhung con quy 5.50 Coin)
 };
 
 router.get("/panel/hosts", async (req: Request, res: Response) => {
@@ -20,6 +19,7 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
       Accept: "application/json"
     };
 
+    // 1. Truy van danh sach may chu that tu Pterodactyl Panel Client API
     const serverListRes = await fetch(PTERO_URL + "/api/client", { headers });
     if (!serverListRes.ok) {
       throw new Error("Lỗi kết nối Pterodactyl Panel API: " + serverListRes.status);
@@ -28,13 +28,13 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
     const serverListData = await serverListRes.json();
     const rawServers = serverListData.data || [];
 
+    // 2. Lay thong so phan cung & resources thoi gian thuc tung may chu
     const hosts = await Promise.all(
       rawServers.map(async (item: any) => {
         const attr = item.attributes;
         const id = attr.identifier;
         let state = "offline";
         let ramBytes = 0;
-        let ramLimitBytes = (attr.limits?.memory || 0) * 1024 * 1024;
         let cpuPercent = 0;
         let diskBytes = 0;
         let uptimeMs = 0;
@@ -52,13 +52,21 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
           }
         } catch (e) {}
 
-        const ramGB = (attr.limits?.memory || 0) / 1024 || 1;
-        const isRunning = state === "running";
-        
-        // Chi phi duy tri duoc tinh theo dung RAM/Specs cap cho host
+        const ramLimitMB = attr.limits?.memory || 1024;
+        const ramLimitBytes = ramLimitMB * 1024 * 1024;
+        const cpuLimitPercent = attr.limits?.cpu || 100;
+        const diskLimitMB = attr.limits?.disk || 1024;
+        const diskLimitBytes = diskLimitMB * 1024 * 1024;
+
+        // Allocation IP & Port
+        const defaultAlloc = attr.relationships?.allocations?.data?.find((a: any) => a.attributes?.is_default)?.attributes || attr.relationships?.allocations?.data?.[0]?.attributes || {};
+        const ipAlias = defaultAlloc.ip_alias || "nvnmc.asia";
+        const port = defaultAlloc.port || 25565;
+
+        // Chi phi coin/ngay va quy hien co
+        const ramGB = ramLimitMB / 1024;
         const dailyCost = parseFloat((ramGB * 1.5).toFixed(2));
-        // Lấy quỹ thực tế từ bảng theo dõi (Kể cả host đang offline cũng có quỹ riêng!)
-        const fund = hostFunds[id] !== undefined ? hostFunds[id] : (isRunning ? 15.00 : 8.50);
+        const fund = HOST_FUNDS[id] !== undefined ? HOST_FUNDS[id] : 10.00;
 
         return {
           id: attr.identifier,
@@ -66,16 +74,19 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
           name: attr.name,
           node: attr.node,
           type: "Pterodactyl Node Host",
-          ip: `${attr.node.toLowerCase()}.nvnmc.cloud`,
-          status: state,
+          ip: `${ipAlias}:${port}`,
+          status: state, // "running" | "offline" | "starting"
           fund,
           dailyCost,
-          ramUsedBytes: ramBytes,
+          ramLimitMB,
           ramLimitBytes,
-          ramFormatted: `${(ramBytes / 1073741824).toFixed(2)} GB / ${(ramLimitBytes / 1073741824).toFixed(0)} GB`,
+          ramUsedBytes: ramBytes,
+          ramFormatted: `${(ramBytes / 1073741824).toFixed(2)} GB / ${(ramLimitMB / 1024).toFixed(0)} GB`,
+          cpuLimitPercent,
           cpuPercent: parseFloat(cpuPercent.toFixed(1)),
-          diskBytes,
-          diskFormatted: `${(diskBytes / 1073741824).toFixed(2)} GB`,
+          diskLimitMB,
+          diskUsedBytes: diskBytes,
+          diskFormatted: `${(diskBytes / 1073741824).toFixed(2)} GB / ${(diskLimitMB / 1024).toFixed(0)} GB`,
           uptimeMs,
           uptimeFormatted: uptimeMs > 0 ? `${Math.floor(uptimeMs / 3600000)}h ${Math.floor((uptimeMs % 3600000) / 60000)}m ${Math.floor((uptimeMs % 60000) / 1000)}s` : "0h 0m 0s"
         };
@@ -83,12 +94,13 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
     );
 
     const totalHostFunds = hosts.reduce((acc, h) => acc + h.fund, 0);
+    const userBalance = 0.38; // Vi chinh 0.38 Coin
     const totalDailyCost = hosts.reduce((acc, h) => acc + (h.status === "running" ? h.dailyCost : 0), 0);
 
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
-      userBalance: 0.38, // Balance thực tế 0.38 Coin
+      userBalance,
       totalHostFunds: parseFloat(totalHostFunds.toFixed(2)),
       totalDailyCost: parseFloat(totalDailyCost.toFixed(2)),
       activeHostsCount: hosts.filter(h => h.status === "running").length,
