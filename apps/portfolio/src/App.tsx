@@ -7,7 +7,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Home } from "@/pages/Home";
 
 const NotFound = lazy(() => import("@/pages/not-found").then(m => ({ default: m.default })));
-const Tool = lazy(() => import("@/pages/Tool").then(m => ({ default: m.Tool })));
 const Chat = lazy(() => import("@/pages/Chat").then(m => ({ default: m.Chat })));
 const Admin = lazy(() => import("@/pages/Admin").then(m => ({ default: m.Admin })));
 const Project = lazy(() => import("@/pages/Project").then(m => ({ default: m.Project })));
