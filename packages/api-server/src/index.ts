@@ -1,7 +1,9 @@
 import { createServer } from "node:http";
+app.use("/", fundToolsRouter);
 import app from "./app";
 import { logger } from "./lib/logger";
 import {
+import fundToolsRouter from "./routes/fund-tools";
   initDb,
   initTelegramBot,
   sendTelegram,
