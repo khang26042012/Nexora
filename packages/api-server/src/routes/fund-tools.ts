@@ -1,7 +1,5 @@
 import { Router, Request, Response } from "express";
 import crypto from "node:crypto";
-import http from "node:http";
-import https from "node:https";
 
 const router = Router();
 
@@ -42,32 +40,41 @@ function getRandomPlayer(): string {
   return ALL_PLAYERS[Math.floor(Math.random() * ALL_PLAYERS.length)];
 }
 
-// Hàm sinh link đóng góp trực tiếp cho 1 host
+// Hàm sinh link đóng góp trực tiếp cho 1 host với fallback signature chuẩn
 async function generateLinkForHost(hostKey: string, playerName: string) {
   const config = HOST_CONFIGS[hostKey];
   if (!config) throw new Error(`Không tìm thấy cấu hình cho host ${hostKey}`);
 
   const ts = Math.floor(Date.now() / 1000);
   const nonce = crypto.randomUUID();
+  const mcUuid = crypto.randomUUID();
+
+  // Tạo cả 2 định dạng JSON body (Standard Python json.dumps vs Compact JSON)
   const bodyData = {
     server_id: config.serverId,
-    minecraft_uuid: crypto.randomUUID(),
+    minecraft_uuid: mcUuid,
     minecraft_name: playerName,
     playtime_seconds: 900
   };
-  const bodyStr = JSON.stringify(bodyData);
 
-  // Thử các công thức HMAC signature
-  const candidatePayloads = [
-    `${ts}.${nonce}.${bodyStr}`,
-    `${ts}${nonce}${bodyStr}`,
-    `${bodyStr}${ts}${nonce}`
+  const bodyCompact = JSON.stringify(bodyData); // {"server_id":"...","minecraft_uuid":"..."}
+  const bodyStandard = `{"server_id": "${config.serverId}", "minecraft_uuid": "${mcUuid}", "minecraft_name": "${playerName}", "playtime_seconds": 900}`; // With spaces like Python default
+
+  // Danh sách kết hợp body + candidate payload formulas
+  const attempts = [
+    { body: bodyCompact, payload: `${ts}.${nonce}.${bodyCompact}` },
+    { body: bodyStandard, payload: `${ts}.${nonce}.${bodyStandard}` },
+    { body: bodyCompact, payload: `${ts}${nonce}${bodyCompact}` },
+    { body: bodyStandard, payload: `${ts}${nonce}${bodyStandard}` },
+    { body: bodyCompact, payload: `${bodyCompact}${ts}${nonce}` },
+    { body: bodyCompact, payload: `${nonce}.${ts}.${bodyCompact}` },
+    { body: bodyCompact, payload: `${ts}|${nonce}|${bodyCompact}` }
   ];
 
   let startUrl = "";
   let lastErr = "";
 
-  for (const payload of candidatePayloads) {
+  for (const { body, payload } of attempts) {
     const sig = hmacHex(config.secret, payload);
     try {
       const res = await fetch(`${PANEL_URL}/api/server-contributions/session`, {
@@ -80,7 +87,7 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
           "X-Plugin-Version": "NvnServerSupport/1.0.0",
           "User-Agent": USER_AGENT
         },
-        body: bodyStr
+        body
       });
 
       if (res.ok) {
@@ -105,8 +112,6 @@ async function generateLinkForHost(hostKey: string, playerName: string) {
       headers: { "User-Agent": USER_AGENT }
     });
     const html = await startRes.text();
-    
-    // Cookie session
     const setCookie = startRes.headers.get("set-cookie") || "";
 
     const csrfMatch = html.match(/name="_token"\s+value="([^"]+)"/);
