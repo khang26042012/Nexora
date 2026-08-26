@@ -14,7 +14,7 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
 
     const serverListRes = await fetch(PTERO_URL + "/api/client", { headers });
     if (!serverListRes.ok) {
-      throw new Error("Loi ket noi Pterodactyl Panel: " + serverListRes.status);
+      throw new Error("Lỗi kết nối Pterodactyl Panel API: " + serverListRes.status);
     }
 
     const serverListData = await serverListRes.json();
@@ -42,14 +42,13 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
             diskBytes = rAttr.disk_bytes || 0;
             uptimeMs = rAttr.uptime || 0;
           }
-        } catch (e) {
-          // ignore individual server resource fetch error
-        }
+        } catch (e) {}
 
-        // Tinh gia tri Coin cho moi host dua tren RAM cap va Uptime
         const ramGB = (attr.limits?.memory || 0) / 1024 || 1;
-        const dailyCost = Math.round(ramGB * 10); // 1GB RAM = 10 Coin/ngay
-        const fund = Math.round(dailyCost * 18.5); // Quy uoc tinh quy
+        // Host dang chay thi moi tinh chi phi coin/ngay
+        const isRunning = state === "running";
+        const dailyCost = isRunning ? parseFloat((ramGB * 1.5).toFixed(2)) : 0.00; // e.g. 17GB = 25.5 Coin/ngay
+        const fund = isRunning ? 18.50 : 0.00; // Quy rieng cho host dang chay
 
         return {
           id: attr.identifier,
@@ -58,7 +57,7 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
           node: attr.node,
           type: "Pterodactyl Node Host",
           ip: `${attr.node.toLowerCase()}.nvnmc.cloud`,
-          status: state, // "running" | "offline" | "starting"
+          status: state,
           fund,
           dailyCost,
           ramUsedBytes: ramBytes,
@@ -68,21 +67,21 @@ router.get("/panel/hosts", async (req: Request, res: Response) => {
           diskBytes,
           diskFormatted: `${(diskBytes / 1073741824).toFixed(2)} GB`,
           uptimeMs,
-          uptimeFormatted: uptimeMs > 0 ? `${Math.floor(uptimeMs / 3600000)}h ${Math.floor((uptimeMs % 3600000) / 60000)}m` : "0h 0m"
+          uptimeFormatted: uptimeMs > 0 ? `${Math.floor(uptimeMs / 3600000)}h ${Math.floor((uptimeMs % 3600000) / 60000)}m ${Math.floor((uptimeMs % 60000) / 1000)}s` : "0h 0m 0s"
         };
       })
     );
 
     const totalHostFunds = hosts.reduce((acc, h) => acc + h.fund, 0);
-    const userBalance = 15420; // Coin ví chính tài khoản
-    const totalDailyCost = hosts.reduce((acc, h) => acc + (h.status === "running" ? h.dailyCost : 0), 0);
+    const userBalance = 0.40; // Exact user balance: 0.40 Coin
+    const totalDailyCost = hosts.reduce((acc, h) => acc + h.dailyCost, 0);
 
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
       userBalance,
-      totalHostFunds,
-      totalDailyCost,
+      totalHostFunds: parseFloat(totalHostFunds.toFixed(2)),
+      totalDailyCost: parseFloat(totalDailyCost.toFixed(2)),
       activeHostsCount: hosts.filter(h => h.status === "running").length,
       totalHostsCount: hosts.length,
       hosts
