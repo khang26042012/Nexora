@@ -146,9 +146,20 @@ function normalizeMetrics(raw: Record<string, unknown>): MetricsData {
     playersMax = p.max ?? p.limit ?? 50;
   }
   
-  // Handle Entities/Chunks
-  const entities = r.entities ?? r.entity_count ?? 0;
-  const chunks = r.chunks ?? r.chunk_count ?? r.loaded_chunks ?? 0;
+  // Handle Entities/Chunks - check both top-level and nested
+  let entities = r.entities ?? r.entity_count ?? 0;
+  let chunks = r.chunks ?? r.chunk_count ?? r.loaded_chunks ?? 0;
+  // Plugin might nest these under a "world" or "server" object
+  if (!entities && r.world) {
+    const w = r.world as Record<string, any>;
+    entities = w.entities ?? w.entity_count ?? 0;
+    chunks = w.chunks ?? w.chunk_count ?? w.loaded_chunks ?? 0;
+  }
+  if (!entities && r.server) {
+    const s = r.server as Record<string, any>;
+    entities = s.entities ?? s.entity_count ?? 0;
+    chunks = s.chunks ?? s.chunk_count ?? 0;
+  }
   
   // Handle Disk
   let disk: MetricsData["disk"] = undefined;
@@ -176,10 +187,20 @@ function normalizeMetrics(raw: Record<string, unknown>): MetricsData {
     chunks: Number(chunks),
     ram: { usedMB: ramUsedMB, maxMB: ramMaxMB, percent: ramPercent },
     cpu: { percent: Number(cpuPercent) },
-    network: {
-      inboundKBs: Number((r.network as any)?.inboundKBs ?? (r.network as any)?.inbound ?? 0),
-      outboundKBs: Number((r.network as any)?.outboundKBs ?? (r.network as any)?.outbound ?? 0),
-    },
+    network: (() => {
+      const net = r.network as Record<string, any> | undefined;
+      if (!net) return { inboundKBs: 0, outboundKBs: 0 };
+      // Try various field names the plugin might use
+      let inVal = net.inboundKBs ?? net.inbound ?? net.in ?? net.rx ?? net.bytesIn ?? 0;
+      let outVal = net.outboundKBs ?? net.outbound ?? net.out ?? net.tx ?? net.bytesOut ?? 0;
+      // If values look like bytes (very large), convert to KB
+      if (inVal > 100000) inVal = inVal / 1024;
+      if (outVal > 100000) outVal = outVal / 1024;
+      // If values look like MiB (small decimals like 1.08), convert to KB
+      if (inVal > 0 && inVal < 100 && !Number.isInteger(inVal)) inVal = inVal * 1024;
+      if (outVal > 0 && outVal < 100 && !Number.isInteger(outVal)) outVal = outVal * 1024;
+      return { inboundKBs: Math.round(inVal * 100) / 100, outboundKBs: Math.round(outVal * 100) / 100 };
+    })(),
     disk,
   };
 }
@@ -198,6 +219,23 @@ function TpsColor(tps: number): string {
   if (tps >= 18) return "rgba(74,222,128,0.95)";
   if (tps >= 15) return "rgba(250,204,21,0.95)";
   return "rgba(248,113,113,0.95)";
+}
+
+function ResourceColor(percent: number): string {
+  if (percent < 50) return "rgba(74,222,128,0.9)";
+  if (percent < 75) return "rgba(250,204,21,0.9)";
+  return "rgba(248,113,113,0.9)";
+}
+
+function ResourceGlow(percent: number): string {
+  if (percent < 50) return "0 0 20px rgba(74,222,128,0.15)";
+  if (percent < 75) return "0 0 20px rgba(250,204,21,0.15)";
+  return "0 0 20px rgba(248,113,113,0.15)";
+}
+
+function formatBytes(kb: number): string {
+  if (kb >= 1024) return (kb / 1024).toFixed(2) + " MB/s";
+  return kb.toFixed(1) + " KB/s";
 }
 
 function ProgressBar({ percent, color, height = 8 }: { percent: number; color: string; height?: number }) {
@@ -405,7 +443,7 @@ function ServerStatusInner() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-white/40">Name</span>
-                <span className="text-sm text-white/75 font-medium">{metrics.serverName}</span>
+                <span className="text-sm text-white/75 font-medium">Secret</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-white/40">Version</span>
@@ -450,9 +488,10 @@ function ServerStatusInner() {
           <StatCard title="CPU" icon={<CpuIcon />} delay={0.3}>
             <div className="space-y-3">
               <div className="flex items-end gap-2">
-                <span className="text-3xl font-bold text-white/95">{metrics.cpu.percent}%</span>
+                <span className="text-3xl font-bold" style={{ color: ResourceColor(metrics.cpu.percent), textShadow: ResourceGlow(metrics.cpu.percent) }}>{metrics.cpu.percent}%</span>
               </div>
-              <ProgressBar percent={metrics.cpu.percent} color={metrics.cpu.percent > 80 ? "rgba(248,113,113,0.9)" : "rgba(74,222,128,0.8)"} />
+              <ProgressBar percent={Math.min(metrics.cpu.percent, 100)} color={ResourceColor(metrics.cpu.percent)} />
+              <p className="text-xs text-white/35">Scaled display (2x actual)</p>
             </div>
           </StatCard>
 
@@ -460,11 +499,11 @@ function ServerStatusInner() {
           <StatCard title="Memory" icon={<CpuIcon />} delay={0.4}>
             <div className="space-y-3">
               <div className="flex items-end gap-2">
-                <span className="text-3xl font-bold text-white/95">{metrics.ram.usedMB}</span>
+                <span className="text-3xl font-bold" style={{ color: ResourceColor(metrics.ram.percent), textShadow: ResourceGlow(metrics.ram.percent) }}>{metrics.ram.usedMB}</span>
                 <span className="text-sm text-white/35 mb-1.5">/ {metrics.ram.maxMB} MB</span>
               </div>
-              <ProgressBar percent={metrics.ram.percent} color={metrics.ram.percent > 85 ? "rgba(248,113,113,0.9)" : "rgba(96,165,250,0.8)"} />
-              <p className="text-xs text-white/35">{metrics.ram.percent}% used</p>
+              <ProgressBar percent={metrics.ram.percent} color={ResourceColor(metrics.ram.percent)} />
+              <p className="text-xs text-white/35">{metrics.ram.percent}% used · Scaled 1.5x</p>
             </div>
           </StatCard>
 
@@ -472,20 +511,36 @@ function ServerStatusInner() {
           <StatCard title="Network" icon={<ActivityIcon />} delay={0.5}>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-white/40">Inbound</span>
-                <span className="text-sm font-bold text-white/75">{metrics.network.inboundKBs} KB/s</span>
+                <div className="flex items-center gap-1.5">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(96,165,250,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>
+                  <span className="text-xs text-white/40">Inbound</span>
+                </div>
+                <span className="text-sm font-bold" style={{ color: "rgba(96,165,250,0.9)" }}>{formatBytes(metrics.network.inboundKBs)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-white/40">Outbound</span>
-                <span className="text-sm font-bold text-white/75">{metrics.network.outboundKBs} KB/s</span>
+                <div className="flex items-center gap-1.5">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(168,85,247,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+                  <span className="text-xs text-white/40">Outbound</span>
+                </div>
+                <span className="text-sm font-bold" style={{ color: "rgba(168,85,247,0.9)" }}>{formatBytes(metrics.network.outboundKBs)}</span>
+              </div>
+            </div>
+          </StatCard>
+
+          {/* World Stats Card */}
+          <StatCard title="World" icon={<DiskIcon />} delay={0.55}>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-white/40">Entities</span>
+                <span className="text-lg font-bold text-white/80">{(metrics.entities ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-white/40">Loaded Chunks</span>
+                <span className="text-lg font-bold text-white/80">{(metrics.chunks ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <span className="text-xs text-white/40">Entities</span>
-                <span className="text-sm text-white/60">{(metrics.entities ?? 0).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-white/40">Chunks</span>
-                <span className="text-sm text-white/60">{(metrics.chunks ?? 0).toLocaleString()}</span>
+                <span className="text-xs text-white/40">MSPT</span>
+                <span className="text-sm font-medium" style={{ color: (metrics.mspt ?? 0) > 50 ? "rgba(248,113,113,0.9)" : "rgba(74,222,128,0.9)" }}>{(metrics.mspt ?? 0).toFixed(1)} ms</span>
               </div>
             </div>
           </StatCard>
