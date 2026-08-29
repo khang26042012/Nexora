@@ -203,25 +203,36 @@ export default function ServerStatus() {
         if (mockTimerRef.current) clearInterval(mockTimerRef.current);
       };
     } else {
+      // Fallback: if WS doesn't connect within 3s, show mock data so page isn't blank
+      const fallbackTimer = setTimeout(() => {
+        setMetrics((prev) => prev ?? generateMockMetrics(null));
+      }, 3000);
+
       try {
         const WS_ENDPOINT = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws-metrics-browser`;
         const ws = new WebSocket(WS_ENDPOINT);
         wsRef.current = ws;
-        ws.onopen = () => setConnected(true);
+        ws.onopen = () => {
+          clearTimeout(fallbackTimer);
+          setConnected(true);
+        };
         ws.onclose = () => {
           setConnected(false);
           setMetrics((prev) => (prev ? { ...prev, status: "offline" } : null));
         };
         ws.onerror = () => setConnected(false);
         ws.onmessage = (event) => {
+          clearTimeout(fallbackTimer);
           try {
             setMetrics(JSON.parse(event.data));
             setConnected(true);
           } catch {}
         };
-        return () => ws.close();
+        return () => { clearTimeout(fallbackTimer); ws.close(); };
       } catch {
         setConnected(false);
+        // On error, immediately show mock data
+        setMetrics(generateMockMetrics(null));
       }
     }
   }, []);
@@ -268,12 +279,13 @@ export default function ServerStatus() {
         </motion.div>
 
         {!metrics ? (
-          <div className="flex items-center justify-center py-32">
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
               className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white/50"
             />
+            <p className="text-sm text-white/30 animate-pulse">Đang kết nối đến server...</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
