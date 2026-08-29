@@ -305,6 +305,21 @@ function ServerStatusInner() {
       ws.onmessage = (event) => {
         try {
           const raw = JSON.parse(event.data);
+          console.log("[WS] Raw message:", JSON.stringify(raw));
+          
+          // Skip non-metrics messages (waiting/offline status from server)
+          if (raw.status === "waiting" || raw.status === "offline") {
+            console.log("[WS] Server reports:", raw.status, "- keeping current display");
+            setConnected(false);
+            return; // Don't overwrite metrics with empty data
+          }
+          
+          // Only update if we have actual metrics data (at least ram or players field)
+          if (!raw.ram && !raw.players && !raw.tps && !raw.cpu) {
+            console.warn("[WS] Received data without metrics fields, ignoring:", JSON.stringify(raw));
+            return;
+          }
+          
           const normalized = normalizeMetrics(raw);
           setMetrics(normalized);
           setConnected(true);
