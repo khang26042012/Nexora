@@ -187,7 +187,7 @@ export default function ServerStatus() {
           className="mb-8"
         >
           <h1 className="text-2xl font-bold text-white/90 mb-1">Server Status</h1>
-          <p className="text-sm text-white/35">Real-time monitoring • NexoraMC Infrastructure</p>
+          <p className="text-sm text-white/35">Real-time monitoring • NexoraMC Infrastructure • v2.1-fix</p>
         </motion.div>
 
         {!metrics ? (
