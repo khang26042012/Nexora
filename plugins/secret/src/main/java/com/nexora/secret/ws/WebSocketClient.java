@@ -1,12 +1,11 @@
 package com.nexora.secret.ws;
 
-import org.java_websocket.client.WebSocketClient as JWebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
 import java.net.URI;
 import java.util.logging.Logger;
 
-public class WebSocketClient extends JWebSocketClient {
+public class WebSocketClient extends org.java_websocket.client.WebSocketClient {
 
     private final Logger logger;
     private volatile boolean intentionalClose = false;
