@@ -18,9 +18,7 @@ const glass: React.CSSProperties = {
 // ═══════════════════════════════════════════════════════════
 // 🔧 CONFIG: Set to false when plugin WebSocket is ready
 const USE_MOCK_DATA = false;
-// WebSocket endpoint for server metrics (browser client)
-// Connects to api-server which relays data from Minecraft plugin
-const WS_ENDPOINT = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws-metrics-browser`;
+// WebSocket endpoint computed at runtime inside useEffect (avoids SSR/top-level window access)
 const MOCK_INTERVAL_MS = 1000;
 // ═══════════════════════════════════════════════════════════
 
@@ -206,6 +204,7 @@ export default function ServerStatus() {
       };
     } else {
       try {
+        const WS_ENDPOINT = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws-metrics-browser`;
         const ws = new WebSocket(WS_ENDPOINT);
         wsRef.current = ws;
         ws.onopen = () => setConnected(true);
