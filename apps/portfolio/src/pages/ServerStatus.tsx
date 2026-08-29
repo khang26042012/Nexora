@@ -204,34 +204,54 @@ export default function ServerStatus() {
       };
     } else {
       // Fallback: if WS doesn't connect within 3s, show mock data so page isn't blank
-      const fallbackTimer = setTimeout(() => {
-        setMetrics((prev) => prev ?? generateMockMetrics(null));
+      const fallbackTimer = setTimeout(function fallbackTimeout() {
+        setMetrics(function applyFallback(prev: MetricsData | null) {
+          if (prev !== null) return prev;
+          return generateMockMetrics(null);
+        });
       }, 3000);
 
       try {
-        const WS_ENDPOINT = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws-metrics-browser`;
-        const ws = new WebSocket(WS_ENDPOINT);
+        const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const host = window.location.host;
+        const wsUrl = proto + "//" + host + "/ws-metrics-browser";
+        const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
-        ws.onopen = () => {
+
+        ws.onopen = function handleWsOpen() {
           clearTimeout(fallbackTimer);
           setConnected(true);
         };
-        ws.onclose = () => {
+
+        ws.onclose = function handleWsClose() {
           setConnected(false);
-          setMetrics((prev) => (prev ? { ...prev, status: "offline" } : null));
+          setMetrics(function markOffline(prev: MetricsData | null) {
+            if (prev === null) return null;
+            return { ...prev, status: "offline" as const };
+          });
         };
-        ws.onerror = () => setConnected(false);
-        ws.onmessage = (event) => {
+
+        ws.onerror = function handleWsError() {
+          setConnected(false);
+        };
+
+        ws.onmessage = function handleWsMessage(event: MessageEvent) {
           clearTimeout(fallbackTimer);
           try {
-            setMetrics(JSON.parse(event.data));
+            const parsed = JSON.parse(event.data);
+            setMetrics(parsed);
             setConnected(true);
-          } catch {}
+          } catch (_parseErr) {
+            // ignore malformed messages
+          }
         };
-        return () => { clearTimeout(fallbackTimer); ws.close(); };
-      } catch {
+
+        return function cleanupWs() {
+          clearTimeout(fallbackTimer);
+          ws.close();
+        };
+      } catch (_wsError) {
         setConnected(false);
-        // On error, immediately show mock data
         setMetrics(generateMockMetrics(null));
       }
     }
