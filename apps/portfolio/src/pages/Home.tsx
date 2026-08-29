@@ -424,7 +424,7 @@ export function Home() {
 
                   <div className="w-full pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                     {[
-                      { label: "Năm sinh", value: "2012" },
+                      { label: "Năm sinh", value: "Secret" },
                       { label: "Kinh nghiệm", value: <><AnimCounter target={3} />+ năm</> },
                       { label: "Projects", value: <><AnimCounter target={10} />+</> },
                     ].map((row, i) => (
@@ -666,16 +666,13 @@ function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i:
   };
 
   return (
-    <motion.a
-      href={p.href}
-      target={(p as any).internal ? "_self" : "_blank"}
-      rel="noopener noreferrer"
+    <motion.div
       initial={{ opacity: 0, y: 40, scale: 0.93 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true }}
       transition={{ duration: 0.65, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] }}
       onMouseLeave={() => { rotateX.set(0); rotateY.set(0); }}
-      onMouseMove={handleMouseMove}
+      onMouseMove={handleMouseMove as any}
       style={{ perspective: "800px", display: "block", position: "relative", borderRadius: 20 }}
     >
       <AnimBorderCard
@@ -720,7 +717,7 @@ function ProjectCard({ p, i, animateBorder = true }: { p: typeof PROJECTS[0]; i:
           </div>
         </motion.div>
       </AnimBorderCard>
-    </motion.a>
+    </motion.div>
   );
 }
 
