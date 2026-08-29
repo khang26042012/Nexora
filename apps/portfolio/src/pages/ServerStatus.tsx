@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Navigation from "@/components/navigation";
+import { Navigation } from "@/components/navigation";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
