@@ -62,8 +62,12 @@ function getTpsColor(tps: number): string {
 // ── Mock Data Generator ──
 function generateMockMetrics(prev: MetricsData | null): MetricsData {
   const base = prev || {
+    status: "online" as const,
+    serverName: "NexoraMC",
+    version: "Paper 1.21.4",
     ram: { usedMB: 2800, maxMB: 4096, freeMB: 1296, percent: 68 },
     cpu: { percent: 35 },
+    disk: { usedGB: 45, totalGB: 100, percent: 45 },
     players: { online: 12, max: 100 },
     tps: { oneMin: 19.8, fiveMin: 19.9, fifteenMin: 20.0 },
     mspt: 42,
@@ -71,6 +75,7 @@ function generateMockMetrics(prev: MetricsData | null): MetricsData {
     chunks: 620,
     network: { inboundKBs: 125, outboundKBs: 340 },
     uptimeSeconds: 3600 * 5 + 1200,
+    timestamp: Date.now(),
   };
 
   const jitter = (v: number, range: number) => Math.max(0, v + (Math.random() - 0.5) * range);
