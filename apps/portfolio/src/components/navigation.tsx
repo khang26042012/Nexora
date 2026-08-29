@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Home, MessageCircle, Server, ChevronDown, LucideIcon } from "lucide-react";
+import { Home, MessageCircle, ChevronDown, LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import avatarImg from "@/assets/avatar_new.jpg";
@@ -19,12 +19,10 @@ type NavItem = {
 const NAV_LINKS: NavItem[] = [
   { name: "Trang chủ", href: "/",     icon: Home,          accent: "rgba(180,220,255,0.7)" },
   { name: "Chat Bot",   href: "/chat", icon: MessageCircle, accent: "rgba(220,180,255,0.7)" },
-  { name: "Server Status", href: "/server-status", icon: Server, accent: "rgba(74,222,128,0.7)" },
 ];
 
 function getActiveFromLocation(loc: string): string {
   if (loc.startsWith("/chat")) return "/chat";
-  if (loc.startsWith("/server-status")) return "/server-status";
   return "/";
 }
 
