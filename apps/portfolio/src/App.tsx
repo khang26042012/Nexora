@@ -26,6 +26,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/chat" component={Chat} />
+        <Route path="/server-status" component={ServerStatus} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>
