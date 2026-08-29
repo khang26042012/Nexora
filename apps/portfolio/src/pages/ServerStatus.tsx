@@ -5,6 +5,14 @@ import { Server, Users, Cpu, HardDrive, Activity, Wifi, Clock, AlertTriangle } f
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
+const glass: React.CSSProperties = {
+  background: "rgba(255,255,255,0.03)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  border: "1px solid rgba(255,255,255,0.06)",
+  borderRadius: 16,
+};
+
 // ═══════════════════════════════════════════════════════════
 // 🔧 CONFIG: Set to false when plugin WebSocket is ready
 const USE_MOCK_DATA = true;
@@ -27,13 +35,6 @@ type MetricsData = {
   chunks: number;
   network: { inboundKBs: number; outboundKBs: number };
   timestamp: number;
-};
-
-const glass: React.CSSProperties = {
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: 18,
-  backdropFilter: "blur(12px)",
 };
 
 function formatUptime(seconds: number): string {
