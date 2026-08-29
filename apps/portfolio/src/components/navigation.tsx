@@ -155,7 +155,7 @@ export function Navigation() {
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ type: "tween", duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
+              transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
               className="fixed top-0 left-0 bottom-0 w-72 max-w-[84vw] z-50 flex flex-col overflow-hidden"
               style={{
                 background: "rgba(14,14,16,0.82)",
@@ -269,13 +269,19 @@ export function Navigation() {
                 </motion.button>
               </motion.div>
 
+              {/* ── Divider ── */}
+              <div
+                className="mx-5 mt-2 mb-1"
+                style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12) 30%, rgba(255,255,255,0.12) 70%, transparent)", position: "relative", zIndex: 2 }}
+              />
+
               {/* ── Label ── */}
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.15 }}
-                className="px-5 pt-5 pb-2 text-[10px] font-semibold tracking-widest uppercase"
-                style={{ color: "rgba(255,255,255,0.2)", fontFamily: FONT, position: "relative", zIndex: 2 }}
+                className="px-6 pt-3 pb-2 text-[10px] font-semibold tracking-[0.18em] uppercase"
+                style={{ color: "rgba(255,255,255,0.25)", fontFamily: FONT, position: "relative", zIndex: 2 }}
               >
                 Điều hướng
               </motion.p>
@@ -306,7 +312,7 @@ export function Navigation() {
                           whileTap={{ scale: 0.97 }}
                           className="flex items-center justify-center gap-2.5 py-3.5 px-5 cursor-pointer select-none"
                           style={{
-                            borderRadius: 9999,
+                            borderRadius: 12,
                             background: isExp
                               ? "rgba(255,255,255,0.1)"
                               : isHov
@@ -322,7 +328,7 @@ export function Navigation() {
                             size={17}
                             style={{
                               color: isExp ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)",
-                              transition: "color 0.18s ease",
+                              transition: "color 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                               flexShrink: 0,
                             }}
                           />
@@ -333,7 +339,7 @@ export function Navigation() {
                               color: isExp ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)",
                               fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
                               letterSpacing: "-0.01em",
-                              transition: "color 0.18s ease, font-weight 0.18s ease",
+                              transition: "color 0.25s cubic-bezier(0.4, 0, 0.2, 1), font-weight 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                             }}
                           >
                             {link.name}
@@ -371,7 +377,7 @@ export function Navigation() {
                                       whileTap={{ scale: 0.97 }}
                                       className="flex items-center gap-2 py-2.5 pl-6 pr-4 cursor-pointer select-none"
                                       style={{
-                                        borderRadius: 9999,
+                                        borderRadius: 12,
                                         background: childHov
                                           ? "rgba(255,255,255,0.06)"
                                           : "rgba(255,255,255,0.025)",
@@ -396,7 +402,7 @@ export function Navigation() {
                                           color: childHov ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.55)",
                                           fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
                                           letterSpacing: "-0.01em",
-                                          transition: "color 0.18s ease",
+                                          transition: "color 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                                         }}
                                       >
                                         {child.name}
@@ -425,23 +431,28 @@ export function Navigation() {
                       whileTap={{ scale: 0.97 }}
                       className="flex items-center justify-center gap-2.5 py-3.5 px-5 cursor-pointer select-none"
                       style={{
-                        borderRadius: 9999,
+                        borderRadius: 14,
                         background: isAct
-                          ? "rgba(255,255,255,0.13)"
+                          ? "rgba(255,255,255,0.12)"
                           : isHov
                           ? "rgba(255,255,255,0.07)"
-                          : "rgba(255,255,255,0.04)",
+                          : "transparent",
                         border: isAct
-                          ? "1px solid rgba(255,255,255,0.22)"
-                          : "1px solid rgba(255,255,255,0.09)",
-                        transition: "background 0.18s ease, border-color 0.18s ease",
+                          ? "1px solid rgba(255,255,255,0.2)"
+                          : isHov
+                          ? "1px solid rgba(255,255,255,0.12)"
+                          : "1px solid transparent",
+                        boxShadow: isAct
+                          ? "0 0 20px rgba(180,220,255,0.08), inset 0 1px 0 rgba(255,255,255,0.06)"
+                          : "none",
+                        transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                       }}
                     >
                       <Icon
                         size={17}
                         style={{
                           color: isAct ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)",
-                          transition: "color 0.18s ease",
+                          transition: "color 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                           flexShrink: 0,
                         }}
                       />
@@ -452,7 +463,7 @@ export function Navigation() {
                           color: isAct ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.5)",
                           fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
                           letterSpacing: "-0.01em",
-                          transition: "color 0.18s ease, font-weight 0.18s ease",
+                          transition: "color 0.25s cubic-bezier(0.4, 0, 0.2, 1), font-weight 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                         }}
                       >
                         {link.name}
