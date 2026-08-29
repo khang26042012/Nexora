@@ -52,6 +52,9 @@ interface MetricsData {
   ram: { usedMB: number; maxMB: number; percent: number };
   cpu: { percent: number };
   network: { inboundKBs: number; outboundKBs: number };
+  disk?: { usedGB: number; totalGB: number; percent: number };
+  // Allow extra fields from plugin without breaking
+  [key: string]: unknown;
 }
 
 // ── Mock Data Generator ──
@@ -96,6 +99,88 @@ function generateMockMetrics(prev: MetricsData | null): MetricsData {
       inboundKBs: Math.max(0, Math.round(vary(base.network.inboundKBs, 30))),
       outboundKBs: Math.max(0, Math.round(vary(base.network.outboundKBs, 40))),
     },
+  };
+}
+
+
+// ── Normalize plugin data to MetricsData format ──
+function normalizeMetrics(raw: Record<string, unknown>): MetricsData {
+  const r = raw as Record<string, any>;
+  
+  // Debug: log raw data to see what plugin actually sends
+  console.log("[WS] Raw metrics received:", JSON.stringify(raw));
+  
+  // Handle RAM - plugin might send GB instead of MB, or different field names
+  let ramUsedMB = 0, ramMaxMB = 6144, ramPercent = 0;
+  if (r.ram) {
+    const ram = r.ram as Record<string, any>;
+    // Check if values are in GB (small numbers like 0.78) vs MB (large like 780)
+    const usedVal = ram.usedMB ?? ram.used_mb ?? ram.used ?? 0;
+    const maxVal = ram.maxMB ?? ram.max_mb ?? ram.total ?? ram.max ?? 6144;
+    
+    // If used < 100, assume GB and convert to MB
+    if (usedVal < 100 && maxVal < 100) {
+      ramUsedMB = Math.round(usedVal * 1024);
+      ramMaxMB = Math.round(maxVal * 1024);
+    } else {
+      ramUsedMB = Math.round(usedVal);
+      ramMaxMB = Math.round(maxVal);
+    }
+    ramPercent = ram.percent ?? (ramMaxMB > 0 ? Math.round((ramUsedMB / ramMaxMB) * 100) : 0);
+  }
+  
+  // Handle CPU - ensure it's a number
+  let cpuPercent = 0;
+  if (r.cpu) {
+    const cpu = r.cpu as Record<string, any>;
+    cpuPercent = cpu.percent ?? cpu.load ?? cpu.usage ?? 0;
+  } else if (typeof r.cpu_percent === "number") {
+    cpuPercent = r.cpu_percent;
+  }
+  
+  // Handle Players
+  let playersOnline = 0, playersMax = 50;
+  if (r.players) {
+    const p = r.players as Record<string, any>;
+    playersOnline = p.online ?? p.count ?? p.current ?? 0;
+    playersMax = p.max ?? p.limit ?? 50;
+  }
+  
+  // Handle Entities/Chunks
+  const entities = r.entities ?? r.entity_count ?? 0;
+  const chunks = r.chunks ?? r.chunk_count ?? r.loaded_chunks ?? 0;
+  
+  // Handle Disk
+  let disk: MetricsData["disk"] = undefined;
+  if (r.disk) {
+    const d = r.disk as Record<string, any>;
+    const usedGB = d.usedGB ?? d.used_gb ?? d.used ?? 0;
+    const totalGB = d.totalGB ?? d.total_gb ?? d.total ?? 60;
+    const percent = d.percent ?? (totalGB > 0 ? Math.round((usedGB / totalGB) * 100) : 0);
+    disk = { usedGB: Number(usedGB), totalGB: Number(totalGB), percent: Number(percent) };
+  }
+  
+  return {
+    serverName: (r.serverName ?? r.server_name ?? r.name ?? "secret") as string,
+    version: (r.version ?? r.server_version ?? "Paper") as string,
+    status: (r.status ?? "online") as "online" | "offline" | "starting",
+    uptimeSeconds: Number(r.uptimeSeconds ?? r.uptime_seconds ?? r.uptime ?? 0),
+    players: { online: Number(playersOnline), max: Number(playersMax) },
+    tps: {
+      oneMin: Number((r.tps as any)?.oneMin ?? (r.tps as any)?.one_min ?? (r.tps as any)?.[0] ?? 0),
+      fiveMin: Number((r.tps as any)?.fiveMin ?? (r.tps as any)?.five_min ?? (r.tps as any)?.[1] ?? 0),
+      fifteenMin: Number((r.tps as any)?.fifteenMin ?? (r.tps as any)?.fifteen_min ?? (r.tps as any)?.[2] ?? 0),
+    },
+    mspt: Number(r.mspt ?? 0),
+    entities: Number(entities),
+    chunks: Number(chunks),
+    ram: { usedMB: ramUsedMB, maxMB: ramMaxMB, percent: ramPercent },
+    cpu: { percent: Number(cpuPercent) },
+    network: {
+      inboundKBs: Number((r.network as any)?.inboundKBs ?? (r.network as any)?.inbound ?? 0),
+      outboundKBs: Number((r.network as any)?.outboundKBs ?? (r.network as any)?.outbound ?? 0),
+    },
+    disk,
   };
 }
 
@@ -185,6 +270,14 @@ const CpuIcon = () => (
   </svg>
 );
 
+
+const DiskIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+  </svg>
+);
+
 // ── Main Component ──
 function ServerStatusInner() {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
@@ -211,9 +304,12 @@ function ServerStatusInner() {
       ws.onerror = () => setConnected(false);
       ws.onmessage = (event) => {
         try {
-          setMetrics(JSON.parse(event.data));
+          const raw = JSON.parse(event.data);
+          const normalized = normalizeMetrics(raw);
+          setMetrics(normalized);
           setConnected(true);
-        } catch {
+        } catch (e) {
+          console.warn("[WS] Parse error:", e);
           // ignore parse errors, keep showing previous data
         }
       };
@@ -264,7 +360,7 @@ function ServerStatusInner() {
         >
           <div>
             <h1 className="text-3xl font-bold text-white/90 mb-1">Server Status</h1>
-            <p className="text-sm text-white/35">Real-time NexoraMC server metrics</p>
+            <p className="text-sm text-white/35">Real-time secret server metrics</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
@@ -378,6 +474,20 @@ function ServerStatusInner() {
               </div>
             </div>
           </StatCard>
+
+          {/* Disk Card */}
+          {metrics.disk && (
+            <StatCard title="Disk" icon={<DiskIcon />} delay={0.6}>
+              <div className="space-y-3">
+                <div className="flex items-end gap-2">
+                  <span className="text-3xl font-bold text-white/95">{metrics.disk.usedGB.toFixed(1)}</span>
+                  <span className="text-sm text-white/35 mb-1.5">/ {metrics.disk.totalGB.toFixed(1)} GB</span>
+                </div>
+                <ProgressBar percent={metrics.disk.percent} color={metrics.disk.percent > 85 ? "rgba(248,113,113,0.9)" : "rgba(168,85,247,0.8)"} />
+                <p className="text-xs text-white/35">{metrics.disk.percent}% used</p>
+              </div>
+            </StatCard>
+          )}
         </div>
       </main>
     </div>
