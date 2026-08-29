@@ -32,6 +32,24 @@ let lastDisconnectNotifyTime = 0;
 // Browser clients listening for real-time updates
 const browserClients = new Set<WebSocket>();
 
+// ── Server Metrics (Minecraft plugin) ────────────────────────────────────────
+let metricsSourceSocket: WebSocket | null = null;
+const metricsBrowserClients = new Set<WebSocket>();
+let lastMetricsData: object | null = null;
+
+function broadcastMetrics(data: object) {
+  lastMetricsData = data;
+  const msg = JSON.stringify(data);
+  for (const client of metricsBrowserClients) {
+    if (client.readyState === WebSocket.OPEN) {
+      try { client.send(msg); } catch {}
+    } else {
+      metricsBrowserClients.delete(client);
+    }
+  }
+}
+
+
 export function getEsp32Socket(): WebSocket | null {
   return esp32Socket;
 }
@@ -109,13 +127,17 @@ export function initWebSocket(
       handleBrowserConnection(ws);
     } else if (pathname === "/ws" || pathname === "/NexoraGarden/ws") {
       handleEsp32Connection(ws, req, alertSend);
+    } else if (pathname === "/ws-metrics") {
+      handleMetricsSourceConnection(ws, req);
+    } else if (pathname === "/ws-metrics-browser" || pathname === "/NexoraGarden/ws-metrics-browser") {
+      handleMetricsBrowserConnection(ws);
     } else {
       // Unknown path — close cleanly
       ws.close(1008, "Unknown path");
     }
   });
 
-  logger.info("WebSocket server ready at /ws and /ws-browser");
+  logger.info("WebSocket server ready at /ws, /ws-browser, /ws-metrics, /ws-metrics-browser");
 }
 
 function handleBrowserConnection(ws: WebSocket) {
@@ -288,6 +310,64 @@ function handleEsp32Connection(
 
   ws.on("error", (err) => {
     logger.error({ err }, "ESP32 WebSocket error");
+  });
+}
+
+
+// ── Server Metrics Source (Minecraft plugin connects here) ──────────────────
+function handleMetricsSourceConnection(ws: WebSocket, req: IncomingMessage) {
+  const ip = req.socket.remoteAddress ?? "unknown";
+  logger.info({ ip }, "Server metrics source connected via /ws-metrics");
+
+  // Terminate previous metrics source if still open
+  if (metricsSourceSocket && metricsSourceSocket !== ws) {
+    try { metricsSourceSocket.terminate(); } catch {}
+  }
+  metricsSourceSocket = ws;
+
+  ws.on("message", (data) => {
+    try {
+      const metrics = JSON.parse(data.toString());
+      broadcastMetrics(metrics);
+    } catch (err) {
+      logger.warn({ err }, "Invalid metrics JSON from plugin");
+    }
+  });
+
+  ws.on("close", () => {
+    if (metricsSourceSocket === ws) {
+      metricsSourceSocket = null;
+      logger.info("Server metrics source disconnected");
+      // Notify browsers that source is offline
+      broadcastMetrics({ status: "offline", timestamp: Date.now() });
+    }
+  });
+
+  ws.on("error", (err) => {
+    logger.error({ err }, "Metrics source WebSocket error");
+  });
+}
+
+// ── Server Metrics Browser Clients ──────────────────────────────────────────
+function handleMetricsBrowserConnection(ws: WebSocket) {
+  metricsBrowserClients.add(ws);
+  logger.info("Metrics browser client connected to /ws-metrics-browser");
+
+  // Send latest cached metrics immediately
+  if (lastMetricsData) {
+    try { ws.send(JSON.stringify(lastMetricsData)); } catch {}
+  } else {
+    // No data yet — tell browser we're waiting for plugin
+    try { ws.send(JSON.stringify({ status: "waiting", timestamp: Date.now() })); } catch {}
+  }
+
+  ws.on("close", () => {
+    metricsBrowserClients.delete(ws);
+    logger.info("Metrics browser client disconnected");
+  });
+
+  ws.on("error", () => {
+    metricsBrowserClients.delete(ws);
   });
 }
 

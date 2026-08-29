@@ -17,8 +17,10 @@ const glass: React.CSSProperties = {
 
 // ═══════════════════════════════════════════════════════════
 // 🔧 CONFIG: Set to false when plugin WebSocket is ready
-const USE_MOCK_DATA = true;
-const WS_ENDPOINT = "ws://localhost:8080/ws/metrics";
+const USE_MOCK_DATA = false;
+// WebSocket endpoint for server metrics (browser client)
+// Connects to api-server which relays data from Minecraft plugin
+const WS_ENDPOINT = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws-metrics-browser`;
 const MOCK_INTERVAL_MS = 1000;
 // ═══════════════════════════════════════════════════════════
 
@@ -442,26 +444,7 @@ export default function ServerStatus() {
           </div>
         )}
 
-        {/* Debug badge */}
-        {USE_MOCK_DATA && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1 }}
-            className="mt-10 text-center"
-          >
-            <span
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-semibold tracking-wide"
-              style={{
-                background: "rgba(250,204,21,0.08)",
-                border: "1px solid rgba(250,204,21,0.15)",
-                color: "rgba(250,204,21,0.7)",
-              }}
-            >
-              ⚠ MOCK DATA MODE — Dữ liệu giả để test UI
-            </span>
-          </motion.div>
-        )}
+
       </main>
     </div>
   );
