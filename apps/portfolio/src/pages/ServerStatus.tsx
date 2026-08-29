@@ -1,8 +1,42 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Component } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navigation } from "@/components/navigation";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
+
+// ErrorBoundary to catch render crashes
+class ServerStatusErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  state = { hasError: false, error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: "100vh", background: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", padding: "2rem" }}>
+          <h2 style={{ color: "#ef4444", marginBottom: "1rem" }}>Something went wrong</h2>
+          <p style={{ color: "rgba(255,255,255,0.5)" }}>{this.state.error?.message}</p>
+          <button onClick={() => window.location.reload()} style={{ marginTop: "1rem", padding: "0.5rem 1rem", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "8px", color: "white", cursor: "pointer" }}>Reload</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Safe Navigation wrapper - catches useLocation errors
+function SafeNavigation() {
+  try {
+    return <Navigation />;
+  } catch (e) {
+    console.warn("Navigation render failed:", e);
+    return null;
+  }
+}
+
 
 // ── Types ──
 interface MetricsData {
@@ -152,7 +186,7 @@ const CpuIcon = () => (
 );
 
 // ── Main Component ──
-export default function ServerStatus() {
+function ServerStatusInner() {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,7 +232,7 @@ export default function ServerStatus() {
   if (!metrics) {
     return (
       <div className="min-h-screen w-full relative overflow-hidden" style={{ background: "#0a0a0f", fontFamily: FONT }}>
-        <Navigation />
+        <SafeNavigation />
         <main className="relative z-10 max-w-5xl mx-auto px-5 pt-24 pb-16">
           <div className="text-center py-32">
             <p className="text-white/50">Loading server status...</p>
@@ -218,7 +252,7 @@ export default function ServerStatus() {
       <div className="absolute bottom-[-15%] right-[-10%] w-[500px] h-[500px] rounded-full pointer-events-none"
         style={{ background: "radial-gradient(circle, rgba(80,180,255,0.06) 0%, transparent 70%)", filter: "blur(80px)" }} />
 
-      <Navigation />
+      <SafeNavigation />
 
       <main className="relative z-10 max-w-5xl mx-auto px-5 pt-24 pb-16">
         {/* Header */}
@@ -289,9 +323,9 @@ export default function ServerStatus() {
           <StatCard title="Performance" icon={<ActivityIcon />} delay={0.2}>
             <div className="space-y-2">
               {[
-                { label: "TPS 1m", value: metrics.tps.oneMin.toFixed(1), color: TpsColor(metrics.tps.oneMin) },
-                { label: "TPS 5m", value: metrics.tps.fiveMin.toFixed(1), color: TpsColor(metrics.tps.fiveMin) },
-                { label: "TPS 15m", value: metrics.tps.fifteenMin.toFixed(1), color: TpsColor(metrics.tps.fifteenMin) },
+                { label: "TPS 1m", value: (metrics.tps?.oneMin ?? 0).toFixed(1), color: TpsColor(metrics.tps?.oneMin ?? 0) },
+                { label: "TPS 5m", value: (metrics.tps?.fiveMin ?? 0).toFixed(1), color: TpsColor(metrics.tps?.fiveMin ?? 0) },
+                { label: "TPS 15m", value: (metrics.tps?.fifteenMin ?? 0).toFixed(1), color: TpsColor(metrics.tps?.fifteenMin ?? 0) },
               ].map((item, i) => (
                 <div key={i} className="flex justify-between items-center">
                   <span className="text-xs text-white/40">{item.label}</span>
@@ -336,16 +370,24 @@ export default function ServerStatus() {
               </div>
               <div className="flex justify-between items-center pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                 <span className="text-xs text-white/40">Entities</span>
-                <span className="text-sm text-white/60">{metrics.entities.toLocaleString()}</span>
+                <span className="text-sm text-white/60">{(metrics.entities ?? 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-white/40">Chunks</span>
-                <span className="text-sm text-white/60">{metrics.chunks.toLocaleString()}</span>
+                <span className="text-sm text-white/60">{(metrics.chunks ?? 0).toLocaleString()}</span>
               </div>
             </div>
           </StatCard>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ServerStatus() {
+  return (
+    <ServerStatusErrorBoundary>
+      <ServerStatusInner />
+    </ServerStatusErrorBoundary>
   );
 }
