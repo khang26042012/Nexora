@@ -215,30 +215,43 @@ const slotStyle: React.CSSProperties = {
 const emptySlotStyle: React.CSSProperties = { ...slotStyle, opacity: 0.3 };
 
 /* ═══════════════════════ Sub-components ═══════════════════════ */
-/* Track failed icon IDs globally for debugging (logged to console) */
-const failedIconIds = new Set<string>();
+/* Global cache of icon load results: true = loaded OK, false = failed */
+const iconLoadCache = new Map<string, boolean>();
 
 function ItemSlot({ item, size = 36 }: { item: ItemData | null; size?: number }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  
   if (!item || !item.id || item.id === "air") {
     return <div style={{ ...emptySlotStyle, width: size, height: size }}><Box size={14} style={{ color: "rgba(255,255,255,0.15)" }} /></div>;
   }
+  
   const cleanId = item.id.replace("minecraft:", "");
+  const cachedResult = iconLoadCache.get(cleanId);
+  
+  // If we already know this icon fails, show fallback immediately
+  if (cachedResult === false || imgFailed) {
+    return (
+      <div style={{ ...slotStyle, width: size, height: size }} title={`${item.id} ×${item.count}`}>
+        <Box size={14} style={{ color: "rgba(255,255,255,0.25)" }} />
+        {item.count > 1 && (
+          <span className="absolute bottom-0 right-0.5 text-[8px] font-bold text-white/80 leading-none">{item.count}</span>
+        )}
+      </div>
+    );
+  }
+  
   return (
     <div style={{ ...slotStyle, width: size, height: size }} title={`${item.id} ×${item.count}`}>
-      {/* Fallback Box icon always rendered behind img */}
-      <Box size={14} style={{ color: "rgba(255,255,255,0.25)", position: "absolute" }} />
-      {/* Img overlays Box when loaded; hidden via CSS on error */}
       <img src={getItemIconUrl(item.id)} alt={item.id} width={size - 8} height={size - 8}
-        style={{ imageRendering: "pixelated", position: "relative", zIndex: 1 }}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-          if (!failedIconIds.has(cleanId)) {
-            failedIconIds.add(cleanId);
-            console.log("[ItemIcon] Failed to load:", cleanId, "- showing fallback Box");
-          }
+        style={{ imageRendering: "pixelated" }}
+        onLoad={() => { iconLoadCache.set(cleanId, true); }}
+        onError={() => {
+          iconLoadCache.set(cleanId, false);
+          setImgFailed(true);
+          console.log("[ItemIcon] Failed:", cleanId);
         }} />
       {item.count > 1 && (
-        <span className="absolute bottom-0 right-0.5 text-[8px] font-bold text-white/80 leading-none" style={{ zIndex: 2 }}>{item.count}</span>
+        <span className="absolute bottom-0 right-0.5 text-[8px] font-bold text-white/80 leading-none">{item.count}</span>
       )}
     </div>
   );
