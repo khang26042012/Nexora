@@ -181,19 +181,15 @@ const emptySlotStyle: React.CSSProperties = { ...slotStyle, opacity: 0.3 };
 
 /* ═══════════════════════ Sub-components ═══════════════════════ */
 function ItemSlot({ item, size = 36 }: { item: ItemData | null; size?: number }) {
-  const [versionIdx, setVersionIdx] = useState(0);
   if (!item || !item.id || item.id === "air") {
     return <div style={{ ...emptySlotStyle, width: size, height: size }}><Box size={14} style={{ color: "rgba(255,255,255,0.15)" }} /></div>;
   }
-  const cleanId = item.id.replace("minecraft:", "");
-  const ver = ICON_VERSIONS[versionIdx];
-  const imgUrl = `https://cdn.jsdelivr.net/gh/PrismarineJS/minecraft-assets@master/data/${ver}/items/${cleanId}.png`;
-  const hasMoreVersions = versionIdx < ICON_VERSIONS.length - 1;
+  const imgUrl = getItemIconUrl(item.id);
   return (
     <div style={{ ...slotStyle, width: size, height: size }} title={`${item.id} ×${item.count}`}>
       <img src={imgUrl} alt={item.id} width={size - 8} height={size - 8}
         style={{ imageRendering: "pixelated" }}
-        onError={() => { if (hasMoreVersions) setVersionIdx(v => v + 1); }} />
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       {item.count > 1 && (
         <span className="absolute bottom-0 right-0.5 text-[8px] font-bold text-white/80 leading-none">{item.count}</span>
       )}
