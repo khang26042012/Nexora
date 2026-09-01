@@ -1,0 +1,14 @@
+# StartSeachKhangg Configuration
+# Default settings - no manual config needed!
+
+# WebSocket URL to send server stats (bot endpoint on Railway)
+websocket_url: "wss://discord-ai-bot-production-d077.up.railway.app/ws/server-stats"
+
+# Auto-scan interval in seconds (set 0 to disable, use 'startseach' command manually)
+scan_interval_seconds: 60
+
+# Disk total in GB (pre-configured for your server)
+disk_total_gb: 60
+
+# Disk path to scan for used space
+disk_path: "/home/container"

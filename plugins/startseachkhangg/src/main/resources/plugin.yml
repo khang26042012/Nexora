@@ -1,0 +1,22 @@
+name: StartSeachKhangg
+version: 1.0.0
+main: com.khangsmp.startseach.StartSeachPlugin
+api-version: '1.16'
+description: Host system scanner with WebSocket push
+author: KhangSMP
+commands:
+  startseach:
+    description: Scan host system info and save to file
+    usage: /startseach
+    permission: startseach.use
+  info:
+    description: View server stats in-game
+    usage: /info
+    permission: startseach.info
+permissions:
+  startseach.use:
+    description: Allows using the startseach command
+    default: op
+  startseach.info:
+    description: Allows viewing server stats
+    default: op
