@@ -190,23 +190,30 @@ const slotStyle: React.CSSProperties = {
 const emptySlotStyle: React.CSSProperties = { ...slotStyle, opacity: 0.3 };
 
 /* ═══════════════════════ Sub-components ═══════════════════════ */
+/* Track failed icon IDs globally for debugging (logged to console) */
+const failedIconIds = new Set<string>();
+
 function ItemSlot({ item, size = 36 }: { item: ItemData | null; size?: number }) {
-  const [failed, setFailed] = useState(false);
   if (!item || !item.id || item.id === "air") {
     return <div style={{ ...emptySlotStyle, width: size, height: size }}><Box size={14} style={{ color: "rgba(255,255,255,0.15)" }} /></div>;
   }
-  const imgUrl = failed ? "" : getItemIconUrl(item.id);
+  const cleanId = item.id.replace("minecraft:", "");
   return (
     <div style={{ ...slotStyle, width: size, height: size }} title={`${item.id} ×${item.count}`}>
-      {!failed ? (
-        <img src={imgUrl} alt={item.id} width={size - 8} height={size - 8}
-          style={{ imageRendering: "pixelated" }}
-          onError={() => setFailed(true)} />
-      ) : (
-        <Box size={14} style={{ color: "rgba(255,255,255,0.25)" }} />
-      )}
+      {/* Fallback Box icon always rendered behind img */}
+      <Box size={14} style={{ color: "rgba(255,255,255,0.25)", position: "absolute" }} />
+      {/* Img overlays Box when loaded; hidden via CSS on error */}
+      <img src={getItemIconUrl(item.id)} alt={item.id} width={size - 8} height={size - 8}
+        style={{ imageRendering: "pixelated", position: "relative", zIndex: 1 }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+          if (!failedIconIds.has(cleanId)) {
+            failedIconIds.add(cleanId);
+            console.log("[ItemIcon] Failed to load:", cleanId, "- showing fallback Box");
+          }
+        }} />
       {item.count > 1 && (
-        <span className="absolute bottom-0 right-0.5 text-[8px] font-bold text-white/80 leading-none">{item.count}</span>
+        <span className="absolute bottom-0 right-0.5 text-[8px] font-bold text-white/80 leading-none" style={{ zIndex: 2 }}>{item.count}</span>
       )}
     </div>
   );
@@ -349,14 +356,14 @@ export function InventoryInfo() {
   };
 
   return (
-    <div className="min-h-screen text-white overflow-x-hidden" style={{ fontFamily: FONT, background: "#000" }}>
+    <div className="min-h-screen text-white overflow-x-hidden" style={{ fontFamily: FONT }}>
       {/* Video BG */}
       <div className="fixed inset-0" style={{ zIndex: -2 }}>
         <video ref={videoRef} loop muted playsInline preload="metadata" autoPlay
-          className="w-full h-full object-cover" style={{ opacity: 0.38, backgroundColor: "#000010" }}>
+          className="w-full h-full object-cover" style={{ opacity: 0.45 }}>
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
-        <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+        <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.45)" }} />
       </div>
 
       <Navigation />
