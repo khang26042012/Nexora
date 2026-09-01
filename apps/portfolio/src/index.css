@@ -153,23 +153,14 @@
   border-radius: var(--rb-radius);
 }
 
-/* ::before chứa conic-gradient; mask-composite loại bỏ phần giữa → chỉ thấy viền */
+/* ::before — static border (animation removed for performance) */
 .running-border::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   padding: 1.5px;
-  background: conic-gradient(
-    from var(--rb-angle),
-    transparent 0%,
-    transparent 86%,
-    rgba(255,255,255,0.18) 90%,
-    var(--rb-color) 93%,
-    rgba(255,255,255,0.18) 96%,
-    transparent 99%,
-    transparent 100%
-  );
+  background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -178,7 +169,6 @@
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: rb-run var(--rb-speed) linear infinite;
   pointer-events: none;
   z-index: 1;
 }
@@ -186,6 +176,12 @@
 /* pause running-border when section not in view */
 .animation-paused::before {
   animation-play-state: paused !important;
+}
+
+/* static border for performance-heavy pages (no animation) */
+.static-border::before {
+  animation: none !important;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)) !important;
 }
 
 /* ring animations for avatar */

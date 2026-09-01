@@ -7,23 +7,15 @@ const VIDEO_URL = "https://raw.githubusercontent.com/khang26042012/Nexora/main/a
 const PLAYER_DB_URL = "https://files.catbox.moe/gj3i7r.json";
 const AUTO_DATA_URL = "https://raw.githubusercontent.com/khang26042012/Nexora/main/archive-2026-09-01T100113%2B0700.tar.gz";
 
-/* ── Item icon cache + multi-version fallback ── */
+/* ── Item icon cache ── */
 const iconCache = new Map<string, string>();
-const ICON_VERSIONS = ["1.21", "1.20", "1.19"];
+const MC_ICON_BASE = "https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.20.4/assets/minecraft/textures/item";
 function getItemIconUrl(itemId: string): string {
   const clean = itemId.replace("minecraft:", "");
   if (iconCache.has(clean)) return iconCache.get(clean)!;
-  // Use version 1.21 as primary; fallback handled in onError
-  const url = `https://cdn.jsdelivr.net/gh/PrismarineJS/minecraft-assets@master/data/1.21/items/${clean}.png`;
+  const url = `${MC_ICON_BASE}/${clean}.png`;
   iconCache.set(clean, url);
   return url;
-}
-function getFallbackIconUrl(itemId: string, failedVersion: string): string {
-  const clean = itemId.replace("minecraft:", "");
-  const idx = ICON_VERSIONS.indexOf(failedVersion);
-  const nextVer = ICON_VERSIONS[idx + 1];
-  if (!nextVer) return "";
-  return `https://cdn.jsdelivr.net/gh/PrismarineJS/minecraft-assets@master/data/${nextVer}/items/${clean}.png`;
 }
 
 /* ═══════════════════════ UUID Helpers ═══════════════════════ */
