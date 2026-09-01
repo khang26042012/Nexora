@@ -21,6 +21,7 @@ import tempmailRouter from "./tempmail";
 import panelRouter from "./panel";
 import fundToolsRouter from "./fund-tools";
 import iconDebugRouter from "./icon-debug";
+import investigateRouter from "./investigate";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(tempmailRouter);
 router.use(panelRouter);
 router.use(fundToolsRouter);
 router.use(iconDebugRouter);
+router.use(investigateRouter);
 
 export default router;
