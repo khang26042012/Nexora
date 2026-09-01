@@ -9,12 +9,15 @@ const AUTO_DATA_URL = "https://raw.githubusercontent.com/khang26042012/Nexora/ma
 
 /* ── Item icon cache ── */
 const iconCache = new Map<string, string>();
-const MC_ICON_BASE = "https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.20.4/assets/minecraft/textures/item";
-function getItemIconUrl(itemId: string): string {
+const MC_ITEM_BASE = "https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.20.4/assets/minecraft/textures/item";
+const MC_BLOCK_BASE = "https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.20.4/assets/minecraft/textures/block";
+function getItemIconUrl(itemId: string, type: "item" | "block" = "item"): string {
   const clean = itemId.replace("minecraft:", "");
-  if (iconCache.has(clean)) return iconCache.get(clean)!;
-  const url = `${MC_ICON_BASE}/${clean}.png`;
-  iconCache.set(clean, url);
+  const key = `${type}:${clean}`;
+  if (iconCache.has(key)) return iconCache.get(key)!;
+  const base = type === "item" ? MC_ITEM_BASE : MC_BLOCK_BASE;
+  const url = `${base}/${clean}.png`;
+  iconCache.set(key, url);
   return url;
 }
 
@@ -215,11 +218,12 @@ const slotStyle: React.CSSProperties = {
 const emptySlotStyle: React.CSSProperties = { ...slotStyle, opacity: 0.3 };
 
 /* ═══════════════════════ Sub-components ═══════════════════════ */
-/* Global cache of icon load results: true = loaded OK, false = failed */
-const iconLoadCache = new Map<string, boolean>();
+/* Global cache of icon load results: "item" | "block" | "failed" */
+const iconLoadCache = new Map<string, "item" | "block" | "failed">();
 
 function ItemSlot({ item, size = 36 }: { item: ItemData | null; size?: number }) {
-  const [imgFailed, setImgFailed] = useState(false);
+  // Track which URL type we're currently trying: 0=item, 1=block, 2=failed
+  const [attemptStage, setAttemptStage] = useState(0);
   
   if (!item || !item.id || item.id === "air") {
     return <div style={{ ...emptySlotStyle, width: size, height: size }}><Box size={14} style={{ color: "rgba(255,255,255,0.15)" }} /></div>;
@@ -228,8 +232,14 @@ function ItemSlot({ item, size = 36 }: { item: ItemData | null; size?: number })
   const cleanId = item.id.replace("minecraft:", "");
   const cachedResult = iconLoadCache.get(cleanId);
   
-  // If we already know this icon fails, show fallback immediately
-  if (cachedResult === false || imgFailed) {
+  // Use cached result to determine initial stage
+  let effectiveStage = attemptStage;
+  if (cachedResult === "item") effectiveStage = 0;
+  else if (cachedResult === "block") effectiveStage = 1;
+  else if (cachedResult === "failed") effectiveStage = 2;
+  
+  // Stage 2: both item/ and block/ failed → show Box fallback
+  if (effectiveStage >= 2) {
     return (
       <div style={{ ...slotStyle, width: size, height: size }} title={`${item.id} ×${item.count}`}>
         <Box size={14} style={{ color: "rgba(255,255,255,0.25)" }} />
@@ -240,15 +250,27 @@ function ItemSlot({ item, size = 36 }: { item: ItemData | null; size?: number })
     );
   }
   
+  // Determine current URL based on stage
+  const urlType = effectiveStage === 0 ? "item" : "block";
+  const src = getItemIconUrl(item.id, urlType);
+  
   return (
     <div style={{ ...slotStyle, width: size, height: size }} title={`${item.id} ×${item.count}`}>
-      <img src={getItemIconUrl(item.id)} alt={item.id} width={size - 8} height={size - 8}
+      <img src={src} alt={item.id} width={size - 8} height={size - 8}
         style={{ imageRendering: "pixelated" }}
-        onLoad={() => { iconLoadCache.set(cleanId, true); }}
+        onLoad={() => { 
+          iconLoadCache.set(cleanId, urlType); 
+        }}
         onError={() => {
-          iconLoadCache.set(cleanId, false);
-          setImgFailed(true);
-          console.log("[ItemIcon] Failed:", cleanId);
+          if (effectiveStage === 0) {
+            // item/ failed → try block/ next
+            setAttemptStage(1);
+          } else {
+            // block/ also failed → mark as fully failed
+            iconLoadCache.set(cleanId, "failed");
+            setAttemptStage(2);
+            console.log("[ItemIcon] Both item/ and block/ failed:", cleanId);
+          }
         }} />
       {item.count > 1 && (
         <span className="absolute bottom-0 right-0.5 text-[8px] font-bold text-white/80 leading-none">{item.count}</span>
