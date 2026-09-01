@@ -10,6 +10,7 @@ const NotFound = lazy(() => import("@/pages/not-found").then(m => ({ default: m.
 const Chat = lazy(() => import("@/pages/Chat").then(m => ({ default: m.Chat })));
 const Admin = lazy(() => import("@/pages/Admin").then(m => ({ default: m.Admin })));
 const ServerStatus = lazy(() => import("@/pages/ServerStatus").then(m => ({ default: m.ServerStatus })));
+const InventoryInfo = lazy(() => import("@/pages/InventoryInfo").then(m => ({ default: m.InventoryInfo })));
 const queryClient = new QueryClient();
 
 function PageFallback() {
@@ -28,6 +29,7 @@ function Router() {
         <Route path="/chat" component={Chat} />
         <Route path="/admin" component={Admin} />
         <Route path="/server-status" component={ServerStatus} />
+        <Route path="/inventory" component={InventoryInfo} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
