@@ -152,6 +152,16 @@ async function parseDatBuffer(buf: ArrayBuffer, fileName: string): Promise<Playe
   let uuid = uuidFromNbt(data);
   if (!uuid) uuid = fileNameToUuid(fileName);
   const allInv = extractItems(data.Inventory);
+  // Armor can be in ArmorItems field OR in Inventory slots 100-103
+  let armor = extractArmor(data.ArmorItems);
+  const invArmor = allInv.filter(i => i.slot >= 100 && i.slot <= 103);
+  if (invArmor.length > 0) {
+    // Merge: Inventory armor slots override empty ArmorItems slots
+    const armorMap = new Map<number, ItemData>();
+    for (const a of armor) armorMap.set(a.slot, a);
+    for (const a of invArmor) armorMap.set(a.slot - 100, a); // 100→0(boots), 101→1(leggings), 102→2(chest), 103→3(helmet)
+    armor = [...armorMap.values()];
+  }
   const hotbar = allInv.filter(i => i.slot >= 0 && i.slot <= 8).sort((a, b) => a.slot - b.slot);
   const mainInv = allInv.filter(i => i.slot >= 9 && i.slot <= 35).sort((a, b) => a.slot - b.slot);
   const pos = Array.isArray(data.Pos) ? data.Pos.map(Number) as [number, number, number] : [0, 0, 0];
@@ -162,7 +172,7 @@ async function parseDatBuffer(buf: ArrayBuffer, fileName: string): Promise<Playe
     foodLevel: Number(data.foodLevel || 0),
     xpLevel: Number(data.XpLevel || 0), xpTotal: Number(data.XpTotal || 0),
     pos, dimension: String(data.Dimension || "overworld"),
-    armorItems: extractArmor(data.ArmorItems),
+    armorItems: armor,
     inventory: mainInv, hotbar,
     enderItems: extractItems(data.EnderItems),
   };
@@ -181,15 +191,20 @@ const emptySlotStyle: React.CSSProperties = { ...slotStyle, opacity: 0.3 };
 
 /* ═══════════════════════ Sub-components ═══════════════════════ */
 function ItemSlot({ item, size = 36 }: { item: ItemData | null; size?: number }) {
+  const [failed, setFailed] = useState(false);
   if (!item || !item.id || item.id === "air") {
     return <div style={{ ...emptySlotStyle, width: size, height: size }}><Box size={14} style={{ color: "rgba(255,255,255,0.15)" }} /></div>;
   }
-  const imgUrl = getItemIconUrl(item.id);
+  const imgUrl = failed ? "" : getItemIconUrl(item.id);
   return (
     <div style={{ ...slotStyle, width: size, height: size }} title={`${item.id} ×${item.count}`}>
-      <img src={imgUrl} alt={item.id} width={size - 8} height={size - 8}
-        style={{ imageRendering: "pixelated" }}
-        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      {!failed ? (
+        <img src={imgUrl} alt={item.id} width={size - 8} height={size - 8}
+          style={{ imageRendering: "pixelated" }}
+          onError={() => setFailed(true)} />
+      ) : (
+        <Box size={14} style={{ color: "rgba(255,255,255,0.25)" }} />
+      )}
       {item.count > 1 && (
         <span className="absolute bottom-0 right-0.5 text-[8px] font-bold text-white/80 leading-none">{item.count}</span>
       )}
