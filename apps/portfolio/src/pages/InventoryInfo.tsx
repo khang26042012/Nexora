@@ -132,14 +132,34 @@ function extractItems(list: NbtValue): ItemData[] {
   })).filter(i => i.id !== "unknown" && i.count > 0);
 }
 
-function extractArmor(list: NbtValue): ItemData[] {
+function extractArmorFromEquipment(equip: NbtValue): ItemData[] {
+  // Paper/Spigot 1.20.4+ uses "equipment" object: {head, chest, legs, feet, offhand}
+  if (!equip || typeof equip !== "object") return [];
+  const e = equip as Record<string, any>;
+  const armor: ItemData[] = [];
+  // Map: head→slot3(helmet), chest→slot2(chestplate), legs→slot1(leggings), feet→slot0(boots)
+  const slots: [string, number][] = [["head", 3], ["chest", 2], ["legs", 1], ["feet", 0]];
+  for (const [key, slot] of slots) {
+    const item = e[key];
+    if (item && item.id && item.id !== "minecraft:air") {
+      armor.push({
+        id: String(item.id).replace("minecraft:", ""),
+        count: Number(item.count || item.Count || 1),
+        slot,
+      });
+    }
+  }
+  return armor;
+}
+
+function extractArmorLegacy(list: NbtValue): ItemData[] {
+  // Fallback for older formats: ArmorItems array [boots(0), leggings(1), chestplate(2), helmet(3)]
   if (!Array.isArray(list)) return [];
-  // ArmorItems: [boots(0), leggings(1), chestplate(2), helmet(3)]
   return list.map((item: any, idx: number) => ({
     id: String(item?.id || "").replace("minecraft:", ""),
     count: Number(item?.Count || item?.count || 0),
     slot: idx,
-  }));
+  })).filter(i => i.id && i.id !== "" && i.count > 0);
 }
 
 async function parseDatBuffer(buf: ArrayBuffer, fileName: string): Promise<PlayerData> {
@@ -152,15 +172,20 @@ async function parseDatBuffer(buf: ArrayBuffer, fileName: string): Promise<Playe
   let uuid = uuidFromNbt(data);
   if (!uuid) uuid = fileNameToUuid(fileName);
   const allInv = extractItems(data.Inventory);
-  // Armor can be in ArmorItems field OR in Inventory slots 100-103
-  let armor = extractArmor(data.ArmorItems);
-  const invArmor = allInv.filter(i => i.slot >= 100 && i.slot <= 103);
-  if (invArmor.length > 0) {
-    // Merge: Inventory armor slots override empty ArmorItems slots
-    const armorMap = new Map<number, ItemData>();
-    for (const a of armor) armorMap.set(a.slot, a);
-    for (const a of invArmor) armorMap.set(a.slot - 100, a); // 100→0(boots), 101→1(leggings), 102→2(chest), 103→3(helmet)
-    armor = [...armorMap.values()];
+  // Paper/Spigot 1.20.4+: armor is in "equipment" object {head,chest,legs,feet}
+  // Older formats: "ArmorItems" array or Inventory slots 100-103
+  let armor = extractArmorFromEquipment(data.equipment);
+  if (armor.length === 0) {
+    armor = extractArmorLegacy(data.ArmorItems);
+  }
+  if (armor.length === 0) {
+    // Last resort: check Inventory slots 100-103
+    const invArmor = allInv.filter(i => i.slot >= 100 && i.slot <= 103);
+    if (invArmor.length > 0) {
+      const armorMap = new Map<number, ItemData>();
+      for (const a of invArmor) armorMap.set(a.slot - 100, a);
+      armor = [...armorMap.values()];
+    }
   }
   const hotbar = allInv.filter(i => i.slot >= 0 && i.slot <= 8).sort((a, b) => a.slot - b.slot);
   const mainInv = allInv.filter(i => i.slot >= 9 && i.slot <= 35).sort((a, b) => a.slot - b.slot);
