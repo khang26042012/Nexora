@@ -6,7 +6,7 @@ import { Navigation } from "@/components/navigation";
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const VIDEO_URL = "https://raw.githubusercontent.com/khang26042012/Nexora/main/apps/portfolio/public/hero-bg.mp4";
 const PLAYER_DB_URL = "https://files.catbox.moe/gj3i7r.json";
-const AUTO_DATA_URL = "https://files.catbox.moe/blwca5.gz";
+const AUTO_DATA_URL = "https://raw.githubusercontent.com/khang26042012/Nexora/main/archive-2026-09-01T100113%2B0700.tar.gz";
 const MC_ASSETS_BASE = "https://cdn.jsdelivr.net/gh/PrismarineJS/minecraft-assets@master/data/1.21/items";
 
 /* ── Item icon cache ── */
