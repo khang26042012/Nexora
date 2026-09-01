@@ -336,6 +336,58 @@ export function InventoryInfo() {
           setPlayers(newPlayers);
           setErrors(newErrors);
           setLoading(false);
+
+          // [ICON-DEBUG] Temporary logging — collect icon stats after render settles
+          setTimeout(() => {
+            try {
+              const allItemIds: string[] = [];
+              for (const p of newPlayers) {
+                for (const it of [...p.inventory, ...p.hotbar, ...p.armorItems, ...p.enderItems]) {
+                  if (it?.id && it.id !== "air") allItemIds.push(it.id.replace("minecraft:", ""));
+                }
+              }
+              const uniqueIds = [...new Set(allItemIds)];
+              let loadedOk = 0;
+              let failedCount = 0;
+              const failedMap = new Map<string, number>();
+              for (const id of uniqueIds) {
+                const result = iconLoadCache.get(id);
+                if (result === true) loadedOk++;
+                else if (result === false) {
+                  failedCount++;
+                  // Count total occurrences (not just unique)
+                  const occ = allItemIds.filter(x => x === id).length;
+                  failedMap.set(id, occ);
+                }
+                // undefined = hasn't attempted yet (skip)
+              }
+              const failedIds = [...failedMap.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .map(([id, count]) => ({ id, count, url: getItemIconUrl(id) }));
+
+              const payload = {
+                totalItems: allItemIds.length,
+                uniqueItems: uniqueIds.length,
+                loadedOk,
+                failedCount,
+                pending: uniqueIds.length - loadedOk - failedCount,
+                failedIds: failedIds.slice(0, 50), // top 50 by frequency
+                errors: newErrors.slice(0, 20),
+              };
+
+              fetch("/api/icon-debug", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              }).catch(() => {}); // fire-and-forget
+            } catch (e: any) {
+              fetch("/api/icon-debug", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ error: e.message, location: "icon-debug-timeout" }),
+              }).catch(() => {});
+            }
+          }, 3000);
         }
       } catch (e: any) {
         if (!cancelled) { setErrors([e.message || "Failed to load data"]); setLoading(false); }

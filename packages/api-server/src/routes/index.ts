@@ -20,6 +20,7 @@ import promptimageRouter from "./promptimage";
 import tempmailRouter from "./tempmail";
 import panelRouter from "./panel";
 import fundToolsRouter from "./fund-tools";
+import iconDebugRouter from "./icon-debug";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(promptimageRouter);
 router.use(tempmailRouter);
 router.use(panelRouter);
 router.use(fundToolsRouter);
+router.use(iconDebugRouter);
 
 export default router;
