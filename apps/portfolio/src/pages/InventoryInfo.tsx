@@ -1,120 +1,100 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, User, Heart, Star, MapPin, Box, Package, AlertCircle, Search, Backpack, X, Sword, Shield, Zap, Eye } from "lucide-react";
+import { Upload, User, Heart, Star, MapPin, Box, Package, AlertCircle, Search, Backpack, X } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 const VIDEO_URL = "https://raw.githubusercontent.com/khang26042012/Nexora/main/apps/portfolio/public/hero-bg.mp4";
 const PLAYER_DB_URL = "https://files.catbox.moe/gj3i7r.json";
+const AUTO_DATA_URL = "https://files.catbox.moe/blwca5.gz";
+const MC_ASSETS_BASE = "https://cdn.jsdelivr.net/gh/PrismarineJS/minecraft-assets@master/data/1.21/items";
 
-const glass: React.CSSProperties = {
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: 20,
-};
-
-function AnimBorderCard({
-  children, className = "", speed = 4, color = "rgba(255,255,255,0.85)",
-  radius = 20, innerStyle = {}, animate = true,
-}: {
-  children: React.ReactNode; className?: string; speed?: number; color?: string;
-  radius?: number; innerStyle?: React.CSSProperties; animate?: boolean;
-}) {
-  return (
-    <div
-      className={`running-border ${!animate ? "animation-paused" : ""} ${className}`}
-      style={{
-        "--rb-speed": `${speed}s`, "--rb-color": color, "--rb-radius": `${radius}px`,
-        background: "rgba(255,255,255,0.04)", ...innerStyle,
-      } as React.CSSProperties}
-    >
-      {children}
-    </div>
-  );
+/* ── Item icon cache ── */
+const iconCache = new Map<string, string | null>();
+function getItemIconUrl(itemId: string): string {
+  const clean = itemId.replace("minecraft:", "");
+  if (iconCache.has(clean)) return iconCache.get(clean)!;
+  const url = `${MC_ASSETS_BASE}/${clean}.png`;
+  iconCache.set(clean, url);
+  return url;
 }
 
-/* ── StatRow with optional progress bar ── */
-function StatRow({ icon: Icon, label, value, sub, delay, progress, progressColor }: {
-  icon: any; label: string; value: string; sub?: string; delay: number;
-  progress?: number; progressColor?: string;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="flex flex-col gap-1.5 py-2.5"
-      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className="flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
-        >
-          <Icon size={16} style={{ color: "rgba(255,255,255,0.6)" }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-semibold tracking-widest uppercase text-white/30">{label}</p>
-          <p className="text-sm font-medium text-white/75 truncate">{value}</p>
-          {sub && <p className="text-[10px] text-white/30 truncate">{sub}</p>}
-        </div>
-      </div>
-      {progress !== undefined && (
-        <div className="h-1.5 rounded-full overflow-hidden ml-12" style={{ background: "rgba(255,255,255,0.06)" }}>
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-            transition={{ duration: 0.8, ease: "easeOut", delay: delay + 0.1 }}
-            className="h-full rounded-full"
-            style={{ background: progressColor || "linear-gradient(90deg, rgba(139,92,246,0.7), rgba(59,130,246,0.7))" }}
-          />
-        </div>
-      )}
-    </motion.div>
-  );
+/* ═══════════════════════ UUID Helpers ═══════════════════════ */
+function int32ToUnsignedHex(n: number): string {
+  // Convert signed Int32 to unsigned 32-bit hex (8 chars)
+  return (n >>> 0).toString(16).padStart(8, "0");
 }
 
-/* ── Item Badge with icon ── */
-function ItemBadge({ id, count, size = "normal" }: { id: string; count: number; size?: "normal" | "small" }) {
-  const getIcon = (itemId: string) => {
-    const i = itemId.toLowerCase();
-    if (i.includes("sword") || i.includes("axe")) return "⚔️";
-    if (i.includes("pickaxe")) return "⛏️";
-    if (i.includes("shovel")) return "🪓";
-    if (i.includes("bow")) return "🏹";
-    if (i.includes("shield")) return "🛡️";
-    if (i.includes("helmet") || i.includes("chestplate") || i.includes("leggings") || i.includes("boots")) return "🛡️";
-    if (i.includes("diamond")) return "💎";
-    if (i.includes("gold") || i.includes("golden")) return "✨";
-    if (i.includes("iron")) return "⬜";
-    if (i.includes("emerald")) return "💚";
-    if (i.includes("apple") || i.includes("food") || i.includes("bread") || i.includes("meat") || i.includes("fish") || i.includes("cookie") || i.includes("cake")) return "🍎";
-    if (i.includes("potion")) return "🧪";
-    if (i.includes("book") || i.includes("enchanted")) return "📖";
-    if (i.includes("block") || i.includes("stone") || i.includes("dirt") || i.includes("wood") || i.includes("log") || i.includes("plank")) return "🧱";
-    if (i.includes("torch")) return "🔥";
-    if (i.includes("bucket")) return "🪣";
-    if (i.includes("arrow")) return "➡️";
-    if (i.includes("ender") || i.includes("pearl")) return "🟣";
-    if (i.includes("tnt")) return "💣";
-    if (i.includes("bed")) return "🛏️";
-    if (i.includes("chest")) return "📦";
-    if (i.includes("furnace")) return "🔥";
-    if (i.includes("crafting")) return "🔨";
-    return "📦";
-  };
+function intsToUuid(a: number, b: number, c: number, d: number): string {
+  const hex = int32ToUnsignedHex(a) + int32ToUnsignedHex(b) + int32ToUnsignedHex(c) + int32ToUnsignedHex(d);
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+}
 
-  const isSmall = size === "small";
-  return (
-    <div
-      className={`flex items-center gap-1.5 rounded-lg transition-all hover:scale-105 ${isSmall ? "px-1.5 py-0.5 text-[9px]" : "px-2.5 py-1.5 text-[10px]"}`}
-      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
-    >
-      <span className="select-none">{getIcon(id)}</span>
-      <span className="text-white/50 truncate max-w-[100px]">{id}</span>
-      <span className="text-white/30 font-mono">×{count}</span>
-    </div>
-  );
+function uuidFromNbt(data: Record<string, any>): string {
+  // Try UUID array (4 Int32) — modern format
+  if (Array.isArray(data.UUID) && data.UUID.length === 4) {
+    const [a, b, c, d] = data.UUID.map(Number);
+    if ([a, b, c, d].every(n => !isNaN(n))) return intsToUuid(a, b, c, d);
+  }
+  // Try UUIDMost/UUIDLeast (2 Long) — older format
+  if (data.UUIDMost !== undefined && data.UUIDLeast !== undefined) {
+    try {
+      const most = BigInt(data.UUIDMost);
+      const least = BigInt(data.UUIDLeast);
+      const hi = (most >> 32n) & 0xFFFFFFFFn;
+      const lo = most & 0xFFFFFFFFn;
+      const hi2 = (least >> 32n) & 0xFFFFFFFFn;
+      const lo2 = least & 0xFFFFFFFFn;
+      return intsToUuid(Number(hi), Number(lo), Number(hi2), Number(lo2));
+    } catch {}
+  }
+  // Try string UUID
+  if (typeof data.UUID === "string" && data.UUID.includes("-")) return data.UUID;
+  if (typeof data.uuid === "string" && data.uuid.includes("-")) return data.uuid;
+  return "";
+}
+
+function fileNameToUuid(name: string): string {
+  // Filename is typically the UUID itself: dd4ff6e8-8f00-312a-af87-8325a7c25f88.dat
+  const cleaned = name.replace(/\.dat(_old)?$/, "").trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleaned)) return cleaned;
+  return cleaned;
+}
+
+/* ═══════════════════════ Tar Parser ═══════════════════════ */
+interface TarEntry { name: string; data: Uint8Array; }
+
+function parseTar(buffer: ArrayBuffer): TarEntry[] {
+  const entries: TarEntry[] = [];
+  const view = new DataView(buffer);
+  let offset = 0;
+  while (offset + 512 <= buffer.byteLength) {
+    // Read header
+    const nameBytes = new Uint8Array(buffer, offset, 100);
+    let nameEnd = nameBytes.indexOf(0);
+    if (nameEnd === -1) nameEnd = 100;
+    const name = new TextDecoder().decode(nameBytes.subarray(0, nameEnd)).trim();
+    if (!name || name === "") break; // End of archive
+
+    // Size at offset 124, octal string, 12 bytes
+    const sizeStr = new TextDecoder().decode(new Uint8Array(buffer, offset + 124, 12)).replace(/\0/g, "").trim();
+    const size = parseInt(sizeStr, 8) || 0;
+
+    // Type flag at offset 156
+    const typeFlag = new Uint8Array(buffer, offset + 156, 1)[0];
+
+    offset += 512; // Move past header
+
+    if (typeFlag === 0 || typeFlag === 48) { // Regular file ('0' or '\0')
+      if (size > 0 && offset + size <= buffer.byteLength) {
+        entries.push({ name, data: new Uint8Array(buffer, offset, size) });
+      }
+    }
+
+    // Advance to next 512-byte boundary
+    offset += Math.ceil(size / 512) * 512;
+  }
+  return entries;
 }
 
 /* ═══════════════════════ NBT Parser ═══════════════════════ */
@@ -160,6 +140,7 @@ async function decompressGzip(data: ArrayBuffer): Promise<ArrayBuffer> {
   return await stream.arrayBuffer();
 }
 
+/* ═══════════════════════ Types ═══════════════════════ */
 interface ItemData { id: string; count: number; slot: number; }
 interface PlayerData {
   fileName: string; uuid: string; displayName: string;
@@ -177,30 +158,27 @@ function extractItems(list: NbtValue): ItemData[] {
   })).filter(i => i.id !== "unknown" && i.count > 0);
 }
 
-function uuidFromNbt(nbt: any): string {
-  if (nbt.UUID) return String(nbt.UUID);
-  if (nbt.uuid) return String(nbt.uuid);
-  return "";
-}
-
-async function parseDatFile(file: File): Promise<PlayerData> {
-  const buf = await file.arrayBuffer();
+async function parseDatBuffer(buf: ArrayBuffer, fileName: string): Promise<PlayerData> {
   let decompressed: ArrayBuffer;
   try {
     decompressed = await decompressGzip(buf);
   } catch {
-    throw new Error(`"${file.name}" is not a valid gzip file`);
+    throw new Error(`"${fileName}" is not a valid gzip file`);
   }
   const reader = new NbtReader(decompressed);
   const root = reader.parse();
-  if (!root.value || typeof root.value !== "object") throw new Error(`"${file.name}" has invalid NBT structure`);
+  if (!root.value || typeof root.value !== "object") throw new Error(`"${fileName}" has invalid NBT structure`);
   const data = root.value as Record<string, NbtValue>;
-  const rawUuid = uuidFromNbt(data);
+
+  // Fix UUID: try NBT first, fallback to filename
+  let uuid = uuidFromNbt(data);
+  if (!uuid) uuid = fileNameToUuid(fileName);
+
   const pos = Array.isArray(data.Pos) ? data.Pos.map(Number) as [number, number, number] : [0, 0, 0];
   return {
-    fileName: file.name.replace(/\.dat$/, ""),
-    uuid: rawUuid,
-    displayName: rawUuid || file.name.replace(/\.dat$/, ""),
+    fileName: fileName.replace(/\.dat(_old)?$/, ""),
+    uuid,
+    displayName: uuid, // Will be resolved later via playerDb
     health: Number(data.Health || 0),
     foodLevel: Number(data.foodLevel || 0),
     xpLevel: Number(data.XpLevel || 0),
@@ -212,16 +190,95 @@ async function parseDatFile(file: File): Promise<PlayerData> {
   };
 }
 
-/* ═══════════════════════ Component ═══════════════════════ */
+/* ═══════════════════════ Components ═══════════════════════ */
+const glass: React.CSSProperties = {
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 20,
+};
+
+function AnimBorderCard({
+  children, className = "", speed = 4, color = "rgba(255,255,255,0.85)",
+  radius = 20, innerStyle = {}, animate = true,
+}: {
+  children: React.ReactNode; className?: string; speed?: number; color?: string;
+  radius?: number; innerStyle?: React.CSSProperties; animate?: boolean;
+}) {
+  return (
+    <div
+      className={`running-border ${!animate ? "animation-paused" : ""} ${className}`}
+      style={{
+        "--rb-speed": `${speed}s`, "--rb-color": color, "--rb-radius": `${radius}px`,
+        background: "rgba(255,255,255,0.04)", ...innerStyle,
+      } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  );
+}
+
+function StatRow({ icon: Icon, label, value, sub, delay }: { icon: any; label: string; value: string; sub?: string; delay: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.4 }}
+      className="flex items-center gap-3 py-2.5"
+      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+    >
+      <div className="flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0"
+        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+        <Icon size={16} style={{ color: "rgba(255,255,255,0.6)" }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] font-semibold tracking-widest uppercase text-white/30">{label}</p>
+        <p className="text-sm font-medium text-white/75 truncate">{value}</p>
+        {sub && <p className="text-[10px] text-white/30 truncate">{sub}</p>}
+      </div>
+    </motion.div>
+  );
+}
+
+function ItemChip({ item }: { item: ItemData }) {
+  const [imgError, setImgError] = useState(false);
+  const iconUrl = getItemIconUrl(item.id);
+
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px]"
+      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      {!imgError ? (
+        <img
+          src={iconUrl}
+          alt={item.id}
+          width={24} height={24}
+          className="rounded-sm flex-shrink-0"
+          style={{ imageRendering: "pixelated" }}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className="w-6 h-6 rounded-sm flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(255,255,255,0.08)" }}>
+          <Box size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+        </div>
+      )}
+      <span className="text-white/50 truncate max-w-[90px]">{item.id}</span>
+      <span className="text-white/30">×{item.count}</span>
+    </div>
+  );
+}
+
+/* ═══════════════════════ Main Component ═══════════════════════ */
 export function InventoryInfo() {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [autoLoading, setAutoLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [playerDb, setPlayerDb] = useState<Map<string, string>>(new Map());
   const [dbLoaded, setDbLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Load player DB on mount
   useEffect(() => {
     fetch(PLAYER_DB_URL)
       .then(r => r.json())
@@ -237,6 +294,7 @@ export function InventoryInfo() {
       .catch(() => setDbLoaded(true));
   }, []);
 
+  // Resolve display names when playerDb loads
   useEffect(() => {
     if (!dbLoaded || playerDb.size === 0) return;
     setPlayers(prev => prev.map(p => {
@@ -245,6 +303,7 @@ export function InventoryInfo() {
     }));
   }, [dbLoaded, playerDb]);
 
+  // Video background autoplay
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
@@ -256,13 +315,50 @@ export function InventoryInfo() {
     }
   }, []);
 
+  // Auto-fetch tarball on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(AUTO_DATA_URL);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const gzBuf = await resp.arrayBuffer();
+        const tarBuf = await decompressGzip(gzBuf);
+        const entries = parseTar(tarBuf);
+        const datEntries = entries.filter(e => e.name.endsWith(".dat") && !e.name.endsWith(".dat_old"));
+
+        const newPlayers: PlayerData[] = [];
+        const newErrors: string[] = [];
+        for (const entry of datEntries) {
+          try {
+            const pd = await parseDatBuffer(entry.data.buffer.slice(entry.data.byteOffset, entry.data.byteOffset + entry.data.byteLength), entry.name.split("/").pop() || entry.name);
+            newPlayers.push(pd);
+          } catch (e: any) {
+            newErrors.push(e.message || `Failed: ${entry.name}`);
+          }
+        }
+        if (!cancelled) {
+          setPlayers(newPlayers);
+          setErrors(newErrors);
+          setAutoLoading(false);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setErrors([e.message || "Failed to load auto data"]);
+          setAutoLoading(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const handleFiles = useCallback(async (files: FileList | File[]) => {
     setLoading(true);
     const newPlayers: PlayerData[] = [];
     const newErrors: string[] = [];
     for (const file of Array.from(files)) {
       try {
-        const pd = await parseDatFile(file);
+        const pd = await parseDatBuffer(await file.arrayBuffer(), file.name);
         const resolvedName = playerDb.get(pd.uuid.toLowerCase());
         if (resolvedName) pd.displayName = resolvedName;
         newPlayers.push(pd);
@@ -292,12 +388,8 @@ export function InventoryInfo() {
     <div className="min-h-screen text-white overflow-x-hidden" style={{ fontFamily: FONT, background: "rgba(0,0,0,0.0)" }}>
       {/* Video BG */}
       <div className="fixed inset-0" style={{ zIndex: -2 }}>
-        <video
-          ref={videoRef}
-          loop muted playsInline preload="metadata" autoPlay
-          className="w-full h-full object-cover"
-          style={{ opacity: 0.38, backgroundColor: "#000010" }}
-        >
+        <video ref={videoRef} loop muted playsInline preload="metadata" autoPlay
+          className="w-full h-full object-cover" style={{ opacity: 0.38, backgroundColor: "#000010" }}>
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
         <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
@@ -310,107 +402,107 @@ export function InventoryInfo() {
 
           {/* Header */}
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="mb-8"
           >
             <p className="text-[11px] font-semibold tracking-[0.22em] uppercase text-white/30 mb-2">Client-Side Tool</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-white" style={{ fontFamily: FONT, fontWeight: 800 }}>
-              Trình Search Inventory Player by Phan Trọng Khang
+              Search Inventory Player by Phan Trọng Khang
             </h2>
-            <div className="mt-3 h-px rounded-full" style={{ width: 60, background: "linear-gradient(to right, rgba(255,255,255,0.5), transparent)" }} />
+            <div className="mt-3 h-px rounded-full" style={{ width: 40, background: "linear-gradient(to right, rgba(255,255,255,0.4), transparent)" }} />
           </motion.div>
 
-          {/* Search Box Card */}
+          {/* Search Bar — redesigned to match design system */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="mb-6"
           >
-            <AnimBorderCard speed={6} color="rgba(255,255,255,0.45)" radius={20} innerStyle={{ padding: "20px 24px" }}>
-              <div className="relative group">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-white/60 transition-colors" />
+            <AnimBorderCard speed={6} color="rgba(255,255,255,0.45)" radius={20} innerStyle={{ padding: "16px 20px" }}>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  <Search size={16} style={{ color: "rgba(255,255,255,0.5)" }} />
+                </div>
                 <input
                   type="text"
-                  placeholder="Tìm kiếm theo UUID hoặc tên người chơi..."
+                  placeholder="Search by UUID or player name..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none text-sm text-white/90 placeholder:text-white/25 pl-12 pr-10 py-3"
+                  className="flex-1 bg-transparent border-none outline-none text-sm text-white/90 placeholder:text-white/25 py-2"
                   style={{ fontFamily: FONT }}
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                  <button onClick={() => setSearchQuery("")} className="text-white/30 hover:text-white/60 transition-colors">
                     <X size={16} />
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-center gap-3 mt-2 pt-2 pl-12" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                 <span className="text-[10px] text-white/25 tracking-widest uppercase">
                   {filteredPlayers.length}/{players.length} players
                 </span>
                 {dbLoaded && (
                   <span className="text-[10px] text-white/25 tracking-widest uppercase">
-                    · {playerDb.size / 2} names loaded
+                    · {Math.floor(playerDb.size / 2)} names loaded
                   </span>
                 )}
               </div>
             </AnimBorderCard>
           </motion.div>
 
-          {/* Upload Card */}
+          {/* Upload Card (optional supplement) */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="mb-8"
           >
-            <AnimBorderCard speed={7} color="rgba(255,255,255,0.4)" radius={20} innerStyle={{ padding: "24px" }}>
-              <div
-                onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
-                onDragLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
-                onDrop={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; onDrop(e); }}
-                className="border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all"
-                style={{ borderColor: "rgba(255,255,255,0.1)" }}
-              >
-                <label className="cursor-pointer flex flex-col items-center gap-3">
-                  <motion.div
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    <Upload size={32} className="text-white/30" />
-                  </motion.div>
+            <AnimBorderCard speed={7} color="rgba(255,255,255,0.4)" radius={20} innerStyle={{ padding: "20px 24px" }}>
+              <div onDragOver={e => e.preventDefault()} onDrop={onDrop}
+                className="border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all hover:border-white/20"
+                style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+                <label className="cursor-pointer flex flex-col items-center gap-2">
+                  <Upload size={24} className="text-white/30" />
                   <div>
-                    <p className="text-sm font-medium text-white/60">Kéo thả file .dat hoặc nhấn để chọn</p>
-                    <p className="text-[10px] text-white/25 mt-1">Hỗ trợ nhiều file · Xử lý local · Không upload</p>
+                    <p className="text-sm font-medium text-white/60">Add more .dat files (optional)</p>
+                    <p className="text-[10px] text-white/25 mt-0.5">Drag & drop or click · Client-side only</p>
                   </div>
                   <input type="file" accept=".dat" multiple className="hidden" onChange={e => e.target.files && handleFiles(e.target.files)} />
                 </label>
               </div>
               {loading && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 flex items-center justify-center gap-2">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 flex items-center justify-center gap-2">
                   <div className="w-4 h-4 rounded-full border-2 border-white/15 border-t-white/60 animate-spin" />
-                  <span className="text-xs text-white/40">Đang phân tích...</span>
+                  <span className="text-xs text-white/40">Parsing...</span>
                 </motion.div>
               )}
             </AnimBorderCard>
           </motion.div>
 
+          {/* Auto-loading state */}
+          {autoLoading && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
+              <div className="rounded-2xl p-6 text-center" style={{ ...glass }}>
+                <div className="w-6 h-6 rounded-full border-2 border-white/15 border-t-white/60 animate-spin mx-auto mb-3" />
+                <p className="text-sm text-white/50">Đang tải dữ liệu từ server...</p>
+                <p className="text-[10px] text-white/25 mt-1">Giải nén và phân tích player data</p>
+              </div>
+            </motion.div>
+          )}
+
           {/* Errors */}
           <AnimatePresence>
             {errors.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                className="mb-6 overflow-hidden"
-              >
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-6 overflow-hidden">
                 <div className="rounded-2xl p-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}>
                   <div className="flex items-center gap-2 mb-2">
                     <AlertCircle size={14} style={{ color: "rgba(239,68,68,0.7)" }} />
-                    <span className="text-xs font-semibold text-red-400/80 uppercase tracking-widest">Lỗi Parse</span>
+                    <span className="text-xs font-semibold text-red-400/80 uppercase tracking-widest">Errors ({errors.length})</span>
                   </div>
-                  {errors.map((err, i) => <p key={i} className="text-xs text-red-300/60 ml-5">· {err}</p>)}
-                  <button onClick={() => setErrors([])} className="mt-3 ml-5 text-[10px] text-red-400/50 hover:text-red-400/80 transition-colors uppercase tracking-widest">Xóa</button>
+                  {errors.slice(0, 5).map((err, i) => <p key={i} className="text-xs text-red-300/60 ml-5">· {err}</p>)}
+                  {errors.length > 5 && <p className="text-[10px] text-red-300/40 ml-5 mt-1">+{errors.length - 5} more errors</p>}
+                  <button onClick={() => setErrors([])} className="mt-3 ml-5 text-[10px] text-red-400/50 hover:text-red-400/80 transition-colors uppercase tracking-widest">Clear</button>
                 </div>
               </motion.div>
             )}
@@ -423,56 +515,37 @@ export function InventoryInfo() {
                 <motion.div
                   key={`${player.uuid}-${player.fileName}`}
                   layout
-                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                  transition={{ duration: 0.5, delay: Math.min(i * 0.08, 0.4), ease: [0.16, 1, 0.3, 1] }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.4, delay: Math.min(i * 0.05, 0.3) }}
                 >
                   <AnimBorderCard speed={6} color="rgba(255,255,255,0.35)" radius={20} innerStyle={{ padding: "24px" }}>
                     {/* Player Header */}
                     <div className="flex items-center gap-3 mb-5">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-xl" style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                      <div className="flex items-center justify-center w-10 h-10 rounded-xl"
+                        style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}>
                         <User size={20} style={{ color: "rgba(255,255,255,0.7)" }} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-bold text-white/90 truncate" style={{ fontFamily: FONT }}>{player.displayName}</h3>
-                        <p className="text-[10px] text-white/30 truncate font-mono">{player.uuid || player.fileName}</p>
+                        <h3 className="text-base font-bold text-white/90 truncate" style={{ fontFamily: FONT }}>
+                          {player.displayName}
+                        </h3>
+                        <p className="text-[10px] text-white/30 truncate font-mono">
+                          {player.displayName !== player.uuid ? player.uuid : player.fileName}
+                        </p>
                       </div>
                     </div>
 
-                    {/* Stats Rows with Progress Bars */}
+                    {/* Stats Rows */}
                     <div className="flex flex-col">
-                      <StatRow
-                        icon={Heart} label="Health"
-                        value={`${player.health.toFixed(1)} / 20`}
-                        delay={0.05}
-                        progress={(player.health / 20) * 100}
-                        progressColor="linear-gradient(90deg, rgba(239,68,68,0.7), rgba(251,146,60,0.7))"
-                      />
-                      <StatRow
-                        icon={Star} label="XP Level"
-                        value={String(player.xpLevel)}
-                        sub={`${player.xpTotal} total XP`}
-                        delay={0.1}
-                        progress={Math.min(100, (player.xpLevel / 30) * 100)}
-                        progressColor="linear-gradient(90deg, rgba(52,211,153,0.7), rgba(56,189,248,0.7))"
-                      />
-                      <StatRow
-                        icon={Package} label="Food Level"
-                        value={`${player.foodLevel} / 20`}
-                        delay={0.15}
-                        progress={(player.foodLevel / 20) * 100}
-                        progressColor="linear-gradient(90deg, rgba(251,191,36,0.7), rgba(245,158,11,0.7))"
-                      />
-                      <StatRow
-                        icon={MapPin} label="Position"
-                        value={`${Math.round(player.pos[0])}, ${Math.round(player.pos[1])}, ${Math.round(player.pos[2])}`}
-                        sub={player.dimension}
-                        delay={0.2}
-                      />
+                      <StatRow icon={Heart} label="Health" value={`${player.health.toFixed(1)} / 20`} delay={0.05} />
+                      <StatRow icon={Star} label="XP Level" value={String(player.xpLevel)} sub={`${player.xpTotal} total XP`} delay={0.1} />
+                      <StatRow icon={Package} label="Food Level" value={`${player.foodLevel} / 20`} delay={0.15} />
+                      <StatRow icon={MapPin} label="Position" value={`${Math.round(player.pos[0])}, ${Math.round(player.pos[1])}, ${Math.round(player.pos[2])}`} sub={player.dimension} delay={0.2} />
                     </div>
 
-                    {/* Inventory Summary */}
+                    {/* Inventory */}
                     <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                       <div className="flex items-center gap-2 mb-3">
                         <Backpack size={14} style={{ color: "rgba(255,255,255,0.4)" }} />
@@ -482,15 +555,13 @@ export function InventoryInfo() {
                       </div>
                       {player.inventory.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
-                          {player.inventory.slice(0, 18).map((item, j) => (
-                            <ItemBadge key={j} id={item.id} count={item.count} />
-                          ))}
+                          {player.inventory.slice(0, 18).map((item, j) => <ItemChip key={j} item={item} />)}
                           {player.inventory.length > 18 && (
-                            <span className="text-[10px] text-white/20 px-2 py-1">+{player.inventory.length - 18} more</span>
+                            <span className="text-[10px] text-white/20 px-2 py-1 self-center">+{player.inventory.length - 18} more</span>
                           )}
                         </div>
                       ) : (
-                        <p className="text-[10px] text-white/20 italic">Trống</p>
+                        <p className="text-[10px] text-white/20 italic">Empty</p>
                       )}
                     </div>
 
@@ -504,10 +575,8 @@ export function InventoryInfo() {
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {player.enderItems.slice(0, 12).map((item, j) => (
-                            <ItemBadge key={j} id={item.id} count={item.count} size="small" />
-                          ))}
-                          {player.enderItems.length > 12 && <span className="text-[9px] text-white/15 px-1">+{player.enderItems.length - 12}</span>}
+                          {player.enderItems.slice(0, 12).map((item, j) => <ItemChip key={j} item={item} />)}
+                          {player.enderItems.length > 12 && <span className="text-[9px] text-white/15 px-1 self-center">+{player.enderItems.length - 12}</span>}
                         </div>
                       </div>
                     )}
@@ -518,31 +587,21 @@ export function InventoryInfo() {
           </div>
 
           {/* Empty State */}
-          {!loading && players.length === 0 && errors.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-              className="text-center py-16"
-            >
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <Package className="w-16 h-16 text-white/10 mx-auto mb-4" />
-              </motion.div>
-              <p className="text-sm text-white/20">Chưa có dữ liệu người chơi</p>
-              <p className="text-[10px] text-white/10 mt-1">Upload file .dat từ world/playerdata/</p>
+          {!autoLoading && !loading && players.length === 0 && errors.length === 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="text-center py-16">
+              <Package className="w-12 h-12 text-white/10 mx-auto mb-4" />
+              <p className="text-sm text-white/20">No player data loaded</p>
+              <p className="text-[10px] text-white/10 mt-1">Upload .dat files manually above</p>
             </motion.div>
           )}
 
           {/* Clear button */}
           {players.length > 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center mt-8">
-              <button
-                onClick={clearAll}
-                className="text-[11px] uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors px-6 py-2 rounded-full hover:bg-white/5"
-                style={{ border: "1px solid rgba(255,255,255,0.08)" }}
-              >
-                Xóa tất cả
+              <button onClick={clearAll}
+                className="text-[11px] uppercase tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors px-6 py-2 rounded-full"
+                style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                Clear All
               </button>
             </motion.div>
           )}
