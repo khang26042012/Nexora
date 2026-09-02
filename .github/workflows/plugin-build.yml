@@ -50,8 +50,7 @@ jobs:
 
       - name: Build with Maven
         working-directory: apps/rconkhang-plugin
-        run: mvn -B versions:set -DnewVersion="${{ steps.version.outputs.version }}" -DgenerateBackupPoms=false && mvn -B clean package -DskipTests
-
+        run: mvn -B clean package -DskipTests
       - name: Verify jar
         run: |
           JAR="apps/rconkhang-plugin/target/rconkhang-${{ steps.version.outputs.version }}.jar"
