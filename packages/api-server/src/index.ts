@@ -1,12 +1,8 @@
 import { createServer } from "node:http";
 import app from "./app";
 import { logger } from "./lib/logger";
-import {
-  initDb,
-  initTelegramBot,
-  sendTelegram,
-  initWebSocket,
-} from "@workspace/nexora-garden/server";
+import { initDb } from "./lib/db.js";
+import { logger } from "./lib/logger.js";
 
 const rawPort = process.env["PORT"];
 
@@ -31,17 +27,11 @@ process.on("unhandledRejection", (reason) => {
 });
 
 initDb();
-logger.info("NexoraGarden database initialized");
 
 const httpServer = createServer(app);
 
-initWebSocket(httpServer, sendTelegram);
 
-await initTelegramBot();
 
 httpServer.listen(port, "0.0.0.0", () => {
   logger.info({ port }, "Server listening");
-  setTimeout(() => {
-    sendTelegram("✅ NexoraGarden server đã khởi động");
-  }, 3000);
-});
+  });

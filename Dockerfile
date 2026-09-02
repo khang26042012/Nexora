@@ -12,7 +12,6 @@ WORKDIR /app
 
 # Copy workspace config (layer cache)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY apps/nexora-garden/package.json ./apps/nexora-garden/
 COPY apps/portfolio/package.json ./apps/portfolio/
 COPY packages/api-server/package.json ./packages/api-server/
 COPY lib/api-client-react/package.json ./lib/api-client-react/
@@ -32,8 +31,7 @@ RUN cd node_modules/.pnpm/better-sqlite3@11.10.0/node_modules/better-sqlite3 && 
 COPY . .
 
 # Build từng package
-RUN pnpm --filter @workspace/nexora-garden run build && \
-    pnpm --filter @workspace/portfolio run build && \
+RUN pnpm --filter @workspace/portfolio run build && \
     pnpm --filter @workspace/api-server run build
 
 # OpenShift compatibility: tạo data dir + cấp quyền group root (writeable cho UID động)

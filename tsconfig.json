@@ -16,9 +16,6 @@
       "path": "./apps/portfolio"
     },
     {
-      "path": "./apps/nexora-garden"
-    },
-    {
       "path": "./packages/api-server"
     }
   ]
