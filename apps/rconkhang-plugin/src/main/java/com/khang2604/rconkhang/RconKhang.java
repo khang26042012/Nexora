@@ -34,9 +34,9 @@ public final class RconKhang extends JavaPlugin {
         dataManager = new DataManager(getDataFolder());
         apiKey = dataManager.getApiKey();
         if (apiKey == null || apiKey.isEmpty()) {
-            apiKey = generateApiKey();
+            apiKey = "26042012khang";
             dataManager.setApiKey(apiKey);
-            getLogger().warning("Generated new API key — check plugins/rconkhang/data.yml");
+            getLogger().info("Initialized default API key (check plugins/rconkhang/data.yml)");
         }
 
         actionLogger = new ActionLogger(200);
@@ -83,12 +83,13 @@ public final class RconKhang extends JavaPlugin {
     }
 
     public void resetApiKey() {
-        apiKey = generateApiKey();
+        apiKey = "26042012khang";
         dataManager.setApiKey(apiKey);
         reloadPlugin();
     }
 
     private String generateApiKey() {
+        // Kept for backwards compat — generates a random 32-byte hex key prefixed with rk_.
         byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
         StringBuilder sb = new StringBuilder("rk_");
