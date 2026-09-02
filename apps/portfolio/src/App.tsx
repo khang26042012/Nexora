@@ -9,6 +9,8 @@ import { Home } from "@/pages/Home";
 const NotFound = lazy(() => import("@/pages/not-found").then(m => ({ default: m.default })));
 const Chat = lazy(() => import("@/pages/Chat").then(m => ({ default: m.Chat })));
 const Admin = lazy(() => import("@/pages/Admin").then(m => ({ default: m.Admin })));
+const ServerStatus = lazy(() => import("@/pages/ServerStatus").then(m => ({ default: m.ServerStatus })));
+const InventoryInfo = lazy(() => import("@/pages/InventoryInfo").then(m => ({ default: m.InventoryInfo })));
 const Localize = lazy(() => import("@/pages/Localize").then(m => ({ default: m.Localize })));
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/chat" component={Chat} />
         <Route path="/admin" component={Admin} />
+        <Route path="/server-status" component={ServerStatus} />
+        <Route path="/inventory" component={InventoryInfo} />
         <Route path="/localize" component={Localize} />
         <Route component={NotFound} />
       </Switch>
