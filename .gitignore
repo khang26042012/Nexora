@@ -54,3 +54,5 @@ data-replit.txt
 # Credentials (never commit)
 CREDENTIALS.md
 *.credentials
+logs/
+tmp-*
