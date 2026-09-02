@@ -1,4 +1,5 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, json } from "express";
+const express = { json };
 
 const router = Router();
 
@@ -36,7 +37,7 @@ Sau khi hoàn thành, liệt kê lại RÕ RÀNG:
 
 CHỈ trả về NỘI DUNG FILE ĐÃ DỊCH, KHÔNG thêm giải thích hay markdown code block xung quanh.`;
 
-router.post("/translate", async (req: Request, res: Response) => {
+router.post("/translate", express.json({ limit: "10mb" }), async (req: Request, res: Response) => {
   try {
     console.log("[translate] req.headers[content-type]:", req.headers["content-type"]);
     console.log("[translate] req.body:", JSON.stringify(req.body)?.slice(0, 500));
