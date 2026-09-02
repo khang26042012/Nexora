@@ -38,6 +38,9 @@ CHỈ trả về NỘI DUNG FILE ĐÃ DỊCH, KHÔNG thêm giải thích hay mar
 
 router.post("/translate", async (req: Request, res: Response) => {
   try {
+    console.log("[translate] req.headers[content-type]:", req.headers["content-type"]);
+    console.log("[translate] req.body:", JSON.stringify(req.body)?.slice(0, 500));
+    console.log("[translate] req.rawBody length:", (req as any).rawBody?.length);
     const { content, chunkIndex = 0, totalChunks = 1, fileName = "plugin.yml" } = req.body || {};
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
