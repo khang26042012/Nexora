@@ -22,6 +22,7 @@ import panelRouter from "./panel";
 import fundToolsRouter from "./fund-tools";
 import iconDebugRouter from "./icon-debug";
 import investigateRouter from "./investigate";
+import localizeRouter from "./localize";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(panelRouter);
 router.use(fundToolsRouter);
 router.use(iconDebugRouter);
 router.use(investigateRouter);
+router.use(localizeRouter);
 
 export default router;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Home, Activity, Backpack, ChevronDown, LucideIcon } from "lucide-react";
+import { Home, Activity, Backpack, Languages, ChevronDown, LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import avatarImg from "@/assets/avatar_new.jpg";
@@ -20,11 +20,13 @@ const NAV_LINKS: NavItem[] = [
   { name: "Trang chủ",      href: "/",              icon: Home,          accent: "rgba(180,220,255,0.7)" },
   { name: "Server Status",  href: "/server-status",  icon: Activity,      accent: "rgba(130,255,180,0.7)" },
   { name: "Inventory Info", href: "/inventory",      icon: Backpack,      accent: "rgba(255,200,130,0.7)" },
+  { name: "Việt hóa",       href: "/localize",       icon: Languages,     accent: "rgba(255,180,220,0.7)" },
 ];
 
 function getActiveFromLocation(loc: string): string {
   if (loc.startsWith("/server-status")) return "/server-status";
   if (loc.startsWith("/inventory")) return "/inventory";
+  if (loc.startsWith("/localize")) return "/localize";
   return "/";
 }
 
