@@ -64,7 +64,7 @@ public class DataManager {
     public void addBan(String playerName, String uuid, String reason, long expiresAt, String adminName) {
         List<Map<String, Object>> bans = getBans();
         // Remove existing ban cho cùng player
-        bans.removeIf(b -> b.get("uuid").equals(uuid) || b.get("name").equalsIgnoreCase(playerName));
+        bans.removeIf(b -> b.get("uuid").equals(uuid) || b.get("name").toString().equalsIgnoreCase(playerName));
         Map<String, Object> ban = new LinkedHashMap<>();
         ban.put("name", playerName);
         ban.put("uuid", uuid);
