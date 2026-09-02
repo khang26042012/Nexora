@@ -36,25 +36,17 @@ Sau khi hoàn thành, liệt kê lại RÕ RÀNG:
 
 CHỈ trả về NỘI DUNG FILE ĐÃ DỊCH, KHÔNG thêm giải thích hay markdown code block xung quanh.`;
 
-function readRawBody(req: Request): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-    req.on("error", reject);
-  });
-}
-
 router.post("/translate", async (req: Request, res: Response) => {
   try {
-    // Đọc raw body để tránh phụ thuộc vào body-parser middleware
-    const raw = await readRawBody(req);
-    let parsed: any = {};
-    if (raw && raw.trim().length > 0) {
+    // Đọc từ req.body (parsed bởi express.json) HOẶC fallback req.rawBody (nếu body parser không chạy)
+    const raw = (req as any).rawBody as string | undefined;
+    let parsed: any = req.body || {};
+
+    if ((!parsed.content || typeof parsed.content !== "string") && raw) {
       try {
         parsed = JSON.parse(raw);
       } catch (e) {
-        return res.status(400).json({ error: "Invalid JSON body", raw: raw.slice(0, 200) });
+        return res.status(400).json({ error: "Invalid JSON", raw: raw.slice(0, 200) });
       }
     }
 
@@ -64,7 +56,10 @@ router.post("/translate", async (req: Request, res: Response) => {
     const fileName = parsed.fileName || "plugin.yml";
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
-      return res.status(400).json({ error: "Không có văn bản", received: Object.keys(parsed), rawLen: raw.length });
+      return res.status(400).json({
+        error: "Không có văn bản",
+        debug: { rawLen: raw?.length || 0, bodyKeys: Object.keys(req.body || {}), parsedKeys: Object.keys(parsed) }
+      });
     }
 
     const apiKey = process.env["NINE_ROUTER_API_KEY"] || process.env["OPENROUTER_API_KEY"] || process.env["AI_API_KEY"] || "";

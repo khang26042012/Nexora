@@ -49,6 +49,21 @@ app.use(
   }),
 );
 app.use(cors());
+
+// Capture raw body BEFORE express.json() so routes can read it directly
+// (multer/form-data routes still work, JSON routes can fallback to raw)
+app.use((req, _res, next) => {
+  const chunks: Buffer[] = [];
+  req.on("data", (c: Buffer) => chunks.push(c));
+  req.on("end", () => {
+    if (chunks.length > 0) {
+      (req as any).rawBody = Buffer.concat(chunks).toString("utf-8");
+    }
+    next();
+  });
+  req.on("error", next);
+});
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(accessLogMiddleware);
