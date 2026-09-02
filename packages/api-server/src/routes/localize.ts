@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, text } from "express";
 
 const router = Router();
 
@@ -36,17 +36,18 @@ Sau khi hoàn thành, liệt kê lại RÕ RÀNG:
 
 CHỈ trả về NỘI DUNG FILE ĐÃ DỊCH, KHÔNG thêm giải thích hay markdown code block xung quanh.`;
 
-router.post("/translate", async (req: Request, res: Response) => {
+// Dùng text() thay vì express.json() để bypass body-parser
+// Sau đó tự parse JSON thủ công
+router.post("/translate", text({ limit: "10mb", type: "application/json" }), async (req: Request, res: Response) => {
   try {
-    // Đọc từ req.body (parsed bởi express.json) HOẶC fallback req.rawBody (nếu body parser không chạy)
-    const raw = (req as any).rawBody as string | undefined;
-    let parsed: any = req.body || {};
+    const rawBody = typeof req.body === "string" ? req.body : "";
+    let parsed: any = {};
 
-    if ((!parsed.content || typeof parsed.content !== "string") && raw) {
+    if (rawBody && rawBody.trim().length > 0) {
       try {
-        parsed = JSON.parse(raw);
+        parsed = JSON.parse(rawBody);
       } catch (e) {
-        return res.status(400).json({ error: "Invalid JSON", raw: raw.slice(0, 200) });
+        return res.status(400).json({ error: "Invalid JSON", raw: rawBody.slice(0, 200) });
       }
     }
 
@@ -58,7 +59,7 @@ router.post("/translate", async (req: Request, res: Response) => {
     if (!content || typeof content !== "string" || content.trim().length === 0) {
       return res.status(400).json({
         error: "Không có văn bản",
-        debug: { rawLen: raw?.length || 0, bodyKeys: Object.keys(req.body || {}), parsedKeys: Object.keys(parsed) }
+        debug: { rawLen: rawBody.length, parsedKeys: Object.keys(parsed) }
       });
     }
 
