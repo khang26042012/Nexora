@@ -35,13 +35,14 @@ router.post("/translate", upload.single("file"), async (req: Request, res: Respo
     const content = file.buffer.toString("utf-8");
     
     // Call Qwen 3.7 Plus via OpenRouter or compatible API
-    const apiKey = process.env["OPENROUTER_API_KEY"] || process.env["AI_API_KEY"] || "";
+    const apiKey = process.env["NINE_ROUTER_API_KEY"] || process.env["OPENROUTER_API_KEY"] || process.env["AI_API_KEY"] || "";
     
     if (!apiKey) {
       return res.status(500).json({ error: "AI API key not configured" });
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const baseUrl = process.env["NINE_ROUTER_URL"] || "https://openrouter.ai/api/v1";
+    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,

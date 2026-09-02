@@ -51,3 +51,6 @@ Thumbs.db
 # Personal cheatsheet — chứa API keys, không push lên GitHub
 data-replit.md
 data-replit.txt
+# Credentials (never commit)
+CREDENTIALS.md
+*.credentials
