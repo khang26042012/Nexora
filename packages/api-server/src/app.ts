@@ -18,9 +18,23 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 // Gzip/deflate compression — giảm ~70% bytes cho JS/CSS/HTML
-// TEMP: disable compression and pino-http to isolate body-parser bug
-// app.use(compression({...}));
-// app.use(pinoHttp({...}));
+app.use(compression({
+  filter: (req, res) => {
+    // Không nén responses đã có Content-Encoding (e.g. streaming)
+    if (req.headers["x-no-compression"]) return false;
+    return compression.filter(req, res);
+  },
+  level: 6,
+}));
+app.use(pinoHttp({
+  logger,
+  autoLogging: { ignore: (req) => req.url === "/NexoraGarden/health" || req.url === "/api/healthz" },
+  customLogLevel: (req, res, err) => {
+    if (err || res.statusCode >= 500) return "error";
+    if (res.statusCode >= 400) return "warn";
+    return "info";
+  },
+}));
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
