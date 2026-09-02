@@ -226,8 +226,11 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     },
   });
 
-  /* Bundle ffmpeg vào dist/ sau khi esbuild xong */
-  await downloadFfmpeg(distDir);
+  /* SKIP ffmpeg download — Dockerfile đã cài qua apt (`apt-get install ffmpeg`),
+     runtime tự tìm qua PATH / /usr/bin/ffmpeg (xem youtube.ts findNativeFfmpeg).
+     Bỏ qua bước này giúp build nhanh hơn ~30s và tiết kiệm băng thông. */
+  // await downloadFfmpeg(distDir);
+  console.log("[build] Skipping ffmpeg bundle — using system ffmpeg from PATH");
 }
 
 buildAll().catch((err) => {
