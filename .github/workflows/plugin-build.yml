@@ -1,0 +1,74 @@
+name: Build Plugin (rconkhang)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/rconkhang-plugin/**"
+      - ".github/workflows/plugin-build.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Plugin version (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+      prerelease:
+        description: "Mark as pre-release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release rconkhang
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            V=$(grep '^version:' apps/rconkhang-plugin/src/main/resources/plugin.yml | sed 's/version: //' | tr -d '[:space:]')
+            if [ -z "$V" ]; then V="1.0.0"; fi
+            VERSION="$V"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
+
+      - name: Build with Maven
+        working-directory: apps/rconkhang-plugin
+        run: mvn -B versions:set -DnewVersion="${{ steps.version.outputs.version }}" -DgenerateBackupPoms=false && mvn -B clean package -DskipTests
+
+      - name: Verify jar
+        run: |
+          JAR="apps/rconkhang-plugin/target/rconkhang-${{ steps.version.outputs.version }}.jar"
+          if [ ! -f "$JAR" ]; then echo "ERROR: $JAR not found"; ls -la apps/rconkhang-plugin/target/*.jar; exit 1; fi
+          echo "Built: $JAR"
+          echo "Size: $(stat -c%s "$JAR") bytes"
+          jar -tf "$JAR" | head -5
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "rconkhang v${{ steps.version.outputs.version }}"
+          generate_release_notes: true
+          prerelease: ${{ inputs.prerelease || false }}
+          files: |
+            apps/rconkhang-plugin/target/rconkhang-${{ steps.version.outputs.version }}.jar
+            apps/rconkhang-plugin/README.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
