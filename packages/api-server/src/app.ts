@@ -18,52 +18,10 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 // Gzip/deflate compression — giảm ~70% bytes cho JS/CSS/HTML
-app.use(
-  compression({
-    threshold: 1024,
-    level: 6,
-    filter: (req, res) => {
-      if (req.headers["x-no-compression"]) return false;
-      return compression.filter(req, res);
-    },
-  }),
-);
-
-app.use(
-  pinoHttp({
-    logger,
-    serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
-      },
-      res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  }),
-);
+// TEMP: disable compression and pino-http to isolate body-parser bug
+// app.use(compression({...}));
+// app.use(pinoHttp({...}));
 app.use(cors());
-
-// Capture raw body BEFORE express.json() so routes can read it directly
-// (multer/form-data routes still work, JSON routes can fallback to raw)
-app.use((req, _res, next) => {
-  const chunks: Buffer[] = [];
-  req.on("data", (c: Buffer) => chunks.push(c));
-  req.on("end", () => {
-    if (chunks.length > 0) {
-      (req as any).rawBody = Buffer.concat(chunks).toString("utf-8");
-    }
-    next();
-  });
-  req.on("error", next);
-});
-
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(accessLogMiddleware);
