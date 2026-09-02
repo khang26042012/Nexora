@@ -49,6 +49,6 @@ router.use(panelRouter);
 router.use(fundToolsRouter);
 router.use(iconDebugRouter);
 router.use(investigateRouter);
-router.use(localizeRouter);
+router.use("/localize", localizeRouter);
 
 export default router;

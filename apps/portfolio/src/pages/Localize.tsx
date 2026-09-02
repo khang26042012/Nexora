@@ -117,7 +117,7 @@ export function Localize() {
   }, []);
 
   const processChunk = async (chunk: string, chunkIndex: number): Promise<string> => {
-    const response = await fetch("/api/translate", {
+    const response = await fetch("/api/localize/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: chunk, chunkIndex, totalChunks: chunks.length, fileName: file?.name || "plugin.yml" }),
