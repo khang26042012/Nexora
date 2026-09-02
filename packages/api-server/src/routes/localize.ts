@@ -74,6 +74,7 @@ router.post("/translate", async (req: Request, res: Response) => {
         ],
         temperature: 0.3,
         max_tokens: 8192,
+        stream: false,
       }),
     });
 
@@ -83,8 +84,29 @@ router.post("/translate", async (req: Request, res: Response) => {
       return res.status(502).json({ error: "AI API error", detail: errText.slice(0, 500) });
     }
 
-    const data = (await response.json()) as any;
-    let translated = data.choices?.[0]?.message?.content || "";
+    // Đọc raw text để xử lý cả JSON lẫn SSE streaming
+    const rawText = await response.text();
+    let data: any = {};
+    let translated = "";
+
+    try {
+      data = JSON.parse(rawText);
+      translated = data.choices?.[0]?.message?.content || "";
+    } catch {
+      // SSE streaming: "data: {...}\n\ndata: {...}\n\ndata: [DONE]"
+      const lines = rawText.split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: ")) continue;
+        const payload = trimmed.slice(6);
+        if (payload === "[DONE]") break;
+        try {
+          const j = JSON.parse(payload);
+          const delta = j.choices?.[0]?.delta?.content || j.choices?.[0]?.message?.content;
+          if (delta) translated += delta;
+        } catch { /* skip */ }
+      }
+    }
 
     // Strip markdown code block fences nếu AI trả về
     translated = translated
