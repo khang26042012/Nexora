@@ -55,7 +55,7 @@ router.post("/translate", async (req: Request, res: Response) => {
     }
 
     const baseUrl = process.env["NINE_ROUTER_URL"] || "https://openrouter.ai/api/v1";
-    const model = process.env["NINE_ROUTER_MODEL"] || "qwen/qwen3-235b-a22b:free";
+    const model = process.env["NINE_ROUTER_MODEL"] || "Xkiro/minimax/minimax-m3:free";
 
     const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
