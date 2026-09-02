@@ -1,5 +1,4 @@
-import { Router, type Request, type Response, json } from "express";
-const express = { json };
+import { Router, type Request, type Response } from "express";
 
 const router = Router();
 
@@ -37,15 +36,35 @@ Sau khi hoàn thành, liệt kê lại RÕ RÀNG:
 
 CHỈ trả về NỘI DUNG FILE ĐÃ DỊCH, KHÔNG thêm giải thích hay markdown code block xung quanh.`;
 
-router.post("/translate", express.json({ limit: "10mb" }), async (req: Request, res: Response) => {
+function readRawBody(req: Request): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+    req.on("error", reject);
+  });
+}
+
+router.post("/translate", async (req: Request, res: Response) => {
   try {
-    console.log("[translate] req.headers[content-type]:", req.headers["content-type"]);
-    console.log("[translate] req.body:", JSON.stringify(req.body)?.slice(0, 500));
-    console.log("[translate] req.rawBody length:", (req as any).rawBody?.length);
-    const { content, chunkIndex = 0, totalChunks = 1, fileName = "plugin.yml" } = req.body || {};
+    // Đọc raw body để tránh phụ thuộc vào body-parser middleware
+    const raw = await readRawBody(req);
+    let parsed: any = {};
+    if (raw && raw.trim().length > 0) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch (e) {
+        return res.status(400).json({ error: "Invalid JSON body", raw: raw.slice(0, 200) });
+      }
+    }
+
+    const content = parsed.content;
+    const chunkIndex = typeof parsed.chunkIndex === "number" ? parsed.chunkIndex : 0;
+    const totalChunks = typeof parsed.totalChunks === "number" ? parsed.totalChunks : 1;
+    const fileName = parsed.fileName || "plugin.yml";
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
-      return res.status(400).json({ error: "Không có văn bản" });
+      return res.status(400).json({ error: "Không có văn bản", received: Object.keys(parsed), rawLen: raw.length });
     }
 
     const apiKey = process.env["NINE_ROUTER_API_KEY"] || process.env["OPENROUTER_API_KEY"] || process.env["AI_API_KEY"] || "";
@@ -88,8 +107,8 @@ router.post("/translate", express.json({ limit: "10mb" }), async (req: Request, 
 
     // Strip markdown code block fences nếu AI trả về
     translated = translated
-      .replace(/^\s*\`\`\`(?:ya?ml|text)?\s*\n/i, "")
-      .replace(/\n\s*\`\`\`\s*$/i, "")
+      .replace(/^\s*```(?:ya?ml|text)?\s*\n/i, "")
+      .replace(/\n\s*```\s*$/i, "")
       .trim();
 
     res.json({
