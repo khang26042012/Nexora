@@ -9,9 +9,7 @@ import { Home } from "@/pages/Home";
 const NotFound = lazy(() => import("@/pages/not-found").then(m => ({ default: m.default })));
 const Chat = lazy(() => import("@/pages/Chat").then(m => ({ default: m.Chat })));
 const Admin = lazy(() => import("@/pages/Admin").then(m => ({ default: m.Admin })));
-const ServerStatus = lazy(() => import("@/pages/ServerStatus").then(m => ({ default: m.ServerStatus })));
-const PlayerInvestigation = lazy(() => import("@/pages/PlayerInvestigation").then(m => ({ default: m.PlayerInvestigation })));
-const InventoryInfo = lazy(() => import("@/pages/InventoryInfo").then(m => ({ default: m.InventoryInfo })));
+
 const queryClient = new QueryClient();
 
 function PageFallback() {
@@ -29,9 +27,6 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/chat" component={Chat} />
         <Route path="/admin" component={Admin} />
-        <Route path="/server-status" component={ServerStatus} />
-        <Route path="/inventory" component={InventoryInfo} />
-        <Route path="/investigate" component={PlayerInvestigation} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
@@ -43,4 +38,14 @@ function App() {
     <ThemeProvider defaultTheme="dark" storageKey="ptk-portfolio-theme">
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-      ... (line truncated to 2000 chars)
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+}
+
+export default App;
