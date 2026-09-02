@@ -1,0 +1,22 @@
+name: rconkhang
+version: ${project.version}
+main: com.khang2604.rconkhang.RconKhang
+api-version: '1.20'
+authors: [khang2604]
+description: RCON + admin panel plugin for Paper servers
+load: STARTUP
+
+commands:
+  rconkhang:
+    description: rconkhang admin command
+    aliases: [rk]
+    usage: |
+      /<command> reload - reload config
+      /<command> status - show status
+      /<command> resetkey - reset API key
+    permission: rconkhang.admin
+
+permissions:
+  rconkhang.admin:
+    description: Admin access
+    default: op
