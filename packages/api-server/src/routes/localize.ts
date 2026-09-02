@@ -1,6 +1,8 @@
-import { Router, type Request, type Response, text } from "express";
+import { Router, type Request, type Response } from "express";
+import multer from "multer";
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const SYSTEM_PROMPT = `Nhiệm vụ: Việt hóa file cấu hình plugin Minecraft (messages.yml / lang.yml / config.yml) sang tiếng Việt.
 
@@ -36,21 +38,11 @@ Sau khi hoàn thành, liệt kê lại RÕ RÀNG:
 
 CHỈ trả về NỘI DUNG FILE ĐÃ DỊCH, KHÔNG thêm giải thích hay markdown code block xung quanh.`;
 
-// Dùng text() thay vì express.json() để bypass body-parser
-// Sau đó tự parse JSON thủ công
-router.post("/translate", text({ limit: "10mb", type: "application/json" }), async (req: Request, res: Response) => {
+// multer.none() parse form-data (multipart) mà không cần file
+// JSON body sẽ có sẵn trong req.body (từ express.json app-level middleware)
+router.post("/translate", upload.none(), async (req: Request, res: Response) => {
   try {
-    const rawBody = typeof req.body === "string" ? req.body : "";
-    let parsed: any = {};
-
-    if (rawBody && rawBody.trim().length > 0) {
-      try {
-        parsed = JSON.parse(rawBody);
-      } catch (e) {
-        return res.status(400).json({ error: "Invalid JSON", raw: rawBody.slice(0, 200) });
-      }
-    }
-
+    const parsed: any = req.body || {};
     const content = parsed.content;
     const chunkIndex = typeof parsed.chunkIndex === "number" ? parsed.chunkIndex : 0;
     const totalChunks = typeof parsed.totalChunks === "number" ? parsed.totalChunks : 1;
@@ -59,7 +51,7 @@ router.post("/translate", text({ limit: "10mb", type: "application/json" }), asy
     if (!content || typeof content !== "string" || content.trim().length === 0) {
       return res.status(400).json({
         error: "Không có văn bản",
-        debug: { rawLen: rawBody.length, parsedKeys: Object.keys(parsed) }
+        debug: { bodyKeys: Object.keys(req.body || {}) }
       });
     }
 
