@@ -1,47 +1,58 @@
 import { Router, type Request, type Response } from "express";
-import multer from "multer";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const SYSTEM_PROMPT = `Nhiệm vụ: Việt hóa file cấu hình plugin Minecraft (messages.yml / lang.yml / config.yml) sang tiếng Việt.
 
 QUY TẮC BẮT BUỘC - VI PHẠM SẼ LÀM PLUGIN LỖI:
 
 1. CHỈ dịch phần VALUE (bên phải dấu ":"), TUYỆT ĐỐI KHÔNG đổi KEY (bên trái dấu ":").
-2. GIỮ NGUYÊN 100% mọi placeholder/biến: %player%, {amount}, <player>, {0}, {1}, %target%, v.v.
-3. GIỮ NGUYÊN 100% mã màu và mã định dạng: &a, &c, &l, &n, §4, §6, <red>, <bold>, v.v.
-4. GIỮ NGUYÊN cấu trúc YAML: thụt đầu dòng, dấu ngoặc kép/đơn, dấu hai chấm, thứ tự các dòng.
-5. Với dòng comment (#): CÓ THỂ dịch nếu muốn.
-6. Nếu gặp file có sẵn thư mục lang/ với nhiều file theo mã ngôn ngữ: tạo file vi.yml riêng.
-7. Dịch tự nhiên, đúng ngữ cảnh Minecraft.
-8. Sau khi dịch xong, kiểm tra lại số lượng placeholder phải KHỚP NHAU CHÍNH XÁC.
+   Ví dụ:
+   - Đúng: no-permission: "Bạn không có quyền làm điều này!"
+   - SAI:  khong-co-quyen: "Bạn không có quyền làm điều này!"
 
-Sau khi hoàn thành, liệt kê lại:
+2. GIỮ NGUYÊN 100% mọi placeholder/biến, không dịch, không đổi vị trí, không thêm/bớt ký tự bên trong: %player%, {amount}, <player>, {0}, {1}, %target%, v.v. Chỉ dịch phần chữ tiếng Anh XUNG QUANH placeholder.
+   Ví dụ:
+   - Gốc:  "Teleported to %player%"
+   - Đúng: "Đã dịch chuyển đến %player%"
+   - SAI:  "Đã dịch chuyển đến %nguoichoi%"
+
+3. GIỮ NGUYÊN 100% mã màu và mã định dạng: &a, &c, &l, &n, §4, §6, <red>, <bold>, v.v. Không xoá, không di chuyển sang vị trí khác trong câu.
+
+4. GIỮ NGUYÊN cấu trúc YAML: thụt đầu dòng (indent), dấu ngoặc kép/đơn, dấu hai chấm, thứ tự các dòng. Không thêm dòng mới, không xoá dòng nào kể cả dòng comment (bắt đầu bằng #).
+
+5. Với dòng comment (#) giải thích cho admin đọc (không phải text hiển thị cho người chơi): CÓ THỂ dịch nếu muốn, vì không ảnh hưởng tới việc plugin đọc file.
+
+6. Nếu gặp file có sẵn thư mục lang/ với nhiều file theo mã ngôn ngữ (en.yml, de.yml...) và có khả năng tạo file mới: tạo file vi.yml hoặc vi_VN.yml riêng (copy cấu trúc từ en.yml), KHÔNG ghi đè trực tiếp lên file gốc.
+
+7. Dịch tự nhiên, đúng ngữ cảnh Minecraft (ví dụ "cooldown" → "thời gian hồi", "teleport" → "dịch chuyển", không dịch cứng nhắc từng từ).
+
+8. Sau khi dịch xong, kiểm tra lại: đếm số lượng placeholder trong bản gốc và bản dịch phải KHỚP NHAU CHÍNH XÁC cho từng dòng - nếu thiếu hoặc thừa placeholder, dòng đó sẽ gây lỗi hoặc hiển thị sai khi plugin chạy.
+
+Sau khi hoàn thành, liệt kê lại RÕ RÀNG:
 - Tên file đã dịch
 - Tổng số dòng đã dịch
-- Danh sách bất kỳ dòng nào bạn KHÔNG CHẮC CHẮN về placeholder hoặc cấu trúc`;
+- Danh sách bất kỳ dòng nào bạn KHÔNG CHẮC CHẮN về placeholder hoặc cấu trúc (để người dùng tự kiểm tra lại thủ công trước khi áp dụng vào server).
 
-router.post("/translate", upload.single("file"), async (req: Request, res: Response) => {
+CHỈ trả về NỘI DUNG FILE ĐÃ DỊCH, KHÔNG thêm giải thích hay markdown code block xung quanh.`;
+
+router.post("/translate", async (req: Request, res: Response) => {
   try {
-    const file = req.file;
-    const chunkIndex = parseInt(req.body["chunkIndex"] || "0");
-    const totalChunks = parseInt(req.body["totalChunks"] || "1");
-    
-    if (!file) {
-      return res.status(400).json({ error: "No file uploaded" });
+    const { content, chunkIndex = 0, totalChunks = 1, fileName = "plugin.yml" } = req.body || {};
+
+    if (!content || typeof content !== "string" || content.trim().length === 0) {
+      return res.status(400).json({ error: "Không có văn bản" });
     }
 
-    const content = file.buffer.toString("utf-8");
-    
-    // Call Qwen 3.7 Plus via OpenRouter or compatible API
     const apiKey = process.env["NINE_ROUTER_API_KEY"] || process.env["OPENROUTER_API_KEY"] || process.env["AI_API_KEY"] || "";
-    
+
     if (!apiKey) {
       return res.status(500).json({ error: "AI API key not configured" });
     }
 
     const baseUrl = process.env["NINE_ROUTER_URL"] || "https://openrouter.ai/api/v1";
+    const model = process.env["NINE_ROUTER_MODEL"] || "qwen/qwen3-235b-a22b:free";
+
     const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
@@ -49,13 +60,13 @@ router.post("/translate", upload.single("file"), async (req: Request, res: Respo
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "qwen/qwen3-235b-a22b:free",
+        model,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { 
-            role: "user", 
-            content: `Đây là chunk ${chunkIndex + 1}/${totalChunks} của file ${file.originalname}.\n\n${content}` 
-          }
+          {
+            role: "user",
+            content: `Đây là chunk ${chunkIndex + 1}/${totalChunks} của file ${fileName}.\n\n${content}`,
+          },
         ],
         temperature: 0.3,
         max_tokens: 8192,
@@ -64,16 +75,23 @@ router.post("/translate", upload.single("file"), async (req: Request, res: Respo
 
     if (!response.ok) {
       const errText = await response.text();
+      console.error("[translate] AI API error:", errText.slice(0, 500));
       return res.status(502).json({ error: "AI API error", detail: errText.slice(0, 500) });
     }
 
-    const data = await response.json() as any;
-    const translated = data.choices?.[0]?.message?.content || "";
+    const data = (await response.json()) as any;
+    let translated = data.choices?.[0]?.message?.content || "";
+
+    // Strip markdown code block fences nếu AI trả về
+    translated = translated
+      .replace(/^\s*\`\`\`(?:ya?ml|text)?\s*\n/i, "")
+      .replace(/\n\s*\`\`\`\s*$/i, "")
+      .trim();
 
     res.json({
       chunkIndex,
       totalChunks,
-      fileName: file.originalname,
+      fileName,
       translated,
       tokensUsed: data.usage?.total_tokens || 0,
     });
