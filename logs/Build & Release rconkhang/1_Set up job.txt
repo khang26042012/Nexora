@@ -1,0 +1,32 @@
+﻿2026-09-02T16:33:21.9371725Z Current runner version: '2.337.0'
+2026-09-02T16:33:21.9400880Z ##[group]Runner Image Provisioner
+2026-09-02T16:33:21.9402098Z Hosted Compute Agent
+2026-09-02T16:33:21.9403204Z Version: 20260828.587
+2026-09-02T16:33:21.9404291Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-02T16:33:21.9405479Z Build Date: 2026-08-28T16:44:25Z
+2026-09-02T16:33:21.9406320Z Worker ID: {4e03fc6d-124d-4d79-ac33-11282b5a7cd5}
+2026-09-02T16:33:21.9407067Z Azure Region: eastus2
+2026-09-02T16:33:21.9407742Z ##[endgroup]
+2026-09-02T16:33:21.9409858Z ##[group]Operating System
+2026-09-02T16:33:21.9410617Z Ubuntu
+2026-09-02T16:33:21.9411189Z 24.04.4
+2026-09-02T16:33:21.9411744Z LTS
+2026-09-02T16:33:21.9412328Z ##[endgroup]
+2026-09-02T16:33:21.9412945Z ##[group]Runner Image
+2026-09-02T16:33:21.9413565Z Image: ubuntu-24.04
+2026-09-02T16:33:21.9414516Z Version: 20260831.293.1
+2026-09-02T16:33:21.9415617Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260831.293/images/ubuntu/Ubuntu2404-Readme.md
+2026-09-02T16:33:21.9417556Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260831.293
+2026-09-02T16:33:21.9418523Z ##[endgroup]
+2026-09-02T16:33:21.9419771Z ##[group]GITHUB_TOKEN Permissions
+2026-09-02T16:33:21.9422104Z Contents: write
+2026-09-02T16:33:21.9422861Z Metadata: read
+2026-09-02T16:33:21.9423575Z ##[endgroup]
+2026-09-02T16:33:21.9426497Z Secret source: Actions
+2026-09-02T16:33:21.9427822Z Prepare workflow directory
+2026-09-02T16:33:21.9765283Z Prepare all required actions
+2026-09-02T16:33:21.9814924Z Getting action download info
+2026-09-02T16:33:22.2103468Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-02T16:33:22.3208123Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-09-02T16:33:22.6048023Z Download action repository 'softprops/action-gh-release@v2' (SHA:3bb12739c298aeb8a4eeaf626c5b8d85266b0e65)
+2026-09-02T16:33:22.8539889Z Complete job name: Build & Release rconkhang

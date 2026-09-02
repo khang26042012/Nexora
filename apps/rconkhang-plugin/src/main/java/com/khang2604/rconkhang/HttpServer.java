@@ -58,11 +58,11 @@ public class HttpServer {
     private boolean checkAuth(HttpExchange ex) throws IOException {
         String header = ex.getRequestHeaders().getFirst("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
-            respond(ex, 401, "{"error":"Missing Authorization header"}");
+            respond(ex, 401, "{\"error\":\"Missing Authorization header\"}");
             return false;
         }
         if (!header.substring(7).equals(apiKey)) {
-            respond(ex, 403, "{"error":"Invalid API key"}");
+            respond(ex, 403, "{\"error\":\"Invalid API key\"}");
             return false;
         }
         return true;
