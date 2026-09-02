@@ -1,7 +1,5 @@
 import { createServer } from "node:http";
-import app from "./app";
-import { logger } from "./lib/logger";
-import { initDb } from "./lib/db.js";
+import app from "./app.js";
 import { logger } from "./lib/logger.js";
 
 const rawPort = process.env["PORT"];
@@ -26,12 +24,8 @@ process.on("unhandledRejection", (reason) => {
   logger.error({ reason }, "Unhandled promise rejection — server will continue");
 });
 
-initDb();
-
 const httpServer = createServer(app);
-
-
 
 httpServer.listen(port, "0.0.0.0", () => {
   logger.info({ port }, "Server listening");
-  });
+});
