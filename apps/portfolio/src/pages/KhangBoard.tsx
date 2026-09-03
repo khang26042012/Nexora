@@ -402,7 +402,7 @@ export function KhangBoard() {
                     s.activeProjectId === id ? Object.keys(next)[0] ?? "" : s.activeProjectId,
                 };
               })
-            }}
+            }
           />
         )}
       </main>
