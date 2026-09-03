@@ -21,7 +21,7 @@ const NAV_LINKS: NavItem[] = [
   { name: "Server Status",  href: "/server-status",  icon: Activity,      accent: "rgba(130,255,180,0.7)" },
   { name: "Inventory Info", href: "/inventory",      icon: Backpack,      accent: "rgba(255,200,130,0.7)" },
   { name: "Việt hóa",       href: "/localize",       icon: Languages,     accent: "rgba(255,180,220,0.7)" },
-  { name: "Khang Board",    href: "/khang-board",    icon: FolderKanban,  accent: "rgba(180,160,255,0.75)" },
+  { name: "Update Info",    href: "/update-info",    icon: FolderKanban,  accent: "rgba(180,160,255,0.75)" },
   { name: "Server Admin",   href: "/server-admin",   icon: Shield,        accent: "rgba(255,120,120,0.75)" },
 ];
 
@@ -29,7 +29,7 @@ function getActiveFromLocation(loc: string): string {
   if (loc.startsWith("/server-status")) return "/server-status";
   if (loc.startsWith("/inventory")) return "/inventory";
   if (loc.startsWith("/localize")) return "/localize";
-  if (loc.startsWith("/khang-board")) return "/khang-board";
+  if (loc.startsWith("/update-info")) return "/update-info";
   if (loc.startsWith("/server-admin")) return "/server-admin";
   return "/";
 }

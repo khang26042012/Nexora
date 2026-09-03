@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   CalendarDays,
@@ -13,6 +13,7 @@ import {
   Loader2,
   FolderKanban,
   Check,
+  Inbox,
 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,9 +29,13 @@ import { Separator } from "@/components/ui/separator";
 
 const FONT = "'Plus Jakarta Sans', sans-serif";
 
+// === Video background (đồng bộ với Home.tsx) ===
+const VIDEO_URL =
+  "https://raw.githubusercontent.com/khang26042012/Nexora/main/apps/portfolio/public/hero-bg.mp4";
+
 // === Storage keys ===
-const LS_STATE = "ptk-khang-board-state-v1";
-const LS_AUTH = "ptk-khang-board-auth";
+const LS_STATE = "ptk-update-info-state-v1";
+const LS_AUTH = "ptk-update-info-auth";
 const ADMIN_PASSWORD = "26042012khang";
 
 // === Types ===
@@ -68,67 +73,24 @@ interface BoardState {
   activeProjectId: string;
 }
 
-const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const newId = () =>
+  Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
-// === Default seed (chỉ tạo lần đầu, nếu localStorage rỗng) ===
+// === Default state RỖNG — không seed data ===
 function defaultState(): BoardState {
-  const now = Date.now();
   return {
-    projects: {
-      "khang-sword": {
-        meta: {
-          id: "khang-sword",
-          name: "Quyền Năng Của Khang",
-          description:
-            "Custom netherite admin sword plugin — Paper 26.2 + Geyser Bedrock support",
-          progress: 75,
-          eta: null,
-          note:
-            "**Trạng thái**: hoàn thành MVP, đang test Bedrock client.\n\nRepo: `nexora/apps/adminsword-plugin`",
-          createdAt: now,
-          updatedAt: now,
-        },
-        tasks: [
-          { id: newId(), title: "Fix Warden 1-hit", status: "done", createdAt: now, updatedAt: now },
-          { id: newId(), title: "PDC custom_data cho Bedrock pack", status: "done", createdAt: now, updatedAt: now },
-          { id: newId(), title: "Host pack trên raw.githubusercontent.com", status: "done", createdAt: now, updatedAt: now },
-          { id: newId(), title: "Test Bedrock client download pack", status: "in_progress", createdAt: now, updatedAt: now },
-          { id: newId(), title: "Extension API cho PE_KhangKYT", status: "todo", createdAt: now, updatedAt: now },
-        ],
-        updates: [
-          { id: newId(), text: "Server log sạch sau khi fix Bedrock pack URL. Đợi user test.", createdAt: now - 1000 * 60 * 60 * 5, edited: false },
-          { id: newId(), text: "Đổi sang `custom_data` component match — `select` không work vì TextComponent mismatch.", createdAt: now - 1000 * 60 * 60 * 6, edited: false },
-        ],
-      },
-      "xkiro-rotator": {
-        meta: {
-          id: "xkiro-rotator",
-          name: "Xkiro Rotator",
-          description: "Anti-spawn disabled + model lock + IP whitelist + email alerts",
-          progress: 90,
-          eta: null,
-          note: "**Files** xong, đang đợi anh test trên Termux thật.",
-          createdAt: now,
-          updatedAt: now,
-        },
-        tasks: [
-          { id: newId(), title: "ZIP toàn bộ tool", status: "done", createdAt: now, updatedAt: now },
-          { id: newId(), title: "Verify SMTP alert", status: "done", createdAt: now, updatedAt: now },
-          { id: newId(), title: "Hướng dẫn Termux thật", status: "in_progress", createdAt: now, updatedAt: now },
-        ],
-        updates: [
-          { id: newId(), text: "Alert email về `tkccphone8@gmail.com` (email phụ).", createdAt: now - 1000 * 60 * 30, edited: false },
-        ],
-      },
-    },
-    activeProjectId: "khang-sword",
+    projects: {},
+    activeProjectId: "",
   };
 }
 
 function loadState(): BoardState {
   try {
     const raw = localStorage.getItem(LS_STATE);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return parsed;
+    }
   } catch {}
   const def = defaultState();
   localStorage.setItem(LS_STATE, JSON.stringify(def));
@@ -140,7 +102,10 @@ function saveState(s: BoardState) {
 
 // === Markdown render đơn giản ===
 function escapeHtml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 function renderMarkdown(input: string) {
   if (!input) return null;
@@ -148,10 +113,22 @@ function renderMarkdown(input: string) {
   return lines.map((line, idx) => {
     if (!line.trim()) return <br key={idx} />;
     let h = escapeHtml(line);
-    h = h.replace(/`([^`]+)`/g, '<code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.85em]">$1</code>');
-    h = h.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
-    h = h.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
-    h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer" class="text-blue-300 underline-offset-2 hover:underline">$1</a>');
+    h = h.replace(
+      /`([^`]+)`/g,
+      '<code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.85em]">$1</code>'
+    );
+    h = h.replace(
+      /\*\*([^*]+)\*\*/g,
+      '<strong class="font-semibold text-white">$1</strong>'
+    );
+    h = h.replace(
+      /(^|[^*])\*([^*]+)\*/g,
+      "$1<em>$2</em>"
+    );
+    h = h.replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noreferrer" class="text-blue-300 underline-offset-2 hover:underline">$1</a>'
+    );
     return <span key={idx} dangerouslySetInnerHTML={{ __html: h }} />;
   });
 }
@@ -160,12 +137,15 @@ function formatTime(ts: number) {
   const d = new Date(ts);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
-  const time = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  const time = d.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   if (sameDay) return time;
   return `${d.toLocaleDateString("vi-VN")} ${time}`;
 }
 
-// === Glass card style (giống portfolio) ===
+// === Glass style (đồng bộ Home.tsx) ===
 const glass: React.CSSProperties = {
   background: "rgba(255,255,255,0.05)",
   border: "1px solid rgba(255,255,255,0.12)",
@@ -173,8 +153,87 @@ const glass: React.CSSProperties = {
   backdropFilter: "blur(12px)",
 };
 
+// === Video background component (đồng bộ Home.tsx) ===
+function VideoBackground() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const playWhenReady = () => {
+      v.play().catch(() => {
+        const once = () => {
+          v.play().catch(() => {});
+          window.removeEventListener("pointerdown", once);
+        };
+        window.addEventListener("pointerdown", once, { once: true });
+      });
+    };
+    if (v.readyState >= 2) playWhenReady();
+    else v.addEventListener("loadeddata", playWhenReady, { once: true });
+    return () => v.removeEventListener("loadeddata", playWhenReady);
+  }, []);
+  return (
+    <div className="fixed inset-0" style={{ zIndex: -2 }}>
+      <video
+        ref={videoRef}
+        loop
+        muted
+        playsInline
+        preload="metadata"
+        disableRemotePlayback
+        className="w-full h-full object-cover"
+        style={{ opacity: 0.38, backgroundColor: "#000010" }}
+      >
+        <source src={VIDEO_URL} type="video/mp4" />
+      </video>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.65)" }} />
+    </div>
+  );
+}
+
+// === Empty state — khi chưa có project / chưa có update ===
+function EmptyState({ isAdmin }: { isAdmin: boolean }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col items-center justify-center text-center py-20 px-4"
+      style={glass}
+    >
+      <div className="relative mb-6">
+        <div
+          className="absolute inset-0 rounded-full blur-2xl arcane-glow"
+          style={{ background: "radial-gradient(circle, rgba(96,165,250,0.4), transparent 70%)" }}
+        />
+        <Inbox
+          className="h-16 w-16 text-blue-300/70 relative arcane-pulse"
+          strokeWidth={1.25}
+        />
+      </div>
+      <h2 className="text-lg font-semibold text-white/90 mb-2">
+        Chưa có update nào
+      </h2>
+      <p className="text-sm text-white/50 max-w-md mb-6">
+        Khi có dự án mới hoặc cập nhật tiến độ, chúng sẽ hiển thị ở đây.
+        {isAdmin
+          ? " Bạn có thể tạo project đầu tiên ngay bên dưới."
+          : ""}
+      </p>
+      {isAdmin ? (
+        <a href="#admin-extras" className="text-xs text-blue-300/80 hover:text-blue-300 font-mono underline-offset-4 hover:underline">
+          ↓ tạo project đầu tiên
+        </a>
+      ) : (
+        <a href="/admin" className="text-xs text-white/40 hover:text-white/70 font-mono">
+          (đăng nhập admin để đăng bài)
+        </a>
+      )}
+    </motion.div>
+  );
+}
+
 // === Main page ===
-export function KhangBoard() {
+export default function UpdateInfo() {
   const [state, setState] = useState<BoardState | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -192,7 +251,11 @@ export function KhangBoard() {
     );
   }
 
-  const active = state.projects[state.activeProjectId] || Object.values(state.projects)[0];
+  const projects = Object.values(state.projects);
+  const hasProjects = projects.length > 0;
+  const active = hasProjects
+    ? state.projects[state.activeProjectId] || projects[0]
+    : null;
 
   const update = (mut: (s: BoardState) => BoardState) => {
     setSaving(true);
@@ -211,8 +274,13 @@ export function KhangBoard() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white" style={{ fontFamily: FONT }}>
+    <div
+      className="min-h-screen text-white overflow-x-hidden"
+      style={{ fontFamily: FONT, background: "rgba(0,0,0,0.0)" }}
+    >
+      <VideoBackground />
       <Navigation />
+
       <main className="container max-w-5xl mx-auto px-4 py-8 pt-20 space-y-6">
         {/* Header */}
         <motion.div
@@ -222,38 +290,32 @@ export function KhangBoard() {
         >
           <div className="flex items-center gap-3">
             <FolderKanban className="h-5 w-5 text-blue-300" />
-            <h1 className="text-xl font-semibold tracking-tight">Khang Board</h1>
+            <h1 className="text-xl font-semibold tracking-tight">
+              Update Info
+            </h1>
             <span className="text-[11px] text-white/50 font-mono">
-              · progress + updates
+              · projects · progress · updates
             </span>
-            {saving && <Loader2 className="h-3 w-3 animate-spin text-white/40" />}
+            {saving && (
+              <Loader2 className="h-3 w-3 animate-spin text-white/40" />
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isAdmin ? (
-              <>
-                <select
-                  className="h-8 rounded-md border border-white/15 bg-white/5 px-2 text-xs font-mono text-white"
-                  value={state.activeProjectId}
-                  onChange={(e) => switchProject(e.target.value)}
-                >
-                  {Object.values(state.projects).map((p) => (
-                    <option key={p.meta.id} value={p.meta.id} className="bg-black">
-                      {p.meta.name}
-                    </option>
-                  ))}
-                </select>
-                <Button size="sm" variant="ghost" onClick={logout}>
-                  <LogOut className="h-3.5 w-3.5" />
-                </Button>
-              </>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={logout}
+                title="Đăng xuất"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
             ) : null}
           </div>
         </motion.div>
 
         {!active ? (
-          <div style={glass} className="p-8 text-center text-white/60">
-            Chưa có project nào.
-          </div>
+          <EmptyState isAdmin={isAdmin} />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ProgressCard
@@ -266,7 +328,11 @@ export function KhangBoard() {
                     ...s.projects,
                     [active.meta.id]: {
                       ...active,
-                      meta: { ...active.meta, ...patch, updatedAt: Date.now() },
+                      meta: {
+                        ...active.meta,
+                        ...patch,
+                        updatedAt: Date.now(),
+                      },
                     },
                   },
                 }))
@@ -280,7 +346,13 @@ export function KhangBoard() {
                       ...active,
                       tasks: [
                         ...active.tasks,
-                        { id: newId(), title, status: "in_progress", createdAt: Date.now(), updatedAt: Date.now() },
+                        {
+                          id: newId(),
+                          title,
+                          status: "in_progress",
+                          createdAt: Date.now(),
+                          updatedAt: Date.now(),
+                        },
                       ],
                       meta: { ...active.meta, updatedAt: Date.now() },
                     },
@@ -295,7 +367,9 @@ export function KhangBoard() {
                     [active.meta.id]: {
                       ...active,
                       tasks: active.tasks.map((t) =>
-                        t.id === taskId ? { ...t, ...patch, updatedAt: Date.now() } : t,
+                        t.id === taskId
+                          ? { ...t, ...patch, updatedAt: Date.now() }
+                          : t
                       ),
                       meta: { ...active.meta, updatedAt: Date.now() },
                     },
@@ -329,7 +403,12 @@ export function KhangBoard() {
                       ...active,
                       updates: [
                         ...active.updates,
-                        { id: newId(), text, createdAt: Date.now(), edited: false },
+                        {
+                          id: newId(),
+                          text,
+                          createdAt: Date.now(),
+                          edited: false,
+                        },
                       ],
                       meta: { ...active.meta, updatedAt: Date.now() },
                     },
@@ -344,7 +423,7 @@ export function KhangBoard() {
                     [active.meta.id]: {
                       ...active,
                       updates: active.updates.map((u) =>
-                        u.id === id ? { ...u, text, edited: true } : u,
+                        u.id === id ? { ...u, text, edited: true } : u
                       ),
                       meta: { ...active.meta, updatedAt: Date.now() },
                     },
@@ -369,41 +448,52 @@ export function KhangBoard() {
         )}
 
         {isAdmin && (
-          <AdminExtras
-            state={state}
-            onAddProject={(name, description) => {
-              const id = name
-                .toLowerCase()
-                .trim()
-                .replace(/[^a-z0-9\-]+/g, "-")
-                .replace(/^-+|-+$/g, "");
-              if (!id || state.projects[id]) return;
-              const now = Date.now();
-              update((s) => ({
-                ...s,
-                projects: {
-                  ...s.projects,
-                  [id]: {
-                    meta: { id, name, description, progress: 0, eta: null, note: "", createdAt: now, updatedAt: now },
-                    tasks: [],
-                    updates: [],
+          <div id="admin-extras">
+            <AdminExtras
+              state={state}
+              onAddProject={(name, description) => {
+                const id = name
+                  .toLowerCase()
+                  .trim()
+                  .replace(/[^a-z0-9\-]+/g, "-")
+                  .replace(/^-+|-+$/g, "");
+                if (!id || state.projects[id]) return;
+                const now = Date.now();
+                update((s) => ({
+                  ...s,
+                  projects: {
+                    ...s.projects,
+                    [id]: {
+                      meta: {
+                        id,
+                        name,
+                        description,
+                        progress: 0,
+                        eta: null,
+                        note: "",
+                        createdAt: now,
+                        updatedAt: now,
+                      },
+                      tasks: [],
+                      updates: [],
+                    },
                   },
-                },
-                activeProjectId: id,
-              }));
-            }}
-            onDeleteProject={(id) =>
-              update((s) => {
-                const next = { ...s.projects };
-                delete next[id];
-                return {
-                  projects: next,
-                  activeProjectId:
-                    s.activeProjectId === id ? Object.keys(next)[0] ?? "" : s.activeProjectId,
-                };
-              })
-            }
-          />
+                  activeProjectId: id,
+                }));
+              }}
+              onDeleteProject={(id) =>
+                update((s) => {
+                  const next = { ...s.projects };
+                  delete next[id];
+                  const remaining = Object.keys(next);
+                  return {
+                    projects: next,
+                    activeProjectId: remaining[0] || "",
+                  };
+                })
+              }
+            />
+          </div>
         )}
       </main>
     </div>
@@ -443,7 +533,9 @@ function ProgressCard({
     ? new Date(project.meta.eta).toLocaleDateString("vi-VN")
     : "—";
   const etaRemaining = project.meta.eta
-    ? Math.ceil((new Date(project.meta.eta).getTime() - Date.now()) / 86400000)
+    ? Math.ceil(
+        (new Date(project.meta.eta).getTime() - Date.now()) / 86400000
+      )
     : null;
 
   const visibleTasks = [
@@ -452,7 +544,10 @@ function ProgressCard({
   ].slice(0, 8);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
       <Card style={glass} className="border-white/12">
         <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
           <div className="space-y-1 flex-1 min-w-0">
@@ -461,21 +556,28 @@ function ProgressCard({
                 {editing ? (
                   <Input
                     value={draft.name}
-                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    onChange={(e) =>
+                      setDraft({ ...draft, name: e.target.value })
+                    }
                     className="max-w-xs bg-white/5 border-white/15"
                   />
                 ) : (
                   project.meta.name
                 )}
               </CardTitle>
-              <Badge variant="secondary" className="font-mono text-[10px] bg-white/10 text-white/80 border-white/15">
+              <Badge
+                variant="secondary"
+                className="font-mono text-[10px] bg-white/10 text-white/80 border-white/15"
+              >
                 {project.meta.id}
               </Badge>
             </div>
             {editing ? (
               <Input
                 value={draft.description}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, description: e.target.value })
+                }
                 placeholder="Mô tả ngắn"
                 className="max-w-md bg-white/5 border-white/15 text-sm"
               />
@@ -489,12 +591,21 @@ function ProgressCard({
                 <Button size="sm" onClick={save}>
                   <Save className="h-3.5 w-3.5" />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditing(false)}
+                >
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ) : (
-              <Button size="sm" variant="outline" onClick={startEdit} className="border-white/15 bg-white/5">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={startEdit}
+                className="border-white/15 bg-white/5"
+              >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
             ))}
@@ -516,7 +627,10 @@ function ProgressCard({
                       max={100}
                       value={draft.progress}
                       onChange={(e) =>
-                        setDraft({ ...draft, progress: Number(e.target.value) || 0 })
+                        setDraft({
+                          ...draft,
+                          progress: Number(e.target.value) || 0,
+                        })
                       }
                       className="w-20 h-7 text-right font-mono bg-white/5 border-white/15"
                     />
@@ -525,7 +639,10 @@ function ProgressCard({
                   )}
                 </span>
               </div>
-              <Progress value={editing ? draft.progress : project.meta.progress} className="h-1.5" />
+              <Progress
+                value={editing ? draft.progress : project.meta.progress}
+                className="h-1.5"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -536,7 +653,9 @@ function ProgressCard({
                 <Input
                   type="date"
                   value={draft.eta || ""}
-                  onChange={(e) => setDraft({ ...draft, eta: e.target.value || null })}
+                  onChange={(e) =>
+                    setDraft({ ...draft, eta: e.target.value || null })
+                  }
                   className="bg-white/5 border-white/15 text-sm"
                 />
               ) : (
@@ -552,7 +671,9 @@ function ProgressCard({
                           : "text-[10px] text-white/50 font-mono"
                       }
                     >
-                      {etaRemaining < 0 ? `trễ ${-etaRemaining}d` : `còn ${etaRemaining}d`}
+                      {etaRemaining < 0
+                        ? `trễ ${-etaRemaining}d`
+                        : `còn ${etaRemaining}d`}
                     </span>
                   )}
                 </div>
@@ -562,7 +683,9 @@ function ProgressCard({
 
           {/* Note */}
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase tracking-wider text-white/50">Note</Label>
+            <Label className="text-[10px] uppercase tracking-wider text-white/50">
+              Note
+            </Label>
             {editing ? (
               <Textarea
                 value={draft.note}
@@ -584,42 +707,52 @@ function ProgressCard({
             <Label className="text-[10px] uppercase tracking-wider text-white/50">
               Tasks ({visibleTasks.length})
             </Label>
-            <div className="space-y-1">
-              {visibleTasks.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5"
-                >
-                  {isAdmin ? (
-                    <Checkbox
-                      checked={t.status === "done"}
-                      onCheckedChange={(c) => onUpdateTask(t.id, { status: c ? "done" : "in_progress" })}
-                    />
-                  ) : (
-                    <span className="h-4 w-4 rounded-sm border border-white/15 inline-block" />
-                  )}
-                  <span
-                    className={
-                      t.status === "done"
-                        ? "text-sm line-through text-white/40"
-                        : "text-sm"
-                    }
+            {visibleTasks.length === 0 ? (
+              <p className="text-sm text-white/40 italic py-1">
+                (chưa có task)
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {visibleTasks.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5"
                   >
-                    {t.title}
-                  </span>
-                  {isAdmin && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6 ml-auto text-white/40 hover:text-red-400"
-                      onClick={() => onDeleteTask(t.id)}
+                    {isAdmin ? (
+                      <Checkbox
+                        checked={t.status === "done"}
+                        onCheckedChange={(c) =>
+                          onUpdateTask(t.id, {
+                            status: c ? "done" : "in_progress",
+                          })
+                        }
+                      />
+                    ) : (
+                      <span className="h-4 w-4 rounded-sm border border-white/15 inline-block" />
+                    )}
+                    <span
+                      className={
+                        t.status === "done"
+                          ? "text-sm line-through text-white/40"
+                          : "text-sm"
+                      }
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
+                      {t.title}
+                    </span>
+                    {isAdmin && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 ml-auto text-white/40 hover:text-red-400"
+                        onClick={() => onDeleteTask(t.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {isAdmin && (
               <form
@@ -637,7 +770,12 @@ function ProgressCard({
                   placeholder="+ thêm task…"
                   className="text-sm bg-white/5 border-white/15"
                 />
-                <Button type="submit" size="sm" variant="outline" className="border-white/15 bg-white/5">
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="outline"
+                  className="border-white/15 bg-white/5"
+                >
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </form>
@@ -669,12 +807,20 @@ function UpdatesCard({
   const sorted = [...updates].sort((a, b) => a.createdAt - b.createdAt);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+    >
       <Card style={glass} className="border-white/12">
         <CardHeader className="pb-3 flex flex-row items-center gap-2 space-y-0">
           <MessageSquare className="h-4 w-4 text-blue-300" />
-          <CardTitle className="text-base font-semibold">Updates gần đây</CardTitle>
-          <span className="text-xs text-white/50 font-mono">({sorted.length})</span>
+          <CardTitle className="text-base font-semibold">
+            Updates gần đây
+          </CardTitle>
+          <span className="text-xs text-white/50 font-mono">
+            ({sorted.length})
+          </span>
         </CardHeader>
         <CardContent className="space-y-3">
           {isAdmin && (
@@ -705,7 +851,9 @@ function UpdatesCard({
 
           <ScrollArea className="h-[400px] pr-3">
             {sorted.length === 0 ? (
-              <p className="text-sm text-white/40 italic py-4 text-center">(chưa có update)</p>
+              <p className="text-sm text-white/40 italic py-4 text-center">
+                (chưa có update)
+              </p>
             ) : (
               <div className="space-y-2.5">
                 {sorted.map((u) => (
@@ -716,7 +864,9 @@ function UpdatesCard({
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] text-white/50 font-mono">
                         {formatTime(u.createdAt)}
-                        {u.edited && <span className="ml-1.5 italic">(đã sửa)</span>}
+                        {u.edited && (
+                          <span className="ml-1.5 italic">(đã sửa)</span>
+                        )}
                       </span>
                       {isAdmin && editingId !== u.id && (
                         <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -751,7 +901,11 @@ function UpdatesCard({
                           autoFocus
                         />
                         <div className="flex gap-1.5 justify-end">
-                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingId(null)}
+                          >
                             <X className="h-3 w-3" />
                           </Button>
                           <Button
@@ -794,8 +948,14 @@ function AdminExtras({
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
 
+  const projects = Object.values(state.projects);
+
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+    >
       <Card style={glass} className="border-white/12">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -815,62 +975,66 @@ function AdminExtras({
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
               placeholder="Mô tả (optional)"
-              className="bg-white/5 border-white/15"
+              className="bg-white/5 border-white/15 sm:col-span-2"
             />
+          </div>
+          <div className="flex justify-end">
             <Button
+              size="sm"
+              disabled={!name.trim()}
               onClick={() => {
-                if (!name.trim()) return;
                 onAddProject(name.trim(), desc.trim());
                 setName("");
                 setDesc("");
               }}
-              disabled={!name.trim()}
             >
               <Plus className="h-3.5 w-3.5" /> Tạo
             </Button>
           </div>
 
-          <Separator className="bg-white/10" />
-
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase tracking-wider text-white/50">
-              Tất cả project ({Object.keys(state.projects).length})
-            </Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {Object.values(state.projects).map((p) => (
-                <div
-                  key={p.meta.id}
-                  className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{p.meta.name}</div>
-                    <div className="text-[10px] text-white/50 font-mono">
-                      {p.meta.id} · {p.meta.progress}% · {p.tasks.length} tasks ·{" "}
-                      {p.updates.length} updates
-                    </div>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-white/40 hover:text-red-400"
-                    onClick={() => {
-                      if (confirm(`Xoá project "${p.meta.id}"?`)) onDeleteProject(p.meta.id);
-                    }}
+          {projects.length > 0 && (
+            <>
+              <Separator className="bg-white/10" />
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase tracking-wider text-white/50">
+                  Projects hiện có
+                </Label>
+                {projects.map((p) => (
+                  <div
+                    key={p.meta.id}
+                    className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5"
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm truncate">{p.meta.name}</span>
+                      <span className="text-[10px] text-white/40 font-mono">
+                        · {p.tasks.length} tasks · {p.updates.length} updates
+                      </span>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-white/40 hover:text-red-400"
+                      onClick={() => {
+                        if (confirm(`Xoá project "${p.meta.name}"?`)) {
+                          onDeleteProject(p.meta.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </motion.div>
   );
 }
 
-// === Admin login (route ẩn /khang-board-admin) ===
-export function KhangBoardAdmin() {
+// === Admin login (route ẩn /admin) ===
+export function UpdateInfoAdmin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -882,7 +1046,7 @@ export function KhangBoardAdmin() {
     setTimeout(() => {
       if (password === ADMIN_PASSWORD) {
         localStorage.setItem(LS_AUTH, "ok");
-        window.location.href = "/khang-board";
+        window.location.href = "/update-info";
       } else {
         setError("Sai mật khẩu");
         setBusy(false);
@@ -891,7 +1055,11 @@ export function KhangBoardAdmin() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4" style={{ fontFamily: FONT }}>
+    <div
+      className="min-h-screen text-white overflow-x-hidden flex items-center justify-center p-4"
+      style={{ fontFamily: FONT, background: "rgba(0,0,0,0.0)" }}
+    >
+      <VideoBackground />
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -901,11 +1069,17 @@ export function KhangBoardAdmin() {
         <div style={glass} className="p-6 mt-20 space-y-4">
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4 text-blue-300" />
-            <h1 className="text-lg font-semibold">Khang Board — Admin</h1>
+            <h1 className="text-lg font-semibold">Update Info — Admin</h1>
           </div>
           <p className="text-xs text-white/50">
             Nhập mật khẩu để đăng bài / sửa tiến độ. Public mode xem tại{" "}
-            <a href="/khang-board" className="text-blue-300 hover:underline">/khang-board</a>.
+            <a
+              href="/update-info"
+              className="text-blue-300 hover:underline"
+            >
+              /update-info
+            </a>
+            .
           </p>
           <form onSubmit={submit} className="space-y-3">
             <Input
@@ -917,8 +1091,16 @@ export function KhangBoardAdmin() {
               className="bg-white/5 border-white/15"
             />
             {error && <p className="text-xs text-red-400">{error}</p>}
-            <Button type="submit" className="w-full" disabled={busy || !password}>
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Vào admin"}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={busy || !password}
+            >
+              {busy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                "Vào admin"
+              )}
             </Button>
           </form>
         </div>
@@ -926,5 +1108,3 @@ export function KhangBoardAdmin() {
     </div>
   );
 }
-
-export default KhangBoard;
