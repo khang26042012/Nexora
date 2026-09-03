@@ -9,9 +9,17 @@
         "eta": null,
         "note": "",
         "createdAt": 1788445725108,
-        "updatedAt": 1788445725108
+        "updatedAt": 1788445765235
       },
-      "tasks": [],
+      "tasks": [
+        {
+          "id": "xbye2yr9mtlmfkab",
+          "title": "Config + debug",
+          "status": "in_progress",
+          "createdAt": 1788445765235,
+          "updatedAt": 1788445765235
+        }
+      ],
       "updates": []
     }
   },
