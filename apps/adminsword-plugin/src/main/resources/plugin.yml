@@ -1,0 +1,26 @@
+name: adminsword
+version: ${project.version}
+main: com.khang2604.adminsword.AdminSword
+api-version: '1.20'
+authors: [khang2604]
+description: Custom admin netherite sword with infinite damage + skin registry
+
+commands:
+  adminsword:
+    description: Admin sword command
+    aliases: [asw, khangsword]
+    usage: |
+      /<command> give <player> [skin] - Give the admin sword
+      /<command> reload - Reload config and skin registry
+      /<command> skin add <name> - Register a custom skin (data from config)
+      /<command> skin list - List all registered skins
+      /<command> skin remove <name> - Remove a skin
+    permission: adminsword.admin
+
+permissions:
+  adminsword.admin:
+    description: Full admin access to adminsword commands
+    default: op
+  adminsword.use:
+    description: Allow player to use (hold) the admin sword
+    default: op

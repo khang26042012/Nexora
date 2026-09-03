@@ -1,0 +1,75 @@
+# Admin Sword — config
+# Plugin: com.khang2604.adminsword.AdminSword
+
+sword:
+  # Tên hiển thị trên item (hỗ trợ Minecraft color codes & và §).
+  # Mặc định: "Quyền Năng Của Khang" (hỗ trợ cả không dấu, PE_KhangKYT, etc.).
+  display-name: "§6§l⚡ Quyền Năng Của Khang §8[INFINITE]"
+
+  # Tên nội bộ (dùng để match) — bỏ qua format codes khi so sánh.
+  # Bạn có thể thêm nhiều alias: ví dụ cũng match "PE_KhangKYT" (Bedrock via Geyser).
+  match-names:
+    - "Quyền Năng Của Khang"
+    - "Quyen Nang Cua Khang"        # không dấu
+    - "PE_KhangKYT"                  # Bedrock prefix qua Geyser
+    - "Admin Sword"
+
+  # Material (mặc định: NETHERITE_SWORD, vanilla).
+  material: NETHERITE_SWORD
+
+  # Damage override (ghi đè vanilla base damage).
+  # Integer.MAX_VALUE = one-shot hầu hết entity, kể cả creative mode mob.
+  damage: 2147483647
+
+  # Attack speed (default vanilla = -2.4 = 1.6 attacks/sec).
+  attack-speed: -2.4
+
+  # Lore (mỗi dòng 1 phần tử; hỗ trợ § + MiniMessage tags).
+  lore:
+    - "§7Infinite Damage §8| §cAdmin Only"
+    - "§7Của §6§lKhang §8— §7không thể bỏ vào rương, không thể vứt."
+    - "§8Hỗ trợ custom skin — /adminsword skin list"
+
+  # Glow (enchantment glint) — luôn true cho admin sword.
+  hide-enchantments: false   # nếu true: ẩn tên enchant khi có glow
+  hide-attributes: true       # ẩn "+7 Attack Damage" để không spoil lore
+  unbreakable: true
+
+  # Custom Model Data (cho skin variants).
+  # Mỗi skin gán 1 custom-model-data int (dùng resource pack để map texture).
+  # Nếu không có resource pack, custom-model-data bị bỏ qua (vẫn dùng vanilla texture).
+  default-custom-model-data: 0   # skin mặc định (vanilla netherite)
+
+  # Khóa cứng: chặn bỏ vào rương, chặn vứt, chặn rơi khi chết.
+  prevent-storage: true
+  prevent-drop: true
+  prevent-death-drop: true
+  prevent-move-into-inventory: true   # không cho người khác nhặt vào inv của họ nếu drop
+
+# Skin registry: lưu trong data file, có thể mở rộng bằng code hoặc command.
+#
+# Mỗi skin có:
+#   name        — key duy nhất
+#   custom-model-data — int (1..2147483647) cho resource pack
+#   texture-base64 — (optional) base64 PNG 64×64 cho skin 1.20+ head/item
+#   display-name-override — (optional) override sword display name
+#   lore-override  — (optional) override lore
+#
+# Nếu bạn không có resource pack: chỉ cần đặt name + custom-model-data, vanilla
+# texture vẫn hiển thị nhưng nếu client có pack thì sẽ dùng texture tương ứng.
+skins:
+  - name: default
+    custom-model-data: 0
+    display-name-override: "§6§l⚡ Quyền Năng Của Khang §8[INFINITE]"
+  - name: fire
+    custom-model-data: 1001
+    display-name-override: "§c§l🔥 Quyền Năng Của Khang §8[FIRE]"
+    lore-override:
+      - "§7Flame edition §8| §cAdmin Only"
+      - "§7Của §6§lKhang"
+  - name: ice
+    custom-model-data: 1002
+    display-name-override: "§b§l❄ Quyền Năng Của Khang §8[ICE]"
+
+# Debug: log mọi hành động (give / block-drop / kill).
+debug: false

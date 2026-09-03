@@ -56,3 +56,9 @@ CREDENTIALS.md
 *.credentials
 logs/
 tmp-*
+
+# Java / Maven
+target/
+*.class
+*.jar
+hs_err_pid*
