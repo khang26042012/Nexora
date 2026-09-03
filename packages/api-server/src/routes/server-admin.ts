@@ -66,8 +66,12 @@ router.get("/server-admin/plugin/players", (req: Request, res: Response) => {
     return;
   }
   // Try to ask plugin for fresh snapshot, fall back to cache.
+  // Plugin trả { players: [...] }; unwrap để FE nhận flat array.
   requestPlugin("list-players")
-    .then((result) => res.json({ players: result, source: "live" }))
+    .then((result) => {
+      const list = result && Array.isArray(result.players) ? result.players : (Array.isArray(result) ? result : []);
+      res.json({ players: list, source: "live" });
+    })
     .catch(() => {
       const cached = getCachedPlayers();
       if (cached) res.json({ players: cached, source: "cache" });
