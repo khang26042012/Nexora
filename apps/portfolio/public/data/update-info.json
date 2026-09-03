@@ -1,0 +1,41 @@
+{
+  "projects": {
+    "demo-project": {
+      "meta": {
+        "id": "demo-project",
+        "name": "Demo Project (test từ DSH)",
+        "description": "Đây là bài test để verify GitHub backend hoạt động",
+        "progress": 42,
+        "eta": "2026-12-31",
+        "note": "**Live test** - data từ GitHub JSON",
+        "createdAt": 1788445531688,
+        "updatedAt": 1788445531688
+      },
+      "tasks": [
+        {
+          "id": "task1",
+          "title": "Setup GitHub API",
+          "status": "done",
+          "createdAt": 1788445531688,
+          "updatedAt": 1788445531688
+        },
+        {
+          "id": "task2",
+          "title": "Test public/incognito",
+          "status": "in_progress",
+          "createdAt": 1788445531688,
+          "updatedAt": 1788445531688
+        }
+      ],
+      "updates": [
+        {
+          "id": "u1",
+          "text": "**Test thành công!** Admin đăng → public thấy ngay (cache ~30s).",
+          "createdAt": 1788445531688,
+          "edited": false
+        }
+      ]
+    }
+  },
+  "activeProjectId": "demo-project"
+}
