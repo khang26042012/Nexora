@@ -1,0 +1,19 @@
+{
+  "projects": {
+    "plugin-voice": {
+      "meta": {
+        "id": "plugin-voice",
+        "name": "Plugin voice",
+        "description": "Dùng cho pe",
+        "progress": 0,
+        "eta": null,
+        "note": "",
+        "createdAt": 1788445725108,
+        "updatedAt": 1788445725108
+      },
+      "tasks": [],
+      "updates": []
+    }
+  },
+  "activeProjectId": "plugin-voice"
+}
