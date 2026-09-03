@@ -26,6 +26,10 @@ public class SwordConfig {
     private boolean hideAttributes;
     private boolean unbreakable;
     private int defaultCustomModelData;
+    /** Map skin name → display name override cho resource pack (vd: "Heavenly Partisan"). */
+    private java.util.Map<String, String> resourcePackDisplayNames = new java.util.HashMap<>();
+    /** Default pack display name nếu skin không có entry riêng. */
+    private String defaultResourcePackDisplayName;
     private boolean preventStorage;
     private boolean preventDrop;
     private boolean preventDeathDrop;
@@ -69,6 +73,17 @@ public class SwordConfig {
         this.unbreakable = c.getBoolean("sword.unbreakable", true);
         this.defaultCustomModelData = c.getInt("sword.default-custom-model-data", 0);
 
+        // Resource pack display names: map skin → tên model trong pack (vd "Heavenly Partisan")
+        // Pack dùng vanilla 1.21.6+ select system match theo custom_name, nên phải set
+        // display name thành tên model để pack tự trigger texture.
+        this.resourcePackDisplayNames.clear();
+        if (c.isConfigurationSection("sword.resource-pack-display-names")) {
+            for (String key : c.getConfigurationSection("sword.resource-pack-display-names").getKeys(false)) {
+                this.resourcePackDisplayNames.put(key.toLowerCase(), c.getString("sword.resource-pack-display-names." + key));
+            }
+        }
+        this.defaultResourcePackDisplayName = c.getString("sword.resource-pack-display-name-default", null);
+
         this.preventStorage = c.getBoolean("sword.prevent-storage", true);
         this.preventDrop = c.getBoolean("sword.prevent-drop", true);
         this.preventDeathDrop = c.getBoolean("sword.prevent-death-drop", true);
@@ -93,6 +108,17 @@ public class SwordConfig {
     public boolean isPreventDeathDrop() { return preventDeathDrop; }
     public boolean isPreventMoveIntoInventory() { return preventMoveIntoInventory; }
     public boolean isDebug() { return debug; }
+
+    /**
+     * Lấy display name override cho resource pack. Trả về null nếu không có config
+     * (giữ display name mặc định của skin). Lookup theo skin name (lowercase),
+     * fallback về default nếu có.
+     */
+    public String getResourcePackDisplayName(String skinName) {
+        if (skinName == null) return defaultResourcePackDisplayName;
+        String v = resourcePackDisplayNames.get(skinName.toLowerCase());
+        return v != null ? v : defaultResourcePackDisplayName;
+    }
 
     /**
      * Match nếu display name (sau khi strip color & lowercase) chứa bất kỳ entry

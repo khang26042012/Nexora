@@ -25,6 +25,7 @@ public final class AdminSword extends JavaPlugin {
     private SwordFactory factory;
     private SwordListener listener;
     private SwordCommand command;
+    private SwordDamageListener damageListener;
 
     public static AdminSword get() { return instance; }
 
@@ -43,6 +44,10 @@ public final class AdminSword extends JavaPlugin {
         this.listener = new SwordListener(this, config, skinRegistry);
 
         getServer().getPluginManager().registerEvents(listener, this);
+
+        // Damage listener — force one-shot cho admin sword
+        this.damageListener = new SwordDamageListener(this, factory);
+        getServer().getPluginManager().registerEvents(damageListener, this);
 
         PluginCommand cmd = getCommand("adminsword");
         if (cmd != null) {

@@ -38,6 +38,7 @@ public class SwordCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        plugin.getLogger().info("[/" + label + "] from " + sender.getName() + " args=" + java.util.Arrays.toString(args));
         if (!sender.hasPermission("adminsword.admin")) {
             sender.sendMessage("§cBạn không có quyền.");
             return true;
@@ -62,26 +63,63 @@ public class SwordCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§cUsage: /" + "adminsword give <player> [skin]");
             return true;
         }
-        Player target = Bukkit.getPlayerExact(args[1]);
+        // Dùng getPlayer (case-insensitive + match substring) thay vì getPlayerExact
+        // vì Bedrock qua Geyser có thể có prefix PE_ không khớp chính xác.
+        Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
-            sender.sendMessage("§cKhông tìm thấy player: " + args[1]);
+            // Thử tìm với prefix PE_ nếu user nhập tên không có
+            target = Bukkit.getPlayer("PE_" + args[1]);
+        }
+        if (target == null) {
+            sender.sendMessage("§cKhông tìm thấy player: " + args[1] + " (online: " +
+                    Bukkit.getOnlinePlayers().size() + ")");
+            plugin.getLogger().warning("give: target not found: " + args[1]);
             return true;
         }
         String skin = args.length >= 3 ? args[2] : "default";
         if (skinRegistry.get(skin) == null) {
             sender.sendMessage("§cSkin '" + skin + "' chưa đăng ký. Dùng /adminsword skin list.");
+            plugin.getLogger().warning("give: skin not found: " + skin);
             return true;
         }
-        ItemStack sword = factory.create(skin);
-        // Nếu inv đầy → drop
-        if (target.getInventory().firstEmpty() == -1) {
-            target.getWorld().dropItemNaturally(target.getLocation(), sword);
-            sender.sendMessage("§eInv của " + target.getName() + " đầy — sword đã được drop xuống đất.");
-        } else {
-            target.getInventory().addItem(sword);
+        try {
+            ItemStack sword = factory.create(skin);
+            if (sword == null) {
+                sender.sendMessage("§cLỗi: factory trả về null.");
+                plugin.getLogger().severe("give: factory.create returned null for skin=" + skin);
+                return true;
+            }
+            // Auto-rename cho resource pack: pack "Fantasy 3D Weapons CIT" detect
+            // theo custom_name component. Ta set display name thành tên model (vd
+            // "Heavenly Partisan") để vanilla 1.21.6+ select system trigger model.
+            // Nếu config có resource_pack_display_name thì dùng, không thì fallback
+            // về tên skin (UPPERCASE).
+            String packDisplay = config.getResourcePackDisplayName(skin);
+            if (packDisplay != null && !packDisplay.isEmpty()) {
+                org.bukkit.inventory.meta.ItemMeta m = sword.getItemMeta();
+                if (m != null) {
+                    m.setDisplayName(packDisplay);
+                    sword.setItemMeta(m);
+                }
+            }
+            // Nếu inv đầy → drop
+            if (target.getInventory().firstEmpty() == -1) {
+                target.getWorld().dropItemNaturally(target.getLocation(), sword);
+                sender.sendMessage("§eInv của " + target.getName() + " đầy — sword đã được drop xuống đất.");
+            } else {
+                target.getInventory().addItem(sword);
+            }
+            String msg = "§aĐã đưa Quyền Năng Của Khang (skin: " + skin + ") cho " + target.getName();
+            sender.sendMessage(msg);
+            target.sendMessage("§6Bạn nhận được §eQuyền Năng Của Khang §6(skin: " + skin + ")");
+            plugin.getLogger().info("give OK: " + target.getName() + " <- skin " + skin +
+                    " (type=" + sword.getType() + " amount=" + sword.getAmount() +
+                    " meta? " + (sword.getItemMeta() != null) + ")");
+        } catch (Throwable t) {
+            sender.sendMessage("§cLỗi khi tạo kiếm: " + t.getClass().getSimpleName() + ": " + t.getMessage());
+            plugin.getLogger().severe("give exception: " + t);
+            t.printStackTrace();
         }
-        sender.sendMessage("§aĐã đưa Quyền Năng Của Khang (skin: " + skin + ") cho " + target.getName());
-        target.sendMessage("§6Bạn nhận được §eQuyền Năng Của Khang §6(skin: " + skin + ")");
         return true;
     }
 

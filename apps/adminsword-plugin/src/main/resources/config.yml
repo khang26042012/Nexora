@@ -18,8 +18,10 @@ sword:
   material: NETHERITE_SWORD
 
   # Damage override (ghi đè vanilla base damage).
-  # Integer.MAX_VALUE = one-shot hầu hết entity, kể cả creative mode mob.
-  damage: 2147483647
+  # 1,000,000 = one-shot hầu hết entity, kể cả Warden (500 HP x 2 = 1000 damage).
+  # Integer.MAX_VALUE (2,147,483,647) bị Paper 1.21+ clamp về nhỏ hơn do internal cap.
+  # Giá trị thực dùng sẽ được cap ở 1,000,000,000 trong SwordFactory.
+  damage: 1000000
 
   # Attack speed (default vanilla = -2.4 = 1.6 attacks/sec).
   attack-speed: -2.4
@@ -39,6 +41,16 @@ sword:
   # Mỗi skin gán 1 custom-model-data int (dùng resource pack để map texture).
   # Nếu không có resource pack, custom-model-data bị bỏ qua (vẫn dùng vanilla texture).
   default-custom-model-data: 0   # skin mặc định (vanilla netherite)
+
+  # Resource pack display names: map skin name → tên model trong pack.
+  # Pack "Fantasy 3D Weapons CIT" dùng vanilla 1.21.6+ select system match theo custom_name,
+  # nên phải set display name thành đúng tên model để pack tự trigger texture.
+  # Pack URL: https://modrinth.com/resourcepack/fantasy-3d-weapons-cit (v1.20A)
+  resource-pack-display-name-default: "Heavenly Partisan"
+  resource-pack-display-names:
+    default: "Heavenly Partisan"
+    heavenly: "Heavenly Partisan"
+    partisan: "Heavenly Partisan"
 
   # Khóa cứng: chặn bỏ vào rương, chặn vứt, chặn rơi khi chết.
   prevent-storage: true
@@ -61,15 +73,6 @@ skins:
   - name: default
     custom-model-data: 0
     display-name-override: "§6§l⚡ Quyền Năng Của Khang §8[INFINITE]"
-  - name: fire
-    custom-model-data: 1001
-    display-name-override: "§c§l🔥 Quyền Năng Của Khang §8[FIRE]"
-    lore-override:
-      - "§7Flame edition §8| §cAdmin Only"
-      - "§7Của §6§lKhang"
-  - name: ice
-    custom-model-data: 1002
-    display-name-override: "§b§l❄ Quyền Năng Của Khang §8[ICE]"
 
 # Debug: log mọi hành động (give / block-drop / kill).
 debug: false
