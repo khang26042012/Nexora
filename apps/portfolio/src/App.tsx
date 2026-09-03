@@ -12,6 +12,8 @@ const ServerStatus = lazy(() => import("@/pages/ServerStatus").then(m => ({ defa
 const InventoryInfo = lazy(() => import("@/pages/InventoryInfo").then(m => ({ default: m.InventoryInfo })));
 const Localize = lazy(() => import("@/pages/Localize").then(m => ({ default: m.Localize })));
 const ServerAdmin = lazy(() => import("@/pages/ServerAdmin").then(m => ({ default: m.default })));
+const KhangBoard = lazy(() => import("@/pages/KhangBoard").then(m => ({ default: m.default })));
+const KhangBoardAdmin = lazy(() => import("@/pages/KhangBoard").then(m => ({ default: m.KhangBoardAdmin })));
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,8 @@ function Router() {
         <Route path="/inventory" component={InventoryInfo} />
         <Route path="/localize" component={Localize} />
         <Route path="/server-admin" component={ServerAdmin} />
+        <Route path="/khang-board" component={KhangBoard} />
+        <Route path="/khang-board-admin" component={KhangBoardAdmin} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
