@@ -36,7 +36,67 @@ const VIDEO_URL =
 // === Storage keys ===
 const LS_STATE = "ptk-update-info-state-v1";
 const LS_AUTH = "ptk-update-info-auth";
+const LS_GH_TOKEN = "ptk-update-info-gh-token";
 const ADMIN_PASSWORD = "26042012khang";
+
+// === GitHub backend (ai cũng thấy — public qua raw.githubusercontent.com) ===
+const GH_REPO = "khang26042012/Nexora";
+const GH_FILE = "apps/portfolio/public/data/update-info.json";
+const GH_BRANCH = "main";
+const RAW_URL = `https://raw.githubusercontent.com/${GH_REPO}/${GH_BRANCH}/${GH_FILE}`;
+const GH_API_CONTENTS = `https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`;
+
+async function fetchFromGitHub(): Promise<BoardState | null> {
+  try {
+    const r = await fetch(RAW_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (data && typeof data === "object" && data.projects) return data;
+  } catch {}
+  return null;
+}
+
+async function pushToGitHub(next: BoardState, token: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    // 1. Lấy SHA hiện tại (nếu file đã tồn tại)
+    const getR = await fetch(`${GH_API_CONTENTS}?ref=${GH_BRANCH}`, {
+      headers: { Authorization: `token ${token}`, Accept: "application/vnd.github.v3+json" },
+    });
+    let sha: string | undefined;
+    if (getR.ok) {
+      const j = await getR.json();
+      sha = j.sha;
+    } else if (getR.status !== 404) {
+      return { ok: false, error: `Không đọc được SHA: ${getR.status}` };
+    }
+
+    // 2. PUT file mới
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(next, null, 2))));
+    const body: Record<string, unknown> = {
+      message: `chore(update-info): ${new Date().toISOString()}`,
+      content,
+      branch: GH_BRANCH,
+    };
+    if (sha) body.sha = sha;
+
+    const putR = await fetch(GH_API_CONTENTS, {
+      method: "PUT",
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!putR.ok) {
+      const j = await putR.json().catch(() => ({}));
+      return { ok: false, error: j.message || `HTTP ${putR.status}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
 
 // === Types ===
 type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
@@ -84,19 +144,14 @@ function defaultState(): BoardState {
   };
 }
 
-function loadState(): BoardState {
+function loadLocalState(): BoardState | null {
   try {
     const raw = localStorage.getItem(LS_STATE);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return parsed;
-    }
+    if (raw) return JSON.parse(raw);
   } catch {}
-  const def = defaultState();
-  localStorage.setItem(LS_STATE, JSON.stringify(def));
-  return def;
+  return null;
 }
-function saveState(s: BoardState) {
+function saveLocalState(s: BoardState) {
   localStorage.setItem(LS_STATE, JSON.stringify(s));
 }
 
@@ -237,10 +292,22 @@ export default function UpdateInfo() {
   const [state, setState] = useState<BoardState | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    setState(loadState());
-    setIsAdmin(localStorage.getItem(LS_AUTH) === "ok");
+    (async () => {
+      setIsAdmin(localStorage.getItem(LS_AUTH) === "ok");
+      // Ưu tiên: local cache → GitHub → default rỗng
+      const cached = loadLocalState();
+      if (cached) setState(cached);
+      const remote = await fetchFromGitHub();
+      if (remote) {
+        setState(remote);
+        saveLocalState(remote);
+      } else if (!cached) {
+        setState(defaultState());
+      }
+    })();
   }, []);
 
   if (!state) {
@@ -259,10 +326,19 @@ export default function UpdateInfo() {
 
   const update = (mut: (s: BoardState) => BoardState) => {
     setSaving(true);
+    setSaveError(null);
     const next = mut(state);
     setState(next);
-    saveState(next);
+    saveLocalState(next);
     setTimeout(() => setSaving(false), 200);
+
+    // Nếu là admin → đẩy lên GitHub để mọi người thấy
+    const token = localStorage.getItem(LS_GH_TOKEN);
+    if (token) {
+      pushToGitHub(next, token).then((r) => {
+        if (!r.ok) setSaveError("GitHub save failed: " + (r.error || "unknown"));
+      });
+    }
   };
 
   const switchProject = (id: string) =>
@@ -298,6 +374,11 @@ export default function UpdateInfo() {
             </span>
             {saving && (
               <Loader2 className="h-3 w-3 animate-spin text-white/40" />
+            )}
+            {saveError && (
+              <span className="text-[10px] text-amber-300 font-mono" title={saveError}>
+                ⚠ save lỗi
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -1036,6 +1117,7 @@ function AdminExtras({
 // === Admin login (route ẩn /admin) ===
 export function UpdateInfoAdmin() {
   const [password, setPassword] = useState("");
+  const [ghToken, setGhToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -1046,6 +1128,7 @@ export function UpdateInfoAdmin() {
     setTimeout(() => {
       if (password === ADMIN_PASSWORD) {
         localStorage.setItem(LS_AUTH, "ok");
+        if (ghToken.trim()) localStorage.setItem(LS_GH_TOKEN, ghToken.trim());
         window.location.href = "/update-info";
       } else {
         setError("Sai mật khẩu");
@@ -1072,7 +1155,7 @@ export function UpdateInfoAdmin() {
             <h1 className="text-lg font-semibold">Update Info — Admin</h1>
           </div>
           <p className="text-xs text-white/50">
-            Nhập mật khẩu để đăng bài / sửa tiến độ. Public mode xem tại{" "}
+            Đăng bài sẽ lưu vào <code className="text-blue-300/80">apps/portfolio/public/data/update-info.json</code> trên GitHub — mọi người xem được (kể cả tab ẩn danh). Public mode xem tại{" "}
             <a
               href="/update-info"
               className="text-blue-300 hover:underline"
@@ -1082,14 +1165,43 @@ export function UpdateInfoAdmin() {
             .
           </p>
           <form onSubmit={submit} className="space-y-3">
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••"
-              autoFocus
-              className="bg-white/5 border-white/15"
-            />
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-white/50">
+                Mật khẩu admin
+              </Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                autoFocus
+                className="bg-white/5 border-white/15"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-white/50">
+                GitHub Token (PAT, scope: repo) — chỉ lưu local
+              </Label>
+              <Input
+                type="password"
+                value={ghToken}
+                onChange={(e) => setGhToken(e.target.value)}
+                placeholder="ghp_…"
+                className="bg-white/5 border-white/15 font-mono text-xs"
+              />
+              <p className="text-[10px] text-white/40">
+                Tạo tại{" "}
+                <a
+                  href="https://github.com/settings/tokens/new?scopes=repo&description=nexora-update-info"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-300/70 hover:text-blue-300 underline-offset-2 hover:underline"
+                >
+                  github.com/settings/tokens
+                </a>{" "}
+                (chỉ cần scope <code>repo</code>). Lần đầu nhập 1 lần, lưu vào localStorage.
+              </p>
+            </div>
             {error && <p className="text-xs text-red-400">{error}</p>}
             <Button
               type="submit"
