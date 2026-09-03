@@ -30,4 +30,15 @@ public class ActionLogger {
         }
         return out;
     }
+
+    /** Add a pre-built entry (used by ActionDispatcher). */
+    public synchronized void add(Map<String, Object> entry) {
+        history.addFirst(entry);
+        while (history.size() > maxHistory) history.removeLast();
+    }
+
+    /** Get all entries (oldest first). */
+    public synchronized List<Map<String, Object>> getAll() {
+        return new ArrayList<>(history);
+    }
 }

@@ -21,11 +21,12 @@ public class CommandHandler implements CommandExecutor, TabCompleter {
         switch (args[0].toLowerCase()) {
             case "reload":
                 plugin.reloadPlugin();
-                sender.sendMessage("§a[rconkhang] §fConfig reloaded. HTTP: " + plugin.getHttpHost() + ":" + plugin.getHttpPort());
+                sender.sendMessage("§a[rconkhang] §fConfig reloaded. WS: " + plugin.getWsUrl());
                 return true;
             case "status":
                 sender.sendMessage("§6§l[rconkhang] §fStatus:");
-                sender.sendMessage("§7  HTTP: §f" + plugin.getHttpHost() + ":" + plugin.getHttpPort());
+                sender.sendMessage("§7  WS: §f" + (plugin.getWsClient() != null && plugin.getWsClient().isOpen() ? "§aconnected" : "§cdisconnected"));
+                sender.sendMessage("§7  WS URL: §f" + plugin.getWsUrl());
                 sender.sendMessage("§7  API key: §f" + plugin.getApiKey().substring(0, 12) + "...");
                 sender.sendMessage("§7  Online: §f" + org.bukkit.Bukkit.getOnlinePlayers().size() + " players");
                 sender.sendMessage("§7  Bans: §f" + plugin.getDataManager().getBans().size());

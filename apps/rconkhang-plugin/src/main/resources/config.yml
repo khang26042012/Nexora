@@ -1,20 +1,22 @@
 # rconkhang config
-# HTTP API cho panel kết nối
+# Plugin kết nối về backend qua WebSocket (outbound).
+# Backend dùng X-Plugin-Key = apiKey trong data.yml để xác thực.
+
 http:
-  # Bind address (0.0.0.0 = listen all interfaces)
+  # HTTP API cho debug local (optional).
+  # Khi deploy trên hosting như PikaMC, không có public URL nên disable.
+  enabled: false
   host: "127.0.0.1"
   port: 8765
-  # API key sẽ tự sinh random khi khởi động lần đầu
-  # xem plugins/rconkhang/data.yml để lấy key
-  # CẢNH BÁO: KHÔNG expose port này ra internet!
 
-# CORS (cho phép panel domain)
+ws:
+  # Backend WebSocket URL. Plugin sẽ kết nối outbound tới đây.
+  url: "wss://nexora-production-d19d.up.railway.app/ws/plugin"
+
 cors:
   allowed-origins:
     - "https://nexora-production-d19d.up.railway.app"
     - "http://localhost:3000"
 
-# Action log
 log:
-  # Số actions giữ lại trong RAM
   max-history: 200
