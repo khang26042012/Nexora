@@ -48,14 +48,16 @@ router.post("/translate", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Không có văn bản" });
     }
 
-    const apiKey = process.env["NINE_ROUTER_API_KEY"] || process.env["OPENROUTER_API_KEY"] || process.env["AI_API_KEY"] || "";
+    const apiKey = process.env["AI_API_KEY"] || process.env["NINE_ROUTER_API_KEY"] || process.env["OPENROUTER_API_KEY"] || "";
 
     if (!apiKey) {
-      return res.status(500).json({ error: "AI API key not configured" });
+      console.error("[localize] No AI_API_KEY env var set");
+      return res.status(500).json({ error: "AI API key not configured. Set AI_API_KEY env var." });
     }
+    console.log(`[localize] chunk ${chunkIndex + 1}/${totalChunks} file=${fileName} model=${model} url=${baseUrl.replace(/\/$/, "")} content_len=${content.length}`);
 
-    const baseUrl = process.env["NINE_ROUTER_URL"] || "https://openrouter.ai/api/v1";
-    const model = process.env["NINE_ROUTER_MODEL"] || "Xkiro/minimax/minimax-m3:free";
+    const baseUrl = process.env["AI_API_URL"] || process.env["NINE_ROUTER_URL"] || "https://9router-production-04be.up.railway.app/v1";
+    const model = process.env["AI_MODEL"] || process.env["NINE_ROUTER_MODEL"] || "ui-nhi/minimax/minimax-m3:free";
 
     const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
